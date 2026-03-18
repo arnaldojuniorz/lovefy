@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
             id: carta_id,
             title: 'Carta Lovefy',
             quantity: 1,
-            unit_price: 29.90,
+            unit_price: 0.01,
             currency_id: 'BRL',
           },
         ],
