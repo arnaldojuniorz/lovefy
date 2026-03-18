@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Buscar carta no banco
     const { data: carta, error } = await supabaseAdmin
       .from('cartas')
       .select('*')
@@ -31,16 +30,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lovefy.app.br'
 
-    // Criar preferência de pagamento
     const preference = new Preference(client)
     const response = await preference.create({
       body: {
         items: [
           {
             id: carta_id,
-            title: `Carta Lovefy — ${carta.nome_remetente} para ${carta.nome_destinatario}`,
+            title: `Carta Lovefy - ${carta.nome_remetente} para ${carta.nome_destinatario}`,
             quantity: 1,
             unit_price: 29.90,
             currency_id: 'BRL',
@@ -60,7 +58,6 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Salvar preference_id no banco
     await supabaseAdmin
       .from('cartas')
       .update({ mercadopago_preference_id: response.id })
