@@ -30,7 +30,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lovefy.app.br'
+    const successUrl = 'https://lovefy.app.br/obrigado?carta_id=' + carta_id
+    const failureUrl = 'https://lovefy.app.br/criar'
+    const pendingUrl = 'https://lovefy.app.br/obrigado?carta_id=' + carta_id
+    const webhookUrl = 'https://lovefy.app.br/api/webhook'
+
+    console.log('URLs:', { successUrl, failureUrl, pendingUrl })
 
     const preference = new Preference(client)
     const response = await preference.create({
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest) {
         items: [
           {
             id: carta_id,
-            title: `Carta Lovefy - ${carta.nome_remetente} para ${carta.nome_destinatario}`,
+            title: 'Carta Lovefy',
             quantity: 1,
             unit_price: 29.90,
             currency_id: 'BRL',
@@ -49,12 +54,13 @@ export async function POST(request: NextRequest) {
           email: carta.email_pagador,
         },
         back_urls: {
-          success: `${appUrl}/obrigado?carta_id=${carta_id}`,
-          failure: `${appUrl}/criar`,
-          pending: `${appUrl}/obrigado?carta_id=${carta_id}`,
+          success: successUrl,
+          failure: failureUrl,
+          pending: pendingUrl,
         },
+        auto_return: 'approved',
         external_reference: carta_id,
-        notification_url: `${appUrl}/api/webhook`,
+        notification_url: webhookUrl,
       },
     })
 
