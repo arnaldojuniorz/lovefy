@@ -58,6 +58,52 @@ export default function Etapa3() {
               </div>
             )}
 
+            {/* Mapa das Estrelas */}
+            {r.id === 'mapa_estrelas' && data.recursos.includes('mapa_estrelas') && (
+              <div className="mt-3 ml-2 bg-[#0f3460] rounded-xl p-4 border border-white/10">
+                <p className="text-white/70 text-sm mb-3">🌟 O mapa das estrelas será gerado automaticamente com base na data importante que você informou na Etapa 2.</p>
+                <div className="bg-[#16213e] rounded-xl p-3 border border-white/10">
+                  <p className="text-white/40 text-xs mb-1">Data que será usada</p>
+                  <p className="text-pink-400 font-medium">
+                    {data.data_importante
+                      ? new Date(data.data_importante).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+                      : 'Preencha a data na Etapa 2'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Jogo de Palavras */}
+            {r.id === 'jogo_palavras' && data.recursos.includes('jogo_palavras') && (
+              <div className="mt-3 ml-2 bg-[#0f3460] rounded-xl p-4 border border-white/10">
+                <p className="text-white/70 text-sm mb-3">🎮 O jogo usará palavras especiais sobre vocês. Adicione palavras personalizadas:</p>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={(data as any).jogo_palavra1 || ''}
+                    onChange={e => update({ ...data, jogo_palavra1: e.target.value } as any)}
+                    placeholder="Palavra 1 (ex: nome do lugar especial)"
+                    className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={(data as any).jogo_palavra2 || ''}
+                    onChange={e => update({ ...data, jogo_palavra2: e.target.value } as any)}
+                    placeholder="Palavra 2 (ex: apelido carinhoso)"
+                    className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={(data as any).jogo_palavra3 || ''}
+                    onChange={e => update({ ...data, jogo_palavra3: e.target.value } as any)}
+                    placeholder="Palavra 3 (ex: cidade favorita)"
+                    className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm"
+                  />
+                </div>
+                <p className="text-white/30 text-xs mt-2">As palavras dos nomes de vocês já são incluídas automaticamente</p>
+              </div>
+            )}
+
             {/* Música */}
             {r.id === 'musica' && data.recursos.includes('musica') && (
               <div className="mt-3 ml-2">
