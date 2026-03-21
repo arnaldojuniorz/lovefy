@@ -5,6 +5,27 @@ import { useCarta } from '@/lib/carta-context'
 export default function Etapa2() {
   const { data, update } = useCarta()
 
+  async function avancar() {
+    if (!data.data_importante || !data.mensagem_principal) {
+      alert('Preencha a data e a mensagem!')
+      return
+    }
+
+    if (data.carta_id) {
+      await fetch('/api/cartas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          carta_id: data.carta_id,
+          data_importante: data.data_importante,
+          mensagem_principal: data.mensagem_principal,
+        }),
+      })
+    }
+
+    update({ etapa_atual: 3 })
+  }
+
   return (
     <div className="bg-[#16213e] rounded-3xl p-8">
       <h1 className="text-2xl font-bold text-white mb-2">A carta em si ✍️</h1>
@@ -41,13 +62,7 @@ export default function Etapa2() {
           ← Voltar
         </button>
         <button
-          onClick={() => {
-            if (!data.data_importante || !data.mensagem_principal) {
-              alert('Preencha a data e a mensagem!')
-              return
-            }
-            update({ etapa_atual: 3 })
-          }}
+          onClick={avancar}
           className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all"
         >
           Continuar →

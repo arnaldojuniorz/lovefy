@@ -20,6 +20,21 @@ export default function Etapa3() {
     update({ recursos: novos })
   }
 
+  async function avancar() {
+    if (data.carta_id) {
+      await fetch('/api/cartas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          carta_id: data.carta_id,
+          recursos: data.recursos,
+          musica_link: data.musica_link,
+        }),
+      })
+    }
+    update({ etapa_atual: 4 })
+  }
+
   return (
     <div className="bg-[#16213e] rounded-3xl p-8">
       <h1 className="text-2xl font-bold text-white mb-2">Recursos extras ✨</h1>
@@ -76,7 +91,7 @@ export default function Etapa3() {
             {/* Jogo de Palavras */}
             {r.id === 'jogo_palavras' && data.recursos.includes('jogo_palavras') && (
               <div className="mt-3 ml-2 bg-[#0f3460] rounded-xl p-4 border border-white/10">
-                <p className="text-white/70 text-sm mb-3">🎮 O jogo usará palavras especiais sobre vocês. Adicione palavras personalizadas:</p>
+                <p className="text-white/70 text-sm mb-3">🎮 Adicione palavras personalizadas para o jogo:</p>
                 <div className="space-y-2">
                   <input
                     type="text"
@@ -100,7 +115,7 @@ export default function Etapa3() {
                     className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm"
                   />
                 </div>
-                <p className="text-white/30 text-xs mt-2">As palavras dos nomes de vocês já são incluídas automaticamente</p>
+                <p className="text-white/30 text-xs mt-2">Os nomes de vocês já são incluídos automaticamente</p>
               </div>
             )}
 
@@ -128,7 +143,7 @@ export default function Etapa3() {
           ← Voltar
         </button>
         <button
-          onClick={() => update({ etapa_atual: 4 })}
+          onClick={avancar}
           className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all"
         >
           Continuar →

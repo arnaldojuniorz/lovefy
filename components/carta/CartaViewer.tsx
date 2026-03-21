@@ -1,5 +1,4 @@
 'use client'
-console.log('CartaViewer carregado')
 
 import { useState, useEffect } from 'react'
 
@@ -62,6 +61,9 @@ function buildPaginas(carta: Carta) {
     paginas.push(<PaginaGaleria carta={carta} key="galeria" />)
   }
   paginas.push(<PaginaContador carta={carta} key="contador" />)
+  if (carta.recursos.includes('mapa_estrelas')) {
+    paginas.push(<PaginaMapaEstrelas carta={carta} key="mapa" />)
+  }
   if (carta.recursos.includes('jogo_palavras')) {
     paginas.push(<PaginaJogoPalavras carta={carta} key="jogo" />)
   }
@@ -176,6 +178,74 @@ function PaginaContador({ carta }: { carta: Carta }) {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function PaginaMapaEstrelas({ carta }: { carta: Carta }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [erro, setErro] = useState(false)
+
+  useEffect(() => {
+    if (!carta.data_importante) {
+      setLoading(false)
+      setErro(true)
+      return
+    }
+
+    fetch('/api/mapa-estrelas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: carta.data_importante }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.imageUrl) {
+          setImageUrl(data.imageUrl)
+        } else {
+          setErro(true)
+        }
+      })
+      .catch(() => setErro(true))
+      .finally(() => setLoading(false))
+  }, [carta.data_importante])
+
+  const dataFormatada = carta.data_importante
+    ? new Date(carta.data_importante).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    : ''
+
+  return (
+    <div style={{background:'#16213e', borderRadius:'24px', padding:'24px', border:'1px solid rgba(255,255,255,0.08)', textAlign:'center'}}>
+      <div style={{fontSize:'40px', marginBottom:'12px'}}>🌟</div>
+      <h2 style={{color:'#fff', fontSize:'20px', fontWeight:'bold', margin:'0 0 4px'}}>Mapa das Estrelas</h2>
+      <p style={{color:'rgba(255,255,255,0.4)', fontSize:'14px', margin:'0 0 24px'}}>O céu em {dataFormatada}</p>
+
+      {loading && (
+        <div style={{padding:'40px', color:'rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:'32px', marginBottom:'12px'}}>✨</div>
+          <p>Gerando seu mapa das estrelas...</p>
+        </div>
+      )}
+
+      {erro && !loading && (
+        <div style={{padding:'40px', color:'rgba(255,255,255,0.5)'}}>
+          <p>Nao foi possivel gerar o mapa das estrelas.</p>
+        </div>
+      )}
+
+      {imageUrl && !loading && (
+        <div>
+          <img
+            src={imageUrl}
+            alt="Mapa das Estrelas"
+            style={{width:'100%', borderRadius:'16px', marginBottom:'16px'}}
+          />
+          <p style={{color:'rgba(255,255,255,0.4)', fontSize:'12px', margin:'0'}}>
+            O ceu exatamente como estava nessa data especial
+          </p>
+        </div>
+      )}
     </div>
   )
 }
