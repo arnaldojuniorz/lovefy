@@ -6,9 +6,15 @@ const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
 })
 
+const PLANOS = {
+  '24h': { preco: 4.90, titulo: 'Lovefy 24 Horas' },
+  'forever': { preco: 9.90, titulo: 'Lovefy Para Sempre' },
+  'impressao': { preco: 19.90, titulo: 'Lovefy Carta Impressao' },
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { carta_id } = await request.json()
+    const { carta_id, plano, tipo } = await request.json()
 
     if (!carta_id) {
       return NextResponse.json(
@@ -17,25 +23,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: carta, error } = await supabaseAdmin
-      .from('cartas')
-      .select('*')
-      .eq('id', carta_id)
-      .single()
+    const planoSelecionado = PLANOS[plano as keyof typeof PLANOS] || PLANOS['forever']
 
-    if (error || !carta) {
+    // Buscar carta na tabela correta
+    let carta = null
+    if (tipo === 'impressao') {
+      const { data } = await supabaseAdmin
+        .from('cartas_impressao')
+        .select('*')
+        .eq('id', carta_id)
+        .single()
+      carta = data
+    } else {
+      const { data } = await supabaseAdmin
+        .from('cartas')
+        .select('*')
+        .eq('id', carta_id)
+        .single()
+      carta = data
+    }
+
+    if (!carta) {
       return NextResponse.json(
         { error: 'Carta não encontrada' },
         { status: 404 }
       )
     }
 
-    const successUrl = 'https://lovefy.app.br/obrigado?carta_id=' + carta_id
-    const failureUrl = 'https://lovefy.app.br/criar'
-    const pendingUrl = 'https://lovefy.app.br/obrigado?carta_id=' + carta_id
+    const successUrl = 'https://lovefy.app.br/obrigado?carta_id=' + carta_id + '&tipo=' + (tipo || 'digital')
+    const failureUrl = tipo === 'impressao' ? 'https://lovefy.app.br/imprimir' : 'https://lovefy.app.br/criar'
+    const pendingUrl = successUrl
     const webhookUrl = 'https://lovefy.app.br/api/webhook'
-
-    console.log('URLs:', { successUrl, failureUrl, pendingUrl })
 
     const preference = new Preference(client)
     const response = await preference.create({
@@ -43,9 +61,9 @@ export async function POST(request: NextRequest) {
         items: [
           {
             id: carta_id,
-            title: 'Carta Lovefy',
+            title: planoSelecionado.titulo,
             quantity: 1,
-            unit_price: 0.01,
+            unit_price: planoSelecionado.preco,
             currency_id: 'BRL',
           },
         ],
@@ -59,13 +77,13 @@ export async function POST(request: NextRequest) {
           pending: pendingUrl,
         },
         auto_return: 'approved',
-        external_reference: carta_id,
+        external_reference: carta_id + '|' + (tipo || 'digital'),
         notification_url: webhookUrl,
       },
     })
 
     await supabaseAdmin
-      .from('cartas')
+      .from(tipo === 'impressao' ? 'cartas_impressao' : 'cartas')
       .update({ mercadopago_preference_id: response.id })
       .eq('id', carta_id)
 
