@@ -253,7 +253,7 @@ export default function ImprimirPage() {
                 disabled={loading}
                 style={{flex:1, padding:'16px', background:'linear-gradient(135deg, #ff6b9d, #c44569)', color:'#fff', border:'none', borderRadius:'12px', fontSize:'16px', fontWeight:'600', cursor:'pointer', opacity: loading ? 0.7 : 1}}
               >
-                {loading ? 'Aguarde...' : 'Pagar R$ 19,90 💳'}
+                {loading ? 'Aguarde...' : 'Pagar R$ 9,90 💳'}
               </button>
             </div>
           </div>

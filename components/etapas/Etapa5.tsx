@@ -137,7 +137,7 @@ export default function Etapa5() {
           disabled={loading}
           className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
         >
-          {loading ? 'Aguarde...' : `Pagar R$ ${plano === '24h' ? '4,90' : '9,90'} 💳`}
+          {loading ? 'Aguarde...' : `Pagar R$ ${plano === '24h' ? '6,90' : '12,90'} 💳`}
         </button>
       </div>
     </div>

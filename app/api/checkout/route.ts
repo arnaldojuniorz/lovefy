@@ -7,9 +7,9 @@ const client = new MercadoPagoConfig({
 })
 
 const PLANOS = {
-  '24h': { preco: 4.90, titulo: 'Lovefy 24 Horas' },
-  'forever': { preco: 9.90, titulo: 'Lovefy Para Sempre' },
-  'impressao': { preco: 19.90, titulo: 'Lovefy Carta Impressao' },
+  '24h': { preco: 6.90, titulo: 'Lovefy 24 Horas' },
+  'forever': { preco: 12.90, titulo: 'Lovefy Para Sempre' },
+  'impressao': { preco: 9.90, titulo: 'Lovefy Carta Impressao' },
 }
 
 export async function POST(request: NextRequest) {

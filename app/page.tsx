@@ -20,6 +20,8 @@ export default function Home() {
         .gradient-text { background: linear-gradient(135deg, #ff6b9d 0%, #c44569 50%, #ff8a5c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .btn-primary { background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%); box-shadow: 0 4px 20px rgba(255,107,157,0.35); transition: all 0.3s ease; }
         .btn-primary:hover { filter: brightness(1.1); box-shadow: 0 6px 25px rgba(255,107,157,0.5); transform: translateY(-2px); }
+        .btn-secondary { background: rgba(255,255,255,0.1); border: 2px solid rgba(255,107,157,0.5); transition: all 0.3s ease; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
         .card { background: #16213e; box-shadow: 0 8px 32px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); }
         .text-muted { color: rgba(255,255,255,0.5); }
         .envelope { animation: float 3s ease-in-out infinite; }
@@ -29,8 +31,6 @@ export default function Home() {
         .feature-icon { background: linear-gradient(135deg, rgba(255,107,157,0.2) 0%, rgba(196,69,105,0.2) 100%); border: 1px solid rgba(255,107,157,0.3); }
         .pricing-popular { border: 2px solid #ff6b9d; position: relative; }
         .pricing-popular::before { content: 'MAIS POPULAR'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%); padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-        .heart-float { position: absolute; animation: heartFloat 4s ease-in-out infinite; opacity: 0.3; }
-        @keyframes heartFloat { 0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.3; } 50% { transform: translateY(-20px) rotate(10deg); opacity: 0.6; } }
       `}</style>
 
       <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
@@ -46,7 +46,10 @@ export default function Home() {
               <a href="#pricing" className="text-white/70 hover:text-white transition-colors font-medium">Preços</a>
               <a href="#faq" className="text-white/70 hover:text-white transition-colors font-medium">FAQ</a>
             </div>
-            <a href="/criar" className="btn-primary px-5 py-2 rounded-full font-semibold text-sm text-white">Criar Carta</a>
+            <div className="flex gap-3">
+              <a href="/criar" className="btn-primary px-4 py-2 rounded-full font-semibold text-sm text-white">Carta Digital</a>
+              <a href="/imprimir" className="btn-secondary px-4 py-2 rounded-full font-semibold text-sm text-white">Carta Impressão</a>
+            </div>
           </div>
         </nav>
 
@@ -62,11 +65,16 @@ export default function Home() {
                   Transforme seu <span className="gradient-text">amor</span> em uma experiência <span className="gradient-text">inesquecível</span>
                 </h1>
                 <p className="text-lg md:text-xl text-muted font-light mb-8 max-w-xl mx-auto lg:mx-0">
-                  Crie uma carta digital personalizada com música, galeria de fotos, mapa das estrelas e muito mais. Surpreenda quem você ama!
+                  Crie uma carta digital personalizada ou para impressão. Surpreenda quem você ama!
                 </p>
-                <a href="/criar" className="btn-primary px-8 py-4 rounded-full font-semibold text-lg pulse-glow inline-flex items-center gap-2 text-white">
-                  Criar Minha Carta
-                </a>
+                <div className="flex gap-4 justify-center lg:justify-start flex-wrap">
+                  <a href="/criar" className="btn-primary px-8 py-4 rounded-full font-semibold text-lg pulse-glow inline-flex items-center gap-2 text-white">
+                    Criar carta digital
+                  </a>
+                  <a href="/imprimir" className="btn-secondary px-8 py-4 rounded-full font-semibold text-lg inline-flex items-center gap-2 text-white">
+                    Criar carta para impressão
+                  </a>
+                </div>
                 <div className="flex items-center gap-6 justify-center lg:justify-start mt-8 flex-wrap">
                   {['Sem criar conta', 'Sem baixar app', 'Entrega instantânea'].map(item => (
                     <div key={item} className="flex items-center gap-2">
@@ -93,15 +101,15 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { emoji: '🎵', titulo: 'Música Personalizada', desc: 'Escolha a música que marcou a história de vocês para tocar enquanto a carta é lida' },
-                { emoji: '📸', titulo: 'Galeria de Fotos', desc: 'Adicione até 5 fotos especiais em uma galeria para reviver os melhores momentos' },
-                { emoji: '🌟', titulo: 'Mapa das Estrelas', desc: 'Mostre como estava o céu na data especial de vocês com um mapa estelar personalizado' },
-                { emoji: '⏱️', titulo: 'Contador de Dias', desc: 'Exiba quantos dias, horas e minutos de amor vocês já compartilharam juntos' },
-                { emoji: '🎮', titulo: 'Jogo de Palavras', desc: 'Um mini-game interativo onde a pessoa precisa adivinhar palavras especiais sobre vocês' },
-                { emoji: '🔗', titulo: 'Link Exclusivo', desc: 'URL personalizada com os nomes do casal (ex: lovefy.app.br/c/ana-e-lucas)' },
-                { emoji: '📱', titulo: 'QR Code', desc: 'Compartilhe a carta através de um QR Code para presentear de forma criativa' },
-                { emoji: '💌', titulo: 'Mensagem Especial', desc: 'Escreva com carinho uma mensagem que a pessoa jamais vai esquecer' },
-                { emoji: '✨', titulo: 'Efeito Animado', desc: 'A carta aparece com animações mágicas criando um momento único de leitura' },
+                { emoji: '🎵', titulo: 'Música Personalizada', desc: 'Escolha a música que marcou a história de vocês' },
+                { emoji: '📸', titulo: 'Galeria de Fotos', desc: 'Adicione até 5 fotos especiais' },
+                { emoji: '🌟', titulo: 'Mapa das Estrelas', desc: 'O céu no dia especial de vocês' },
+                { emoji: '⏱️', titulo: 'Contador de Dias', desc: 'Quantos dias de amor vocês já compartilharam' },
+                { emoji: '🎮', titulo: 'Jogo de Palavras', desc: 'Um mini-game interativo e divertido' },
+                { emoji: '🔗', titulo: 'Link Exclusivo', desc: 'URL personalizada com os nomes do casal' },
+                { emoji: '📱', titulo: 'QR Code', desc: 'Compartilhe através de um QR Code' },
+                { emoji: '🖨️', titulo: 'Carta para Impressão', desc: 'PDF em alta qualidade para imprimir' },
+                { emoji: '✨', titulo: 'Efeito Animado', desc: 'Animações mágicas para o receptor' },
               ].map(item => (
                 <div key={item.titulo} className="card rounded-2xl p-6 hover:-translate-y-1 transition-all duration-300">
                   <div className="feature-icon w-12 h-12 rounded-xl flex items-center justify-center mb-4 text-2xl">{item.emoji}</div>
@@ -141,25 +149,25 @@ export default function Home() {
 
         {/* Pricing */}
         <section id="pricing" className="py-20 px-4">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <div className="text-center mb-16">
               <span className="inline-block px-4 py-2 rounded-full text-sm font-medium mb-4" style={{background:'rgba(255,107,157,0.2)',color:'#ff6b9d'}}>Preços Acessíveis</span>
               <h2 className="text-3xl md:text-4xl font-black mb-4">Escolha seu <span className="gradient-text">plano</span></h2>
               <p className="text-muted text-lg">Amor não tem preço, mas cabe no seu bolso</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
               {/* Plano 24h */}
               <div className="card rounded-3xl p-8 flex flex-col">
                 <div className="mb-6">
-                  <h3 className="text-xl font-bold mb-2">24 Horas</h3>
+                  <h3 className="text-xl font-bold mb-2">Carta Digital 24h</h3>
                   <p className="text-muted text-sm">Perfeito para surpresas rápidas</p>
                 </div>
                 <div className="mb-6">
-                  <span className="text-5xl font-black gradient-text">R$ 4,90</span>
+                  <span className="text-5xl font-black gradient-text">R$ 6,90</span>
                 </div>
                 <ul className="space-y-3 mb-8 flex-grow">
-                  {['Carta personalizada completa', 'Todos os recursos incluídos', 'Link e QR Code exclusivos', 'Galeria com até 5 fotos'].map(item => (
+                  {['Carta digital completa', 'Todos os recursos', 'Link e QR Code', 'Galeria com até 5 fotos'].map(item => (
                     <li key={item} className="flex items-center gap-3 text-sm">
                       <span style={{color:'#4ecdc4'}}>✓</span>
                       <span>{item}</span>
@@ -167,25 +175,25 @@ export default function Home() {
                   ))}
                   <li className="flex items-center gap-3 text-sm text-muted">
                     <span style={{color:'#c44569'}}>✗</span>
-                    <span>Expira em 24 horas</span>
+                    <span>Expira em 24h</span>
                   </li>
                 </ul>
                 <a href="/criar" className="w-full py-4 rounded-full font-semibold text-center block transition-all hover:bg-pink-500/10" style={{border:'2px solid #ff6b9d', color:'#ff6b9d'}}>
-                  Escolher Plano
+                  Criar agora
                 </a>
               </div>
 
               {/* Plano Para Sempre */}
               <div className="card rounded-3xl p-8 flex flex-col pricing-popular">
                 <div className="mb-6">
-                  <h3 className="text-xl font-bold mb-2">Para Sempre</h3>
+                  <h3 className="text-xl font-bold mb-2">Carta Digital Vitalícia</h3>
                   <p className="text-muted text-sm">Guarde essa memória eternamente</p>
                 </div>
                 <div className="mb-6">
-                  <span className="text-5xl font-black gradient-text">R$ 9,90</span>
+                  <span className="text-5xl font-black gradient-text">R$ 12,90</span>
                 </div>
                 <ul className="space-y-3 mb-8 flex-grow">
-                  {['Carta personalizada completa', 'Todos os recursos incluídos', 'Link e QR Code exclusivos', 'Galeria com até 5 fotos'].map(item => (
+                  {['Carta digital completa', 'Todos os recursos', 'Link e QR Code', 'Galeria com até 5 fotos'].map(item => (
                     <li key={item} className="flex items-center gap-3 text-sm">
                       <span style={{color:'#4ecdc4'}}>✓</span>
                       <span>{item}</span>
@@ -197,7 +205,33 @@ export default function Home() {
                   </li>
                 </ul>
                 <a href="/criar" className="btn-primary w-full py-4 rounded-full font-semibold pulse-glow text-center text-white block">
-                  Escolher Plano
+                  Criar agora
+                </a>
+              </div>
+
+              {/* Plano Impressão */}
+              <div className="card rounded-3xl p-8 flex flex-col">
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold mb-2">Carta para Impressão</h3>
+                  <p className="text-muted text-sm">Presente físico inesquecível</p>
+                </div>
+                <div className="mb-6">
+                  <span className="text-5xl font-black gradient-text">R$ 9,90</span>
+                </div>
+                <ul className="space-y-3 mb-8 flex-grow">
+                  {['PDF em alta qualidade', 'Formato A4 profissional', 'Estilos personalizados', 'QR Code com música'].map(item => (
+                    <li key={item} className="flex items-center gap-3 text-sm">
+                      <span style={{color:'#4ecdc4'}}>✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                  <li className="flex items-center gap-3 text-sm font-semibold" style={{color:'#4ecdc4'}}>
+                    <span>✓</span>
+                    <span>Pronto para imprimir!</span>
+                  </li>
+                </ul>
+                <a href="/imprimir" className="w-full py-4 rounded-full font-semibold text-center block transition-all hover:bg-pink-500/10" style={{border:'2px solid #ff6b9d', color:'#ff6b9d'}}>
+                  Criar agora
                 </a>
               </div>
 
@@ -215,9 +249,9 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { inicial: 'R', nome: 'Rafael S.', cidade: 'São Paulo, SP', texto: 'Minha namorada chorou de emoção quando viu a carta! O mapa das estrelas do dia que nos conhecemos foi o toque especial. Super recomendo!' },
+                { inicial: 'R', nome: 'Rafael S.', cidade: 'São Paulo, SP', texto: 'Minha namorada chorou de emoção quando viu a carta! O mapa das estrelas do dia que nos conhecemos foi o toque especial.' },
                 { inicial: 'M', nome: 'Marcos P.', cidade: 'Rio de Janeiro, RJ', texto: 'Usei para pedir minha esposa em casamento de um jeito diferente. Foi perfeito e ela ficou emocionada!' },
-                { inicial: 'J', nome: 'Julia M.', cidade: 'Curitiba, PR', texto: 'Fiz uma carta para minha mãe no Dia das Mães. A galeria de fotos com nossa música favorita deixou tudo mais emocionante. Ela amou!' },
+                { inicial: 'J', nome: 'Julia M.', cidade: 'Curitiba, PR', texto: 'Imprimi a carta e coloquei dentro de um buquê de flores. Minha mãe ficou sem palavras!' },
               ].map(item => (
                 <div key={item.nome} className="card rounded-2xl p-6">
                   <div className="mb-4" style={{color:'#fbbf24'}}>★★★★★</div>
@@ -246,11 +280,11 @@ export default function Home() {
             </div>
             <div className="space-y-4">
               {[
-                { p: 'Preciso criar conta para usar?', r: 'Não! Você não precisa criar conta nem baixar nenhum aplicativo. Basta preencher o formulário, fazer o pagamento e sua carta será gerada instantaneamente.' },
-                { p: 'Posso editar a carta depois de criada?', r: 'Não, a carta não pode ser editada após a criação. Por isso, recomendamos revisar todas as informações antes de finalizar.' },
-                { p: 'Como a pessoa que eu amo vai acessar?', r: 'Você receberá um link exclusivo e um QR Code que pode compartilhar pelo WhatsApp, Instagram, e-mail ou qualquer outro meio.' },
-                { p: 'O pagamento é seguro?', r: 'Sim! O pagamento é processado pelo Mercado Pago, uma das plataformas mais seguras do Brasil. Aceitamos cartão de crédito, débito e Pix.' },
-                { p: 'Posso usar para qualquer tipo de relacionamento?', r: 'Sim! A Lovefy é perfeita para namorados, noivos, casados, pais, mães, amigos, irmãos... Qualquer pessoa especial merece uma carta personalizada!' },
+                { p: 'Preciso criar conta para usar?', r: 'Não! Você não precisa criar conta nem baixar nenhum aplicativo. Basta preencher o formulário e fazer o pagamento.' },
+                { p: 'Qual a diferença entre carta digital e impressão?', r: 'A carta digital é acessada por um link ou QR Code com animações interativas. A carta para impressão gera um PDF em alta qualidade para você imprimir e entregar fisicamente.' },
+                { p: 'Como a pessoa vai acessar a carta digital?', r: 'Você receberá um link exclusivo e um QR Code para compartilhar pelo WhatsApp, Instagram ou qualquer outro meio.' },
+                { p: 'O pagamento é seguro?', r: 'Sim! O pagamento é processado pelo Mercado Pago, uma das plataformas mais seguras do Brasil.' },
+                { p: 'Posso usar para qualquer tipo de relacionamento?', r: 'Sim! A Lovefy é perfeita para namorados, noivos, casados, pais, mães, amigos... Qualquer pessoa especial merece uma carta!' },
               ].map(item => (
                 <div key={item.p} className="card rounded-xl overflow-hidden">
                   <button
@@ -274,10 +308,15 @@ export default function Home() {
           <div className="max-w-4xl mx-auto text-center">
             <div className="card rounded-3xl p-12">
               <h2 className="text-3xl md:text-4xl font-black mb-4">Pronto para <span className="gradient-text">emocionar</span> quem você ama?</h2>
-              <p className="text-muted text-lg mb-8 max-w-xl mx-auto">Crie agora sua carta digital personalizada e transforme sentimentos em uma experiência inesquecível</p>
-              <a href="/criar" className="btn-primary px-10 py-4 rounded-full font-semibold text-lg inline-flex items-center gap-2 pulse-glow text-white">
-                Criar Minha Carta Agora
-              </a>
+              <p className="text-muted text-lg mb-8 max-w-xl mx-auto">Escolha o formato ideal e crie agora sua carta personalizada</p>
+              <div className="flex gap-4 justify-center flex-wrap">
+                <a href="/criar" className="btn-primary px-10 py-4 rounded-full font-semibold text-lg inline-flex items-center gap-2 pulse-glow text-white">
+                  Criar carta digital
+                </a>
+                <a href="/imprimir" className="btn-secondary px-10 py-4 rounded-full font-semibold text-lg inline-flex items-center gap-2 text-white">
+                  Criar carta para impressão
+                </a>
+              </div>
               <p className="text-sm text-muted mt-6">Pagamento 100% seguro • Entrega instantânea • +10.000 cartas criadas</p>
             </div>
           </div>
