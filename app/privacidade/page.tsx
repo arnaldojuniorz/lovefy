@@ -29,7 +29,7 @@ export default function PrivacidadePage() {
             },
             {
               titulo: '5. Seus direitos',
-              texto: 'Você tem direito a: acessar seus dados pessoais, solicitar correção de informações incorretas, solicitar exclusão dos seus dados, retirar consentimento a qualquer momento. Para exercer esses direitos, entre em contato: contato@lovefy.app.br'
+              texto: 'Você tem direito a: acessar seus dados pessoais, solicitar correção de informações incorretas, solicitar exclusão dos seus dados, retirar consentimento a qualquer momento. Para exercer esses direitos, entre em contato: contatolovefy@gmail.com'
             },
             {
               titulo: '6. Cookies',
@@ -45,7 +45,7 @@ export default function PrivacidadePage() {
             },
             {
               titulo: '9. Contato',
-              texto: 'Para dúvidas sobre esta política, entre em contato: contato@lovefy.app.br'
+              texto: 'Para dúvidas sobre esta política, entre em contato: contatolovefy@gmail.com'
             },
           ].map(item => (
             <div key={item.titulo} style={{marginBottom:'32px'}}>
