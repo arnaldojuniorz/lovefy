@@ -12,22 +12,22 @@ export async function POST(request: NextRequest) {
     const appSecret = process.env.ASTRONOMY_API_SECRET
 
     if (!appId || !appSecret) {
+      console.error('Credenciais não configuradas')
       return NextResponse.json({ error: 'Credenciais não configuradas' }, { status: 500 })
     }
 
-    // Credenciais em base64
     const credentials = Buffer.from(`${appId}:${appSecret}`).toString('base64')
 
-    // Data formatada
     const dataObj = new Date(data)
     const ano = dataObj.getUTCFullYear()
     const mes = String(dataObj.getUTCMonth() + 1).padStart(2, '0')
     const dia = String(dataObj.getUTCDate()).padStart(2, '0')
     const dataFormatada = `${ano}-${mes}-${dia}`
 
-    // Coordenadas padrão (São Paulo) se não fornecidas
     const lat = latitude || -23.5505
     const lon = longitude || -46.6333
+
+    console.log('Gerando mapa para data:', dataFormatada, 'lat:', lat, 'lon:', lon)
 
     const body = {
       style: 'navy',
@@ -59,23 +59,28 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     })
 
+    console.log('AstronomyAPI status:', response.status)
+
     if (!response.ok) {
       const error = await response.text()
-      console.error('Erro AstronomyAPI:', error)
-      return NextResponse.json({ error: 'Erro ao gerar mapa' }, { status: 500 })
+      console.error('Erro AstronomyAPI:', response.status, error)
+      return NextResponse.json({ error: 'Erro ao gerar mapa', detalhe: error }, { status: 500 })
     }
 
     const result = await response.json()
+    console.log('AstronomyAPI result:', JSON.stringify(result))
+
     const imageUrl = result?.data?.imageUrl
 
     if (!imageUrl) {
+      console.error('imageUrl não encontrado no resultado:', JSON.stringify(result))
       return NextResponse.json({ error: 'Imagem não gerada' }, { status: 500 })
     }
 
     return NextResponse.json({ imageUrl })
 
   } catch (error) {
-    console.error('Erro interno:', error)
+    console.error('Erro interno mapa estrelas:', error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
