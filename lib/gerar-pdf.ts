@@ -2,32 +2,148 @@ import { supabaseAdmin } from './supabase'
 
 export async function gerarPDF(carta_id: string, carta: any): Promise<string | null> {
   try {
-    const html = gerarHTML(carta)
+    const { jsPDF } = await import('jspdf')
 
-    const chromium = await import('@sparticuz/chromium')
-    const puppeteer = await import('puppeteer-core')
-
-    const executablePath = await chromium.default.executablePath()
-
-    const browser = await puppeteer.default.launch({
-      args: chromium.default.args,
-      executablePath,
-      headless: true,
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
     })
 
-    const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'networkidle0' })
+    const corFundo = carta.cor || '#ff6b9d'
+    const estilo = carta.estilo || 'classico'
 
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
-    })
+    // Configurar fundo
+    const bgColor = corFundo === '#ff6b9d' ? '#fff5f8'
+      : corFundo === '#1a1a1a' ? '#1a1a1a'
+      : corFundo === '#f5e6d3' ? '#f5e6d3'
+      : '#ffffff'
 
-    await browser.close()
+    const textColor = corFundo === '#1a1a1a' ? '#ffffff' : '#1a1a2e'
+    const accentColor = corFundo === '#1a1a1a' ? '#ff6b9d' : '#7c3aed'
 
+    // Fundo da página
+    doc.setFillColor(bgColor)
+    doc.rect(0, 0, 210, 297, 'F')
+
+    // Margens
+    const marginLeft = 24
+    const marginRight = 24
+    const pageWidth = 210 - marginLeft - marginRight
+    let y = 35
+
+    // Nome do destinatário
+    doc.setTextColor(textColor)
+    doc.setFontSize(estilo === 'classico' ? 36 : 32)
+    doc.setFont('helvetica', 'bold')
+    const nomeDestinatario = carta.destinatario || ''
+    doc.text(nomeDestinatario, 105, y, { align: 'center' })
+    y += 12
+
+    // Subtítulo
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(corFundo === '#1a1a1a' ? '#aaaaaa' : '#888888')
+    doc.text('Uma carta especial para voce', 105, y, { align: 'center' })
+    y += 8
+
+    // Linha divisória
+    doc.setDrawColor(accentColor)
+    doc.setLineWidth(0.5)
+    doc.line(85, y, 125, y)
+    y += 16
+
+    // Mensagem principal
+    doc.setTextColor(textColor)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+
+    const mensagem = carta.mensagem || ''
+    const linhas = doc.splitTextToSize(mensagem, pageWidth)
+
+    for (const linha of linhas) {
+      if (y > 260) {
+        doc.addPage()
+        doc.setFillColor(bgColor)
+        doc.rect(0, 0, 210, 297, 'F')
+        y = 30
+      }
+      doc.text(linha, marginLeft, y)
+      y += 6
+    }
+
+    y += 8
+
+    // Como se conheceram
+    if (carta.como_se_conheceram) {
+      if (y > 250) { doc.addPage(); y = 30 }
+      doc.setFillColor(corFundo === '#1a1a1a' ? '#2a2a2a' : '#f0f0f0')
+      doc.rect(marginLeft, y - 4, pageWidth, 20, 'F')
+      doc.setDrawColor(accentColor)
+      doc.setLineWidth(1)
+      doc.line(marginLeft, y - 4, marginLeft, y + 16)
+      doc.setFontSize(9)
+      doc.setTextColor(corFundo === '#1a1a1a' ? '#aaaaaa' : '#888888')
+      doc.text('COMO NOS CONHECEMOS', marginLeft + 4, y + 2)
+      doc.setFontSize(10)
+      doc.setTextColor(textColor)
+      const linhasConheceram = doc.splitTextToSize(carta.como_se_conheceram, pageWidth - 8)
+      doc.text(linhasConheceram[0] || '', marginLeft + 4, y + 8)
+      y += 28
+    }
+
+    // Memória especial
+    if (carta.memoria_especial) {
+      if (y > 250) { doc.addPage(); y = 30 }
+      doc.setFillColor(corFundo === '#1a1a1a' ? '#2a2a2a' : '#f0f0f0')
+      doc.rect(marginLeft, y - 4, pageWidth, 20, 'F')
+      doc.setDrawColor(accentColor)
+      doc.setLineWidth(1)
+      doc.line(marginLeft, y - 4, marginLeft, y + 16)
+      doc.setFontSize(9)
+      doc.setTextColor(corFundo === '#1a1a1a' ? '#aaaaaa' : '#888888')
+      doc.text('UMA MEMORIA ESPECIAL', marginLeft + 4, y + 2)
+      doc.setFontSize(10)
+      doc.setTextColor(textColor)
+      const linhasMemoria = doc.splitTextToSize(carta.memoria_especial, pageWidth - 8)
+      doc.text(linhasMemoria[0] || '', marginLeft + 4, y + 8)
+      y += 28
+    }
+
+    // Data importante
+    if (carta.data_importante) {
+      const dataFormatada = new Date(carta.data_importante).toLocaleDateString('pt-BR', {
+        day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
+      })
+      doc.setFontSize(10)
+      doc.setTextColor(accentColor)
+      doc.text('Data especial: ' + dataFormatada, 105, y, { align: 'center' })
+      y += 12
+    }
+
+    // Assinatura
+    y = Math.max(y + 10, 240)
+    doc.setFontSize(11)
+    doc.setTextColor(corFundo === '#1a1a1a' ? '#aaaaaa' : '#888888')
+    doc.setFont('helvetica', 'italic')
+    doc.text('Com carinho,', 105, y, { align: 'center' })
+    y += 8
+    doc.setFontSize(22)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(textColor)
+    doc.text(carta.remetente || '', 105, y, { align: 'center' })
+
+    // Marca Lovefy
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(corFundo === '#1a1a1a' ? '#555555' : '#aaaaaa')
+    doc.text('LOVEFY • LOVEFY.APP.BR', 105, 288, { align: 'center' })
+
+    // Gerar buffer
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
+
+    // Upload para Supabase
     const path = `pdfs/${carta_id}.pdf`
-
     const { error: uploadError } = await supabaseAdmin.storage
       .from('fotos')
       .upload(path, pdfBuffer, {
@@ -56,64 +172,4 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
     console.error('Erro ao gerar PDF:', err)
     return null
   }
-}
-
-function gerarHTML(carta: any): string {
-  const corFundo = carta.cor || '#ff6b9d'
-  const estilo = carta.estilo || 'classico'
-  const corTexto = corFundo === '#1a1a1a' ? '#ffffff' : '#1a1a2e'
-  const corSecundaria = corFundo === '#1a1a1a' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'
-  const corDestaque = corFundo === '#1a1a1a' ? '#ff6b9d' : '#7c3aed'
-  const fonteTitulo = estilo === 'classico' ? 'Georgia, serif' : 'Arial, sans-serif'
-
-  const dataFormatada = carta.data_importante
-    ? new Date(carta.data_importante).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
-    : ''
-
-  const paragrafos = (carta.mensagem || '')
-    .split(/\n\s*\n/)
-    .filter((p: string) => p.trim())
-    .map((p: string) => `<p style="margin:0 0 1.4em;line-height:1.95;text-align:justify;">${p.trim()}</p>`)
-    .join('')
-
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { width: 210mm; height: 297mm; background: ${corFundo === '#ff6b9d' ? '#fff5f8' : corFundo}; font-family: sans-serif; color: ${corTexto}; }
-.page { width: 210mm; height: 297mm; padding: 28mm 24mm; display: flex; flex-direction: column; }
-.recipient { font-family: ${fonteTitulo}; font-size: 52px; font-weight: 700; color: ${corTexto}; line-height: 1; letter-spacing: -1px; margin-bottom: 12px; text-align: center; }
-.subtitle { font-size: 15px; font-weight: 300; color: ${corSecundaria}; letter-spacing: 0.5px; text-align: center; }
-.divider { width: 60px; height: 2px; background: ${corDestaque}; margin: 24px auto; opacity: 0.5; }
-.body { font-size: 16px; color: ${corTexto}; flex: 1; margin-bottom: 32px; }
-.extra { background: rgba(0,0,0,0.04); border-left: 3px solid ${corDestaque}; padding: 12px 16px; margin-bottom: 16px; border-radius: 0 8px 8px 0; }
-.extra-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: ${corSecundaria}; margin-bottom: 4px; }
-.extra-text { font-size: 14px; color: ${corTexto}; line-height: 1.6; }
-.date { text-align: center; font-size: 13px; color: ${corDestaque}; margin: 24px 0; }
-.sign-prefix { font-size: 14px; color: ${corSecundaria}; font-style: italic; margin-bottom: 8px; text-align: center; }
-.sign-name { font-family: ${fonteTitulo}; font-size: 32px; font-weight: 600; color: ${corTexto}; text-align: center; }
-.brand { text-align: center; margin-top: 32px; font-size: 10px; letter-spacing: 2px; color: ${corSecundaria}; }
-</style>
-</head>
-<body>
-<div class="page">
-<div style="text-align:center;margin-bottom:48px;">
-<h1 class="recipient">${carta.destinatario}</h1>
-<p class="subtitle">Uma carta especial para voce</p>
-<div class="divider"></div>
-</div>
-<div class="body">${paragrafos}</div>
-${carta.como_se_conheceram ? `<div class="extra"><div class="extra-label">Como nos conhecemos</div><div class="extra-text">${carta.como_se_conheceram}</div></div>` : ''}
-${carta.memoria_especial ? `<div class="extra"><div class="extra-label">Uma memoria especial</div><div class="extra-text">${carta.memoria_especial}</div></div>` : ''}
-${dataFormatada ? `<div class="date">Data especial: ${dataFormatada}</div>` : ''}
-<div style="margin-top:auto;padding-top:32px;">
-<p class="sign-prefix">Com carinho,</p>
-<p class="sign-name">${carta.remetente}</p>
-</div>
-<div class="brand">Lovefy • lovefy.app.br</div>
-</div>
-</body>
-</html>`
 }

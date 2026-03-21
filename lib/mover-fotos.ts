@@ -9,7 +9,7 @@ export async function moverFotos(carta_id: string) {
       .eq('is_temp', true)
 
     if (error || !fotos || fotos.length === 0) {
-      console.log('Nenhuma foto temporaria encontrada')
+      console.log('Nenhuma foto temporária encontrada para:', carta_id)
       return
     }
 
@@ -19,11 +19,19 @@ export async function moverFotos(carta_id: string) {
           .from('fotos-temp')
           .download(foto.storage_path)
 
-        if (downloadError || !fileData) continue
+        if (downloadError || !fileData) {
+          console.error('Erro ao baixar foto:', foto.storage_path)
+          continue
+        }
 
-        await supabaseAdmin.storage
+        const { error: uploadError } = await supabaseAdmin.storage
           .from('fotos')
           .upload(foto.storage_path, fileData, { upsert: true })
+
+        if (uploadError) {
+          console.error('Erro ao mover foto:', foto.storage_path)
+          continue
+        }
 
         await supabaseAdmin.storage
           .from('fotos-temp')
@@ -38,6 +46,7 @@ export async function moverFotos(carta_id: string) {
         console.error('Erro ao processar foto:', err)
       }
     }
+
   } catch (err) {
     console.error('Erro ao mover fotos:', err)
   }
