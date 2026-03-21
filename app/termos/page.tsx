@@ -25,7 +25,7 @@ export default function TermosPage() {
             },
             {
               titulo: '4. Pagamento e reembolso',
-              texto: 'Os pagamentos são processados pelo Mercado Pago. Após a criação da carta, não oferecemos reembolso, pois o serviço já foi prestado. Em caso de erro técnico comprovado da nossa parte, analisaremos o caso individualmente. Entre em contato: contato@lovefy.app.br'
+              texto: 'Os pagamentos são processados pelo Mercado Pago. Após a criação da carta, não oferecemos reembolso, pois o serviço já foi prestado. Em caso de erro técnico comprovado da nossa parte, analisaremos o caso individualmente. Entre em contato: contatolovefy@gmail.com'
             },
             {
               titulo: '5. Edição de cartas',
@@ -49,7 +49,7 @@ export default function TermosPage() {
             },
             {
               titulo: '10. Contato',
-              texto: 'Para dúvidas sobre estes termos: contato@lovefy.app.br'
+              texto: 'Para dúvidas sobre estes termos: contatolovefy@gmail.com'
             },
           ].map(item => (
             <div key={item.titulo} style={{marginBottom:'32px'}}>
