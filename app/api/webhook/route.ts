@@ -119,3 +119,6 @@ async function enviarEmailImpressao(carta: any, pdf_url: string | null) {
     `,
   })
 }
+export async function GET() {
+  return NextResponse.json({ ok: true })
+}
