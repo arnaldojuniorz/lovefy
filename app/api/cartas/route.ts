@@ -100,6 +100,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
     const { carta_id, ...campos } = body
+    console.log('PATCH carta_id:', carta_id, 'campos:', JSON.stringify(campos))
 
     if (!carta_id) {
       return NextResponse.json(
@@ -116,11 +117,12 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json(
-        { error: 'Erro ao atualizar carta' },
-        { status: 500 }
-      )
-    }
+  console.error('Erro PATCH carta:', JSON.stringify(error))
+  return NextResponse.json(
+    { error: 'Erro ao atualizar carta', detalhe: error.message },
+    { status: 500 }
+  )
+}
 
     return NextResponse.json({ carta_id: carta.id })
 

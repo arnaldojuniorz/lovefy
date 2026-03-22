@@ -107,12 +107,12 @@ async function enviarEmailImpressao(carta: any, pdf_url: string | null) {
   await resend.emails.send({
     from: 'Lovefy <contato@lovefy.app.br>',
     to: carta.email_pagador,
-    subject: 'Sua carta para impressao esta pronta! - Lovefy',
+    subject: 'Sua carta para impressão está pronta! - Lovefy',
     html: `
       <div style="background:#1a1a2e;padding:40px 20px;font-family:Arial,sans-serif;color:#fff;max-width:600px;margin:0 auto">
         <h1 style="color:#ff6b9d;text-align:center">Lovefy</h1>
         <h2 style="color:#fff">Ola, ${carta.nome_pagador}!</h2>
-        <p style="color:#ccc">Sua carta para <strong style="color:#ff6b9d">${carta.destinatario}</strong> esta pronta para impressao!</p>
+        <p style="color:#ccc">Sua carta para <strong style="color:#ff6b9d">${carta.destinatario}</strong> está pronta para impressao!</p>
         ${pdf_url ? `<p style="text-align:center"><a href="${pdf_url}" style="background:#ff6b9d;color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold">Baixar PDF</a></p>` : '<p style="color:#ccc">Em breve voce recebera o PDF da sua carta.</p>'}
         <p style="color:#555;font-size:12px;text-align:center">Feito com amor pelo Lovefy</p>
       </div>
