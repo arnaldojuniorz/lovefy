@@ -50,7 +50,7 @@ export default function Etapa5() {
         return
       }
 
-      window.location.href = `/checkout?carta_id=${data.carta_id}&plano=${plano}&tipo=digital`
+      window.location.href = `/checkout?carta_id=${data.carta_id}&plano=${plano}&tipo=digital&nome=${encodeURIComponent(data.nome_pagador)}&email=${encodeURIComponent(data.email_pagador)}`
 
     } catch (error) {
       setErro('Erro de conexão. Tente novamente.')

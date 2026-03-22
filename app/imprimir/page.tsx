@@ -64,7 +64,7 @@ export default function ImprimirPage() {
         return
       }
 
-      window.location.href = `/checkout?carta_id=${result.carta_id}&plano=impressao&tipo=impressao`
+      window.location.href = `/checkout?carta_id=${result.carta_id}&plano=impressao&tipo=impressao&nome=${encodeURIComponent(dados.nome_pagador)}&email=${encodeURIComponent(dados.email_pagador)}`
 
     } catch (error) {
       alert('Erro de conexão. Tente novamente.')
