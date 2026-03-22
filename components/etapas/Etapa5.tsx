@@ -9,7 +9,7 @@ export default function Etapa5() {
   const [erro, setErro] = useState('')
   const [plano, setPlano] = useState<'24h' | 'forever'>('forever')
 
-  async function handlePagar() {
+  async function handleContinuar() {
     if (!data.nome_pagador || !data.email_pagador) {
       setErro('Preencha seu nome e e-mail!')
       return
@@ -37,22 +37,9 @@ export default function Etapa5() {
         return
       }
 
-      const checkoutResponse = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ carta_id: data.carta_id, plano }),
-      })
-
-      const checkoutResult = await checkoutResponse.json()
-
-      if (!checkoutResponse.ok) {
-        setErro(checkoutResult.error || 'Erro ao criar pagamento')
-        return
-      }
-
       window.location.href = `/checkout?carta_id=${data.carta_id}&plano=${plano}&tipo=digital&nome=${encodeURIComponent(data.nome_pagador)}&email=${encodeURIComponent(data.email_pagador)}`
 
-    } catch (error) {
+    } catch {
       setErro('Erro de conexão. Tente novamente.')
     } finally {
       setLoading(false)
@@ -99,7 +86,7 @@ export default function Etapa5() {
                   : 'border-white/10 bg-[#0f3460] hover:border-white/30'
               }`}
             >
-              <p className="text-white font-bold text-lg">R$ 4,90</p>
+              <p className="text-white font-bold text-lg">R$ 6,90</p>
               <p className="text-white/70 text-sm font-medium">24 Horas</p>
               <p className="text-white/40 text-xs mt-1">Expira em 24h</p>
             </div>
@@ -112,7 +99,7 @@ export default function Etapa5() {
               }`}
             >
               <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs px-2 py-0.5 rounded-full">Popular</span>
-              <p className="text-white font-bold text-lg">R$ 9,90</p>
+              <p className="text-white font-bold text-lg">R$ 12,90</p>
               <p className="text-white/70 text-sm font-medium">Para Sempre</p>
               <p className="text-white/40 text-xs mt-1">Link vitalício</p>
             </div>
@@ -133,11 +120,11 @@ export default function Etapa5() {
           ← Voltar
         </button>
         <button
-          onClick={handlePagar}
+          onClick={handleContinuar}
           disabled={loading}
           className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
         >
-          {loading ? 'Aguarde...' : `Pagar R$ ${plano === '24h' ? '6,90' : '12,90'} 💳`}
+          {loading ? 'Aguarde...' : 'Continuar →'}
         </button>
       </div>
     </div>
