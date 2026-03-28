@@ -14,14 +14,16 @@ const PRECOS: Record<string, number> = {
 
 function CheckoutContent() {
   const searchParams = useSearchParams()
-  const carta_id = searchParams.get('carta_id')
-  const tipo = searchParams.get('tipo') || 'digital'
-  const plano = searchParams.get('plano') || 'forever'
+  const carta_id = searchParams.get('carta_id') ?? ''
+  const tipo     = searchParams.get('tipo')    ?? 'digital'
+  const plano    = searchParams.get('plano')   ?? 'forever'
+  const nome     = searchParams.get('nome')    ?? ''
+  const email    = searchParams.get('email')   ?? ''
 
   const [preferenceId, setPreferenceId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState('')
-  const valor = PRECOS[plano] || 9.90
+  const valor = PRECOS[plano] ?? 9.90
 
   useEffect(() => {
     if (!carta_id) return
@@ -42,6 +44,61 @@ function CheckoutContent() {
       .catch(() => setErro('Erro de conexão'))
       .finally(() => setLoading(false))
   }, [carta_id, plano, tipo])
+
+  async function handleSubmit(formData: any) {
+    try {
+      // PIX — chama /api/pix diretamente
+      if (formData.payment_method_id === 'pix' || formData.selectedPaymentMethod === 'bank_transfer') {
+        const res = await fetch('/api/pix', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            carta_id,
+            plano,
+            tipo,
+            email_pagador: email,
+            nome_pagador: nome,
+          }),
+        })
+
+        const result = await res.json()
+
+        if (!res.ok) {
+          alert(result.error || 'Erro ao gerar PIX')
+          return
+        }
+
+        // Redireciona para página de aguardo do PIX
+        window.location.href = `/aguardando-pix?payment_id=${result.payment_id}&carta_id=${carta_id}&tipo=${tipo}&qr=${encodeURIComponent(result.qr_code)}&qr64=${encodeURIComponent(result.qr_code_base64 ?? '')}`
+        return
+      }
+
+      // Cartão — chama /api/checkout/processar
+      const res = await fetch('/api/checkout/processar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          carta_id,
+          plano,
+          tipo,
+        }),
+      })
+
+      const result = await res.json()
+
+      if (result.status === 'approved') {
+        window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}`
+      } else if (result.status === 'in_process' || result.status === 'pending') {
+        window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&pending=true`
+      } else {
+        alert('Pagamento não aprovado. Tente novamente.')
+      }
+
+    } catch {
+      alert('Erro ao processar pagamento. Tente novamente.')
+    }
+  }
 
   return (
     <main style={{minHeight:'100vh', background:'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding:'40px 16px'}}>
@@ -84,34 +141,9 @@ function CheckoutContent() {
                 },
                 visual: { style: { theme: 'dark' } },
               }}
-              onSubmit={async (formData) => {
-  try {
-    const res = await fetch('/api/checkout/processar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...formData,
-        carta_id,
-        plano,
-        tipo,
-      }),
-    })
-
-    const result = await res.json()
-
-    if (result.status === 'approved') {
-      window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}`
-    } else if (result.status === 'in_process' || result.status === 'pending') {
-      window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&pending=true`
-    } else {
-      alert('Pagamento não aprovado. Tente novamente.')
-    }
-  } catch {
-    alert('Erro ao processar pagamento. Tente novamente.')
-  }
-}}
+              onSubmit={handleSubmit}
               onReady={() => setLoading(false)}
-              onError={(error) => console.error('Erro:', error)}
+              onError={(error) => console.error('Erro Brick:', error)}
             />
           )}
         </div>
