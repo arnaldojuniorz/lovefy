@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const { data, latitude, longitude } = await request.json()
+    const { data, latitude, longitude, carta_id } = await request.json()
 
     if (!data) {
       return NextResponse.json({ error: 'Data é obrigatória' }, { status: 400 })
+    }
+
+    // Se tem carta_id, verifica se já foi gerado antes
+    if (carta_id) {
+      const { data: carta } = await supabaseAdmin
+        .from('cartas')
+        .select('mapa_estrelas_url')
+        .eq('id', carta_id)
+        .single()
+
+      if (carta?.mapa_estrelas_url) {
+        return NextResponse.json({ imageUrl: carta.mapa_estrelas_url })
+      }
     }
 
     const appId = process.env.ASTRONOMY_API_ID
     const appSecret = process.env.ASTRONOMY_API_SECRET
 
     if (!appId || !appSecret) {
-      console.error('Credenciais não configuradas')
       return NextResponse.json({ error: 'Credenciais não configuradas' }, { status: 500 })
     }
 
@@ -26,8 +39,6 @@ export async function POST(request: NextRequest) {
 
     const lat = latitude || -23.5505
     const lon = longitude || -46.6333
-
-    console.log('Gerando mapa para data:', dataFormatada, 'lat:', lat, 'lon:', lon)
 
     const body = {
       style: 'navy',
@@ -59,28 +70,31 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     })
 
-    console.log('AstronomyAPI status:', response.status)
-
     if (!response.ok) {
       const error = await response.text()
-      console.error('Erro AstronomyAPI:', response.status, error)
-      return NextResponse.json({ error: 'Erro ao gerar mapa', detalhe: error }, { status: 500 })
+      console.error('[mapa-estrelas] erro API:', response.status, error)
+      return NextResponse.json({ error: 'Erro ao gerar mapa' }, { status: 500 })
     }
 
     const result = await response.json()
-    console.log('AstronomyAPI result:', JSON.stringify(result))
-
     const imageUrl = result?.data?.imageUrl
 
     if (!imageUrl) {
-      console.error('imageUrl não encontrado no resultado:', JSON.stringify(result))
       return NextResponse.json({ error: 'Imagem não gerada' }, { status: 500 })
+    }
+
+    // Salva no banco para não gerar de novo
+    if (carta_id) {
+      await supabaseAdmin
+        .from('cartas')
+        .update({ mapa_estrelas_url: imageUrl })
+        .eq('id', carta_id)
     }
 
     return NextResponse.json({ imageUrl })
 
   } catch (error) {
-    console.error('Erro interno mapa estrelas:', error)
+    console.error('[mapa-estrelas] erro interno:', error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

@@ -308,10 +308,10 @@ function PaginaMapaEstrelas({ carta }: { carta: Carta }) {
   useEffect(() => {
     if (!carta.data_importante) { setLoading(false); setErro(true); return }
     fetch('/api/mapa-estrelas', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({data: carta.data_importante}),
-    })
+  method: 'POST',
+  headers: {'Content-Type':'application/json'},
+  body: JSON.stringify({data: carta.data_importante, carta_id: carta.id}),
+})
       .then(r => r.json())
       .then(d => { if (d.imageUrl) setImageUrl(d.imageUrl); else setErro(true) })
       .catch(() => setErro(true))
