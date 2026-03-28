@@ -20,7 +20,7 @@ export default function Etapa3() {
     update({ recursos: novos })
   }
 
-  async function avancar() {
+ async function avancar() {
     if (data.carta_id) {
       await fetch('/api/cartas', {
         method: 'PATCH',
@@ -29,12 +29,14 @@ export default function Etapa3() {
           carta_id: data.carta_id,
           recursos: data.recursos,
           musica_link: data.musica_link,
+          jogo_palavra1: (data as any).jogo_palavra1 || null,
+          jogo_palavra2: (data as any).jogo_palavra2 || null,
+          jogo_palavra3: (data as any).jogo_palavra3 || null,
         }),
       })
     }
     update({ etapa_atual: 4 })
   }
-
   return (
     <div className="bg-[#16213e] rounded-3xl p-8">
       <h1 className="text-2xl font-bold text-white mb-2">Recursos extras ✨</h1>
