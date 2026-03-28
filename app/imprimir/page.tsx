@@ -239,7 +239,7 @@ export default function ImprimirPage() {
                   <p style={{color:'#fff', fontWeight:'600', margin:'0 0 4px'}}>Carta para Impressão</p>
                   <p style={{color:'rgba(255,255,255,0.5)', fontSize:'12px', margin:'0'}}>PDF em alta qualidade</p>
                 </div>
-                <p style={{color:'#ff6b9d', fontSize:'24px', fontWeight:'900', margin:'0'}}>R$ 19,90</p>
+                <p style={{color:'#ff6b9d', fontSize:'24px', fontWeight:'900', margin:'0'}}>R$ 9,90</p>
               </div>
             </div>
 
