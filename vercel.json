@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/deletar-24h",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

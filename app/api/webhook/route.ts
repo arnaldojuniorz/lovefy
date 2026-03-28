@@ -13,8 +13,7 @@ const client = new MercadoPagoConfig({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-
-    console.log('Webhook recebido:', JSON.stringify(body))
+    console.log('[webhook] recebido:', JSON.stringify(body))
 
     if (body.type !== 'payment') {
       return NextResponse.json({ ok: true })
@@ -28,75 +27,144 @@ export async function POST(request: NextRequest) {
     const payment = new Payment(client)
     const paymentData = await payment.get({ id: paymentId })
 
-    console.log('Pagamento:', paymentData.status, paymentData.external_reference)
+    console.log('[webhook] status:', paymentData.status, '| ref:', paymentData.external_reference)
+
+    if (paymentData.status !== 'approved') {
+      return NextResponse.json({ ok: true })
+    }
 
     const externalRef = paymentData.external_reference
     if (!externalRef) {
       return NextResponse.json({ ok: true })
     }
 
-    // Separar carta_id e tipo
     const [carta_id, tipo] = externalRef.includes('|')
       ? externalRef.split('|')
       : [externalRef, 'digital']
 
-    if (paymentData.status === 'approved') {
-      if (tipo === 'impressao') {
-        // Ativar carta de impressão
-        const { data: carta } = await supabaseAdmin
-          .from('cartas_impressao')
-          .update({
-            status: 'ativo',
-            mercadopago_payment_id: String(paymentId),
-            paid_at: new Date().toISOString(),
-          })
-          .eq('id', carta_id)
-          .select()
-          .single()
+    // Idempotência — verifica se já foi processado
+    const tabela = tipo === 'impressao' ? 'cartas_impressao' : 'cartas'
+    const { data: cartaAtual } = await supabaseAdmin
+      .from(tabela)
+      .select('id, status')
+      .eq('id', carta_id)
+      .single()
 
-        console.log('Carta impressao ativada:', carta_id)
+    if (!cartaAtual) {
+      console.error('[webhook] carta não encontrada:', carta_id)
+      return NextResponse.json({ ok: true })
+    }
 
-        // Gerar PDF e enviar email
-        if (carta) {
-          const pdf_url = await gerarPDF(carta_id, carta)
-          await enviarEmailImpressao(carta, pdf_url)
-        }
+    if (cartaAtual.status === 'ativo') {
+      console.log('[webhook] carta já ativada, ignorando duplicata:', carta_id)
+      return NextResponse.json({ ok: true })
+    }
 
-      } else {
-        // Ativar carta digital
-        const { data: carta } = await supabaseAdmin
-          .from('cartas')
-          .update({
-            status: 'ativo',
-            mercadopago_payment_id: String(paymentId),
-            paid_at: new Date().toISOString(),
-          })
-          .eq('id', carta_id)
-          .select()
-          .single()
-
-        console.log('Carta digital ativada:', carta_id)
-
-        if (carta) {
-          await moverFotos(carta_id)
-          const qr_code_url = await gerarQRCode(carta_id, carta.slug)
-          await enviarEmail({
-            nome_pagador: carta.nome_pagador,
-            email_pagador: carta.email_pagador,
-            nome_destinatario: carta.nome_destinatario,
-            nome_remetente: carta.nome_remetente,
-            slug: carta.slug,
-            qr_code_url,
-          })
-        }
-      }
+    if (tipo === 'impressao') {
+      await processarImpressao(carta_id, String(paymentId))
+    } else {
+      await processarDigital(carta_id, String(paymentId), tipo)
     }
 
     return NextResponse.json({ ok: true })
 
   } catch (error) {
-    console.error('Erro no webhook:', error)
+    console.error('[webhook] erro:', error)
     return NextResponse.json({ ok: true }, { status: 200 })
+  }
+}
+
+async function processarDigital(carta_id: string, paymentId: string, tipo: string) {
+  const { data: carta, error } = await supabaseAdmin
+    .from('cartas')
+    .update({
+      status: 'ativo',
+      mercadopago_payment_id: paymentId,
+      paid_at: new Date().toISOString(),
+    })
+    .eq('id', carta_id)
+    .select()
+    .single()
+
+  if (error || !carta) {
+    console.error('[webhook] erro ao ativar carta digital:', error)
+    return
+  }
+
+  console.log('[webhook] carta digital ativada:', carta_id)
+
+  // Agenda deleção automática para cartas 24h
+  if (tipo === '24h') {
+    try {
+      await supabaseAdmin.from('jobs').insert({
+        tipo: 'deletar_carta_24h',
+        carta_id,
+        executar_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        status: 'pendente',
+      })
+      console.log('[webhook] deleção 24h agendada para:', carta_id)
+    } catch (e) {
+      console.error('[webhook] erro ao agendar deleção 24h:', e)
+    }
+  }
+
+  try {
+    await moverFotos(carta_id)
+  } catch (e) {
+    console.error('[webhook] erro ao mover fotos:', e)
+  }
+
+  let qr_code_url: string | null = null
+  try {
+    qr_code_url = await gerarQRCode(carta_id, carta.slug)
+  } catch (e) {
+    console.error('[webhook] erro ao gerar QR Code:', e)
+  }
+
+  try {
+    await enviarEmail({
+      nome_pagador: carta.nome_pagador,
+      email_pagador: carta.email_pagador,
+      nome_destinatario: carta.nome_destinatario,
+      nome_remetente: carta.nome_remetente,
+      slug: carta.slug,
+      qr_code_url,
+    })
+  } catch (e) {
+    console.error('[webhook] erro ao enviar email:', e)
+  }
+}
+
+async function processarImpressao(carta_id: string, paymentId: string) {
+  const { data: carta, error } = await supabaseAdmin
+    .from('cartas_impressao')
+    .update({
+      status: 'ativo',
+      mercadopago_payment_id: paymentId,
+      paid_at: new Date().toISOString(),
+    })
+    .eq('id', carta_id)
+    .select()
+    .single()
+
+  if (error || !carta) {
+    console.error('[webhook] erro ao ativar carta impressao:', error)
+    return
+  }
+
+  console.log('[webhook] carta impressao ativada:', carta_id)
+
+  let pdf_url: string | null = null
+  try {
+    pdf_url = await gerarPDF(carta_id, carta)
+  } catch (e) {
+    console.error('[webhook] erro ao gerar PDF:', e)
+  }
+
+  try {
+    await enviarEmailImpressao(carta, pdf_url)
+  } catch (e) {
+    console.error('[webhook] erro ao enviar email impressao:', e)
   }
 }
 
@@ -104,21 +172,33 @@ async function enviarEmailImpressao(carta: any, pdf_url: string | null) {
   const { Resend } = await import('resend')
   const resend = new Resend(process.env.RESEND_API_KEY)
 
+  const nomeDestino = carta.destinatario || carta.nome_destinatario || 'alguém especial'
+
   await resend.emails.send({
     from: 'Lovefy <contato@lovefy.app.br>',
     to: carta.email_pagador,
-    subject: 'Sua carta para impressão está pronta! - Lovefy',
+    subject: 'Sua carta para impressão está pronta! — Lovefy',
     html: `
-      <div style="background:#1a1a2e;padding:40px 20px;font-family:Arial,sans-serif;color:#fff;max-width:600px;margin:0 auto">
-        <h1 style="color:#ff6b9d;text-align:center">Lovefy</h1>
-        <h2 style="color:#fff">Ola, ${carta.nome_pagador}!</h2>
-        <p style="color:#ccc">Sua carta para <strong style="color:#ff6b9d">${carta.destinatario}</strong> está pronta para impressao!</p>
-        ${pdf_url ? `<p style="text-align:center"><a href="${pdf_url}" style="background:#ff6b9d;color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold">Baixar PDF</a></p>` : '<p style="color:#ccc">Em breve voce recebera o PDF da sua carta.</p>'}
-        <p style="color:#555;font-size:12px;text-align:center">Feito com amor pelo Lovefy</p>
+      <div style="background:#1a1a2e;padding:40px 20px;font-family:Inter,Arial,sans-serif;color:#fff;max-width:600px;margin:0 auto">
+        <h1 style="color:#ff6b9d;text-align:center;margin:0 0 24px">Lovefy</h1>
+        <h2 style="color:#fff;margin:0 0 16px">Olá, ${carta.nome_pagador}!</h2>
+        <p style="color:#ccc;margin:0 0 24px">
+          Sua carta para <strong style="color:#ff6b9d">${nomeDestino}</strong> está pronta para impressão!
+        </p>
+        ${pdf_url
+          ? `<p style="text-align:center;margin:0 0 24px">
+              <a href="${pdf_url}" style="background:#ff6b9d;color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block">
+                Baixar PDF
+              </a>
+             </p>`
+          : '<p style="color:#ccc">Em breve você receberá o PDF da sua carta por e-mail.</p>'
+        }
+        <p style="color:#555;font-size:12px;text-align:center;margin:0">Feito com amor pelo Lovefy</p>
       </div>
     `,
   })
 }
+
 export async function GET() {
   return NextResponse.json({ ok: true })
 }
