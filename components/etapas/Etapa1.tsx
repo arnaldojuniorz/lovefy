@@ -1,11 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCarta } from '@/lib/carta-context'
 
 export default function Etapa1() {
   const { data, update } = useCarta()
   const [loading, setLoading] = useState(false)
+
+  // Aquece a função serverless assim que o usuário abre a página
+  useEffect(() => {
+    fetch('/api/cartas?slug=warmup').catch(() => {})
+  }, [])
 
   async function avancar() {
     if (!data.nome_destinatario || !data.nome_remetente) {
