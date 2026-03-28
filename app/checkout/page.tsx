@@ -85,8 +85,31 @@ function CheckoutContent() {
                 visual: { style: { theme: 'dark' } },
               }}
               onSubmit={async (formData) => {
-                console.log('Pagamento enviado:', formData)
-              }}
+  try {
+    const res = await fetch('/api/checkout/processar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...formData,
+        carta_id,
+        plano,
+        tipo,
+      }),
+    })
+
+    const result = await res.json()
+
+    if (result.status === 'approved') {
+      window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}`
+    } else if (result.status === 'in_process' || result.status === 'pending') {
+      window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&pending=true`
+    } else {
+      alert('Pagamento não aprovado. Tente novamente.')
+    }
+  } catch {
+    alert('Erro ao processar pagamento. Tente novamente.')
+  }
+}}
               onReady={() => setLoading(false)}
               onError={(error) => console.error('Erro:', error)}
             />
