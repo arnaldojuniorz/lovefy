@@ -26,7 +26,6 @@ export default function Etapa5() {
           carta_id: data.carta_id,
           nome_pagador: data.nome_pagador,
           email_pagador: data.email_pagador,
-          slug: data.slug,
           status: 'pendente',
         }),
       })
