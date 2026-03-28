@@ -16,38 +16,43 @@ export default function Etapa1() {
     setLoading(true)
 
     try {
-      // Se já tem carta_id, só avança
       if (data.carta_id) {
+        await fetch('/api/cartas', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            carta_id: data.carta_id,
+            nome_destinatario: data.nome_destinatario,
+            nome_remetente: data.nome_remetente,
+            como_se_conheceram: data.como_se_conheceram,
+            memoria_especial: data.memoria_especial,
+          }),
+        })
         update({ etapa_atual: 2 })
         return
       }
 
-      // Cria a carta como rascunho
       const response = await fetch('/api/cartas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nome_destinatario: data.nome_destinatario,
-          nome_remetente: data.nome_remetente,
-          como_se_conheceram: data.como_se_conheceram,
-          memoria_especial: data.memoria_especial,
-          slug: `rascunho-${Date.now()}`,
-          nome_pagador: 'rascunho',
-          email_pagador: 'rascunho@rascunho.com',
-          status: 'rascunho',
+          nome_destinatario:  data.nome_destinatario,
+          nome_remetente:     data.nome_remetente,
+          como_se_conheceram: data.como_se_conheceram || null,
+          memoria_especial:   data.memoria_especial   || null,
         }),
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        alert('Erro ao iniciar carta. Tente novamente.')
+        alert(result.error || 'Erro ao iniciar carta. Tente novamente.')
         return
       }
 
       update({ carta_id: result.carta_id, etapa_atual: 2 })
 
-    } catch (error) {
+    } catch {
       alert('Erro de conexão. Tente novamente.')
     } finally {
       setLoading(false)
@@ -83,7 +88,9 @@ export default function Etapa1() {
         </div>
 
         <div>
-          <label className="text-white/70 text-sm block mb-2">Como vocês se conheceram? <span className="text-white/30">(opcional)</span></label>
+          <label className="text-white/70 text-sm block mb-2">
+            Como vocês se conheceram? <span className="text-white/30">(opcional)</span>
+          </label>
           <input
             type="text"
             value={data.como_se_conheceram}
@@ -94,7 +101,9 @@ export default function Etapa1() {
         </div>
 
         <div>
-          <label className="text-white/70 text-sm block mb-2">Uma memória especial <span className="text-white/30">(opcional)</span></label>
+          <label className="text-white/70 text-sm block mb-2">
+            Uma memória especial <span className="text-white/30">(opcional)</span>
+          </label>
           <textarea
             value={data.memoria_especial}
             onChange={e => update({ memoria_especial: e.target.value })}
