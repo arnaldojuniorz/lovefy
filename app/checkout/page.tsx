@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react'
 
-initMercadoPago('APP_USR-bd8cfe0a-9421-48a7-8c34-dff679b00deb', { locale: 'pt-BR' })
+initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: 'pt-BR' })
 
 const PRECOS: Record<string, number> = {
   '24h': 6.90,
