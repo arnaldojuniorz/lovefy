@@ -17,7 +17,7 @@ export default function Etapa4() {
 
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch(`/api/slug?slug=${data.slug}`)
+        const response = await fetch(`/api/cartas?slug=${data.slug}`)
         const result = await response.json()
         setStatus(result.disponivel ? 'disponivel' : 'indisponivel')
       } catch {

@@ -19,6 +19,8 @@ export default function Etapa2() {
           carta_id: data.carta_id,
           data_importante: data.data_importante,
           mensagem_principal: data.mensagem_principal,
+          localizacao: data.localizacao,
+          momento_marcante: data.momento_marcante,
         }),
       })
     }
@@ -49,6 +51,32 @@ export default function Etapa2() {
             onChange={e => update({ mensagem_principal: e.target.value })}
             placeholder="Escreva sua mensagem com carinho..."
             rows={6}
+            className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none"
+          />
+        </div>
+
+        <div>
+          <label className="text-white/70 text-sm block mb-2">
+            Localização especial <span className="text-white/30">(opcional)</span>
+          </label>
+          <input
+            type="text"
+            value={data.localizacao}
+            onChange={e => update({ localizacao: e.target.value })}
+            placeholder="Ex: Parque Ibirapuera, São Paulo"
+            className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="text-white/70 text-sm block mb-2">
+            Momento marcante <span className="text-white/30">(opcional)</span>
+          </label>
+          <textarea
+            value={data.momento_marcante}
+            onChange={e => update({ momento_marcante: e.target.value })}
+            placeholder="Ex: O dia que nos perdemos na viagem e acabamos encontrando o restaurante mais incrível..."
+            rows={3}
             className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none"
           />
         </div>

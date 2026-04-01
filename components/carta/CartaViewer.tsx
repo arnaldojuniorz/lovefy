@@ -437,9 +437,25 @@ function PaginaJogoPalavras({ carta }: { carta: Carta }) {
               {mensagem}
             </p>
           )}
-          <p style={{textAlign:'center', color:'rgba(255,255,255,0.3)', fontSize:'12px', marginTop:'16px'}}>
-            {acertos.length}/{palavrasJogo.length} palavras descobertas
-          </p>
+         <div style={{marginTop:'16px'}}>
+  <p style={{textAlign:'center', color:'rgba(255,255,255,0.3)', fontSize:'12px', marginBottom:'8px'}}>
+    {acertos.length}/{palavrasJogo.length} palavras descobertas
+  </p>
+  <div style={{display:'flex', flexWrap:'wrap', gap:'6px', justifyContent:'center'}}>
+    {palavrasJogo.map(p => (
+      <span key={p} style={{
+        color: acertos.includes(p.toLowerCase()) ? 'rgba(255,255,255,0.1)' : 'rgba(255,107,157,0.6)',
+        fontSize:'11px',
+        padding:'2px 8px',
+        borderRadius:'20px',
+        border:'1px solid rgba(255,107,157,0.2)',
+        background:'rgba(255,107,157,0.05)',
+      }}>
+        {acertos.includes(p.toLowerCase()) ? '✓' : `${p.length} letras`}
+      </span>
+    ))}
+  </div>
+</div>
         </>
       )}
     </div>
@@ -458,7 +474,7 @@ function PaginaResumo({ carta }: { carta: Carta }) {
     <div style={{width:'100%', borderRadius:'32px', padding:'32px 24px', color:'white', textAlign:'center', background:'linear-gradient(135deg, #ff6b9d 0%, #c44569 25%, #667eea 50%, #764ba2 75%, #f093fb 100%)', backgroundSize:'400% 400%', animation:'gradientShift 15s ease infinite', boxShadow:'0 20px 60px rgba(0,0,0,0.8)'}}>
       <div style={{background:'linear-gradient(180deg, #1c1c1c 0%, #111111 100%)', borderRadius:'24px', padding:'28px 20px'}}>
         <div style={{display:'inline-block', background:'linear-gradient(135deg,#ff6b9d,#c44569)', color:'white', padding:'6px 12px', borderRadius:'20px', fontSize:'10px', fontWeight:700, letterSpacing:'1px', marginBottom:'16px'}}>
-          WRAPPED DO CASAL
+          WRAPPED DO AMOR
         </div>
         <div style={{fontSize:'64px', marginBottom:'16px'}}>👫</div>
         <h2 className="gradient-text" style={{fontSize:'24px', fontWeight:'800', margin:'0 0 8px'}}>Nossa Conexão</h2>
