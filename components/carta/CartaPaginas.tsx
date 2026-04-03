@@ -11,7 +11,7 @@ export function SecaoAbertura({ carta }: { carta: Carta }) {
       <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(29,185,84,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(29,185,84,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', top: 20, left: 20, right: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, cursor: 'pointer' }}>✕</div>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14 }}>✕</div>
         <div style={{ background: '#1DB954', color: '#000', fontWeight: 800, fontSize: 13, padding: '5px 14px', borderRadius: 100 }}>Wrapped</div>
         <div style={{ width: 36 }} />
       </div>
@@ -23,7 +23,9 @@ export function SecaoAbertura({ carta }: { carta: Carta }) {
         <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.6, marginBottom: 48 }}>
           Um momento único feito com carinho para celebrar a jornada de vocês
         </p>
-        <div style={{ background: '#1DB954', color: '#000', fontWeight: 700, fontSize: 17, padding: '16px 48px', borderRadius: 100, display: 'inline-block' }}>
+        <div
+          onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
+          style={{ background: '#1DB954', color: '#000', fontWeight: 700, fontSize: 17, padding: '16px 48px', borderRadius: 100, display: 'inline-block', cursor: 'pointer' }}>
           Ver Presente
         </div>
       </div>
@@ -44,14 +46,16 @@ export function SecaoPlayer({ carta }: { carta: Carta }) {
         <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Juntos para sempre ❤️</span>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>···</span>
       </div>
+
       <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 28, width: '100%', aspectRatio: '1' }}>
         {fotoUrl ? (
           <img src={fotoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>💝</div>
+          <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80, minHeight: 300 }}>💝</div>
         )}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <p style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 2 }}>Nossa música especial</p>
           <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>{carta.nome_remetente} & {carta.nome_destinatario}</p>
@@ -60,36 +64,23 @@ export function SecaoPlayer({ carta }: { carta: Carta }) {
           <span style={{ color: '#1DB954', fontSize: 14 }}>✓</span>
         </div>
       </div>
-      <div style={{ height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, marginBottom: 6, position: 'relative' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '5%', background: '#fff', borderRadius: 2 }} />
-        <div style={{ position: 'absolute', left: '5%', top: '50%', transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24, color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
-        <span>0:02</span><span>-4:45</span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-        <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>⇄</span>
-        <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>⏮</span>
-        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>⏸</div>
-        <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>⏭</span>
-        <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>↻</span>
-      </div>
-      {spotifyId && (
-        <div style={{ borderRadius: 12, overflow: 'hidden' }}>
-          <iframe
-            src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`}
-            width="100%" height="80" frameBorder={0}
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy" style={{ borderRadius: 12 }}
-          />
-        </div>
-      )}
-      {!spotifyId && carta.musica_link && (
+
+      {spotifyId ? (
+        <iframe
+          src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`}
+          width="100%"
+          height="152"
+          frameBorder={0}
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy"
+          style={{ borderRadius: 12, marginBottom: 12 }}
+        />
+      ) : carta.musica_link ? (
         <a href={carta.musica_link} target="_blank" rel="noopener noreferrer"
           style={{ display: 'block', textAlign: 'center', padding: '14px', borderRadius: 100, background: '#1DB954', color: '#000', fontWeight: 700, textDecoration: 'none', fontSize: 15 }}>
           🎵 Abrir no Spotify
         </a>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -108,7 +99,7 @@ export function SecaoContador({ carta }: { carta: Carta }) {
   const ano = new Date(carta.data_importante).getUTCFullYear()
 
   return (
-    <div style={{ background: '#1a1a1a', minHeight: '100vh', padding: '40px 20px' }}>
+    <div style={{ background: '#1a1a1a', padding: '40px 20px' }}>
       <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Sobre o casal</p>
       {fotoUrl && (
         <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 20, height: 220 }}>
@@ -150,22 +141,23 @@ export function SecaoContador({ carta }: { carta: Carta }) {
 export function SecaoMensagem({ carta }: { carta: Carta }) {
   const [mostrar, setMostrar] = useState(false)
   const preview = carta.mensagem_principal?.slice(0, 80) || ''
+  const temMais = (carta.mensagem_principal?.length || 0) > 80
 
   return (
-    <div style={{ background: '#1a7aad', minHeight: '60vh', padding: '40px 20px', borderRadius: '24px 24px 0 0', marginTop: -24 }}>
+    <div style={{ background: '#1a7aad', padding: '40px 20px' }}>
       <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: 600, marginBottom: 20 }}>Mensagem especial</p>
-      <div style={{ position: 'relative' }}>
-        <p style={{ color: '#fff', fontSize: 22, fontWeight: 800, lineHeight: 1.4, marginBottom: mostrar ? 16 : 0 }}>
-          {mostrar ? carta.mensagem_principal : preview + (carta.mensagem_principal?.length > 80 ? '...' : '')}
+      <div style={{ position: 'relative', marginBottom: 20 }}>
+        <p style={{ color: '#fff', fontSize: 22, fontWeight: 800, lineHeight: 1.4 }}>
+          {mostrar ? carta.mensagem_principal : preview + (temMais ? '...' : '')}
         </p>
-        {!mostrar && carta.mensagem_principal?.length > 80 && (
+        {!mostrar && temMais && (
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(to bottom, transparent, #1a7aad)' }} />
         )}
       </div>
-      {!mostrar && (
+      {!mostrar && temMais && (
         <button
           onClick={() => setMostrar(true)}
-          style={{ marginTop: 20, background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 100, fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
+          style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 100, fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
           Mostrar Mensagem
         </button>
       )}
@@ -203,49 +195,44 @@ export function SecaoFotos({ carta }: { carta: Carta }) {
 }
 
 export function SecaoRetrospectiva({ carta }: { carta: Carta }) {
-  const estacao = carta.data_importante ? getEstacao(carta.data_importante) : null
+  const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
 
   return (
-    <div style={{ background: '#121212', minHeight: '100vh', padding: '0 0 40px', position: 'relative', overflow: 'hidden' }}>
-      {/* Fundo com ribbons decorativos estilo Spotify */}
-      <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 30% 50%, rgba(220,30,80,0.4) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(220,30,80,0.2) 0%, transparent 60%)', pointerEvents: 'none' }} />
-        {/* Ribbons decorativos */}
-        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
-          <path d="M-50 150 Q100 200 200 100 Q300 0 450 80" stroke="rgba(220,30,80,0.6)" strokeWidth="40" fill="none" strokeLinecap="round" />
-          <path d="M-50 450 Q50 500 150 420 Q250 340 400 400 Q500 440 550 480" stroke="rgba(220,30,80,0.5)" strokeWidth="35" fill="none" strokeLinecap="round" />
-          <path d="M100 600 Q200 650 300 580 Q400 510 500 560" stroke="rgba(180,20,60,0.4)" strokeWidth="28" fill="none" strokeLinecap="round" />
-        </svg>
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-          <h2 style={{ color: '#fff', fontSize: 'clamp(36px,8vw,52px)', fontWeight: 900, marginBottom: 12 }}>
-            Sua Retrospectiva
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>
-            Explore o seu tempo de casal
-          </p>
-        </div>
-        <div style={{ position: 'absolute', bottom: 48, zIndex: 1 }}>
-          <div style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', color: '#fff', fontWeight: 700, fontSize: 16, padding: '14px 40px', borderRadius: 100 }}>
-            Vamos lá
-          </div>
-        </div>
+    <div style={{ background: '#121212', padding: '40px 20px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 30% 50%, rgba(220,30,80,0.25) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(220,30,80,0.15) 0%, transparent 60%)', pointerEvents: 'none' }} />
+
+      <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.6 }} viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
+        <path d="M-50 100 Q100 160 200 60 Q300 -20 450 50" stroke="rgba(220,30,80,0.7)" strokeWidth="36" fill="none" strokeLinecap="round" />
+        <path d="M-50 380 Q50 430 150 360 Q250 290 400 340 Q500 370 550 400" stroke="rgba(220,30,80,0.5)" strokeWidth="30" fill="none" strokeLinecap="round" />
+        <path d="M80 520 Q180 570 280 510 Q380 450 480 490" stroke="rgba(180,20,60,0.4)" strokeWidth="24" fill="none" strokeLinecap="round" />
+      </svg>
+
+      <div style={{ position: 'relative', zIndex: 1, minHeight: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center', marginBottom: 32 }}>
+        <h2 style={{ color: '#fff', fontSize: 'clamp(32px,7vw,48px)', fontWeight: 900, marginBottom: 8 }}>
+          Sua Retrospectiva
+        </h2>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>
+          Explore o seu tempo de casal
+        </p>
       </div>
 
-      {/* Linha do tempo */}
-      <div style={{ padding: '0 20px' }}>
-        {[
-          carta.como_se_conheceram && { emoji: '💫', titulo: 'Como se conheceram', desc: carta.como_se_conheceram, cor: '#1a4a6e' },
-          carta.data_importante && { emoji: estacao?.emoji || '📅', titulo: 'Data especial', desc: `${formatarData(carta.data_importante)} — ${estacao?.nome}`, cor: '#2d1a4e' },
-          carta.memoria_especial && { emoji: '🌟', titulo: 'Memória especial', desc: carta.memoria_especial, cor: '#1a3a2e' },
-          carta.momento_marcante && { emoji: '✨', titulo: 'Momento marcante', desc: carta.momento_marcante, cor: '#4e1a2e' },
-          carta.localizacao && { emoji: '📍', titulo: 'Lugar especial', desc: carta.localizacao, cor: '#1a2e4e' },
-        ].filter(Boolean).map((m: any, i: number) => (
-          <div key={i} style={{ background: m.cor, borderRadius: 16, padding: '20px', marginBottom: 12 }}>
-            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>{m.emoji} {m.titulo}</p>
-            <p style={{ color: '#fff', fontSize: 15, lineHeight: 1.6 }}>{m.desc}</p>
-          </div>
-        ))}
-      </div>
+      {fotos.length > 0 ? (
+        <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+          {fotos.map((foto, idx) => (
+            <div key={foto.id} style={{ position: 'relative', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', gridColumn: idx === 0 ? 'span 2' : 'span 1' }}>
+              <img
+                src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`}
+                alt="Foto"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '40px 0' }}>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>Adicione fotos para aparecerem aqui</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -323,7 +310,6 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
   return (
     <div style={{ background: '#121212', padding: '40px 20px 60px' }}>
 
-      {/* Header Wrapped */}
       <div style={{ background: 'linear-gradient(135deg, #1DB954, #0d8c3c)', borderRadius: 20, padding: '28px 24px', marginBottom: 16, textAlign: 'center' }}>
         <p style={{ color: 'rgba(0,0,0,0.6)', fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Lovefy Wrapped</p>
         <h2 style={{ color: '#000', fontSize: 28, fontWeight: 900, marginBottom: 4 }}>
@@ -332,7 +318,6 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         {tempo && <p style={{ color: 'rgba(0,0,0,0.7)', fontSize: 16, fontWeight: 600 }}>{tempoLabel}</p>}
       </div>
 
-      {/* Mapa das estrelas */}
       {carta.recursos.includes('mapa_estrelas') && (
         <div style={{ background: '#1a1a2e', borderRadius: 20, padding: '24px', marginBottom: 12, textAlign: 'center' }}>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 }}>⭐ O céu no dia de vocês</p>
@@ -346,7 +331,6 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         </div>
       )}
 
-      {/* Jogo de palavras */}
       {carta.recursos.includes('jogo_palavras') && (
         <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '24px', marginBottom: 12 }}>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16, textAlign: 'center' }}>🎮 Jogo de palavras</p>
@@ -376,7 +360,6 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         </div>
       )}
 
-      {/* Momento marcante */}
       {carta.momento_marcante && (
         <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '24px', marginBottom: 12 }}>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>✨ Momento marcante</p>
@@ -385,7 +368,6 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         </div>
       )}
 
-      {/* Galeria horizontal */}
       {fotos.length > 0 && (
         <div style={{ marginBottom: 12 }}>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>📸 Momentos juntos</p>
@@ -398,7 +380,6 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         </div>
       )}
 
-      {/* Resumo compartilhável */}
       <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '28px 24px', marginBottom: 20, textAlign: 'center' }}>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Lovefy Wrapped</p>
         <p style={{ fontSize: 40, marginBottom: 12 }}>💝</p>
@@ -414,10 +395,10 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Criado com amor no Lovefy</p>
       </div>
 
-      {/* Botões compartilhar */}
       <button onClick={compartilhar} style={{ width: '100%', padding: '16px', borderRadius: 100, background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
         {copiado ? '✅ Link copiado!' : '💚 Compartilhar no WhatsApp'}
       </button>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 32 }}>
         <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
           style={{ display: 'block', textAlign: 'center', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: 'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)', color: '#fff', textDecoration: 'none' }}>
@@ -429,13 +410,13 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         </button>
       </div>
 
-      {/* CTA */}
       <div style={{ textAlign: 'center' }}>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 16 }}>Quer criar uma carta para alguém especial?</p>
         <a href="https://lovefy.app.br/criar" style={{ display: 'inline-block', padding: '14px 32px', borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#1DB954', color: '#000', textDecoration: 'none' }}>
           💝 Criar minha carta
         </a>
       </div>
+
     </div>
   )
 }
