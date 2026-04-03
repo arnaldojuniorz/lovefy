@@ -7,11 +7,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 export function SecaoAbertura({ carta }: { carta: Carta }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#121212', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px 40px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(29,185,84,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(29,185,84,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', top: 20, left: 20, right: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14 }}>✕</div>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px 40px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: '10%', left: '10%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(29,185,84,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '10%', right: '10%', width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(29,185,84,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: 20, left: 20, right: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14 }}>✕</div>
         <div style={{ background: '#1DB954', color: '#000', fontWeight: 800, fontSize: 13, padding: '5px 14px', borderRadius: 100 }}>Wrapped</div>
         <div style={{ width: 36 }} />
       </div>
@@ -46,15 +46,13 @@ export function SecaoPlayer({ carta }: { carta: Carta }) {
         <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Juntos para sempre ❤️</span>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>···</span>
       </div>
-
-      <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 28, width: '100%', aspectRatio: '1' }}>
+      <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 28, width: '100%', aspectRatio: '1', background: 'rgba(255,255,255,0.05)' }}>
         {fotoUrl ? (
           <img src={fotoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80, minHeight: 300 }}>💝</div>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80, minHeight: 300 }}>💝</div>
         )}
       </div>
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <p style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 2 }}>Nossa música especial</p>
@@ -64,16 +62,12 @@ export function SecaoPlayer({ carta }: { carta: Carta }) {
           <span style={{ color: '#1DB954', fontSize: 14 }}>✓</span>
         </div>
       </div>
-
       {spotifyId ? (
         <iframe
           src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`}
-          width="100%"
-          height="152"
-          frameBorder={0}
+          width="100%" height="152" frameBorder={0}
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          loading="lazy"
-          style={{ borderRadius: 12, marginBottom: 12 }}
+          loading="lazy" style={{ borderRadius: 12 }}
         />
       ) : carta.musica_link ? (
         <a href={carta.musica_link} target="_blank" rel="noopener noreferrer"
@@ -198,16 +192,14 @@ export function SecaoRetrospectiva({ carta }: { carta: Carta }) {
   const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
 
   return (
-    <div style={{ background: '#121212', padding: '40px 20px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 30% 50%, rgba(220,30,80,0.25) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(220,30,80,0.15) 0%, transparent 60%)', pointerEvents: 'none' }} />
-
-      <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.6 }} viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
+    <div style={{ background: '#0a0a0a', padding: '40px 20px', position: 'relative', overflow: 'hidden', minHeight: '60vh' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 30% 40%, rgba(220,30,80,0.2) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(220,30,80,0.12) 0%, transparent 60%)', pointerEvents: 'none' }} />
+      <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.7 }} viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
         <path d="M-50 100 Q100 160 200 60 Q300 -20 450 50" stroke="rgba(220,30,80,0.7)" strokeWidth="36" fill="none" strokeLinecap="round" />
         <path d="M-50 380 Q50 430 150 360 Q250 290 400 340 Q500 370 550 400" stroke="rgba(220,30,80,0.5)" strokeWidth="30" fill="none" strokeLinecap="round" />
         <path d="M80 520 Q180 570 280 510 Q380 450 480 490" stroke="rgba(180,20,60,0.4)" strokeWidth="24" fill="none" strokeLinecap="round" />
       </svg>
-
-      <div style={{ position: 'relative', zIndex: 1, minHeight: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center', marginBottom: 32 }}>
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: 32 }}>
         <h2 style={{ color: '#fff', fontSize: 'clamp(32px,7vw,48px)', fontWeight: 900, marginBottom: 8 }}>
           Sua Retrospectiva
         </h2>
@@ -215,7 +207,6 @@ export function SecaoRetrospectiva({ carta }: { carta: Carta }) {
           Explore o seu tempo de casal
         </p>
       </div>
-
       {fotos.length > 0 ? (
         <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
           {fotos.map((foto, idx) => (
@@ -290,15 +281,22 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
     setTimeout(() => setMsgJogo(''), 1500)
   }
 
-  function compartilhar() {
+  function compartilharWhatsapp() {
     const url = `https://lovefy.app.br/c/${carta.slug}`
-    if (navigator.share) {
-      navigator.share({ title: 'Lovefy', text: `${carta.nome_remetente} criou algo especial`, url })
-    } else {
-      navigator.clipboard.writeText(url)
-      setCopiado(true)
-      setTimeout(() => setCopiado(false), 2500)
-    }
+    const texto = `${carta.nome_remetente} criou algo especial para ${carta.nome_destinatario}! 💝 Veja aqui: ${url}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
+  }
+
+  function compartilharFacebook() {
+    const url = `https://lovefy.app.br/c/${carta.slug}`
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank')
+  }
+
+  function copiarLink() {
+    const url = `https://lovefy.app.br/c/${carta.slug}`
+    navigator.clipboard.writeText(url)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2500)
   }
 
   const tempoLabel = tempo
@@ -395,18 +393,18 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Criado com amor no Lovefy</p>
       </div>
 
-      <button onClick={compartilhar} style={{ width: '100%', padding: '16px', borderRadius: 100, background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
-        {copiado ? '✅ Link copiado!' : '💚 Compartilhar no WhatsApp'}
+      <button onClick={compartilharWhatsapp} style={{ width: '100%', padding: '16px', borderRadius: 100, background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
+        💚 Compartilhar no WhatsApp
       </button>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 32 }}>
-        <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
-          style={{ display: 'block', textAlign: 'center', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: 'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)', color: '#fff', textDecoration: 'none' }}>
-          📸 Stories
-        </a>
-        <button onClick={() => { navigator.clipboard.writeText(`https://lovefy.app.br/c/${carta.slug}`); setCopiado(true); setTimeout(() => setCopiado(false), 2500) }}
+        <button onClick={compartilharFacebook}
+          style={{ padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#1877f2', color: '#fff', border: 'none', cursor: 'pointer' }}>
+          📘 Facebook
+        </button>
+        <button onClick={copiarLink}
           style={{ padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer' }}>
-          🔗 Copiar link
+          {copiado ? '✅ Copiado!' : '🔗 Copiar link'}
         </button>
       </div>
 
