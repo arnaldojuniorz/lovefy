@@ -5,242 +5,252 @@ import { Carta, getEstacao, getSpotifyId, formatarData, calcularTempo } from './
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
-export function Pagina1Abertura({ carta }: { carta: Carta }) {
+export function SecaoAbertura({ carta }: { carta: Carta }) {
   return (
-    <div style={{ textAlign: 'center', padding: '40px 0' }}>
-      <div className="lv-float" style={{ fontSize: 80, marginBottom: 32 }}>💌</div>
-      <p className="lv-sans" style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
-        Uma surpresa especial
-      </p>
-      <h1 className="lv-serif" style={{ fontSize: 'clamp(28px,6vw,40px)', fontWeight: 900, lineHeight: 1.2, marginBottom: 16, color: '#fff' }}>
-        <span style={{ color: '#ff6b9d' }}>{carta.nome_remetente}</span> separou<br />
-        um presente especial<br />
-        para <span style={{ color: '#ff6b9d' }}>{carta.nome_destinatario}</span>
-      </h1>
-      <p className="lv-sans" style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, lineHeight: 1.7, margin: '0 auto 48px', maxWidth: 360 }}>
-        Um momento único feito com carinho para celebrar a história de vocês
-      </p>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ecdc4' }} />
-        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Feito com amor · Lovefy</span>
+    <div style={{ minHeight: '100vh', background: '#121212', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px 40px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(29,185,84,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(29,185,84,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: 20, left: 20, right: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, cursor: 'pointer' }}>✕</div>
+        <div style={{ background: '#1DB954', color: '#000', fontWeight: 800, fontSize: 13, padding: '5px 14px', borderRadius: 100 }}>Wrapped</div>
+        <div style={{ width: 36 }} />
+      </div>
+      <div style={{ textAlign: 'center', maxWidth: 380, position: 'relative', zIndex: 1 }}>
+        <h1 style={{ fontSize: 'clamp(30px,7vw,44px)', fontWeight: 900, color: '#fff', lineHeight: 1.15, marginBottom: 20 }}>
+          {carta.nome_remetente} separou um{' '}
+          <span style={{ color: '#1DB954' }}>presente</span> especial!
+        </h1>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.6, marginBottom: 48 }}>
+          Um momento único feito com carinho para celebrar a jornada de vocês
+        </p>
+        <div style={{ background: '#1DB954', color: '#000', fontWeight: 700, fontSize: 17, padding: '16px 48px', borderRadius: 100, display: 'inline-block' }}>
+          Ver Presente
+        </div>
       </div>
     </div>
   )
 }
 
-export function Pagina2Player({ carta }: { carta: Carta }) {
+export function SecaoPlayer({ carta }: { carta: Carta }) {
   const spotifyId = getSpotifyId(carta.musica_link)
   const fotoUrl = carta.foto_destaque
     ? `${supabaseUrl}/storage/v1/object/public/fotos/${carta.foto_destaque}`
     : null
 
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <p style={{ color: '#ff6b9d', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>A música de vocês</p>
-        <h2 className="lv-serif" style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>Toque e sinta</h2>
+    <div style={{ background: 'linear-gradient(180deg, #1a4a6e 0%, #0d2d45 100%)', minHeight: '100vh', padding: '56px 20px 40px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 22 }}>↓</span>
+        <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Juntos para sempre ❤️</span>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>···</span>
       </div>
-      {fotoUrl ? (
-        <div className="lv-pulse" style={{ width: 200, height: 200, borderRadius: '50%', margin: '0 auto 32px', overflow: 'hidden', border: '3px solid rgba(255,107,157,0.5)', boxShadow: '0 0 60px rgba(255,107,157,0.3)' }}>
-          <img src={fotoUrl} alt="Foto do casal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 28, width: '100%', aspectRatio: '1' }}>
+        {fotoUrl ? (
+          <img src={fotoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>💝</div>
+        )}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div>
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 2 }}>Nossa música especial</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>{carta.nome_remetente} & {carta.nome_destinatario}</p>
         </div>
-      ) : (
-        <div className="lv-heartbeat" style={{ width: 160, height: 160, borderRadius: '50%', margin: '0 auto 32px', background: 'linear-gradient(135deg,rgba(255,107,157,0.2),rgba(196,69,105,0.2))', border: '3px solid rgba(255,107,157,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64 }}>
-          💝
+        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid #1DB954', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ color: '#1DB954', fontSize: 14 }}>✓</span>
         </div>
-      )}
-      {spotifyId ? (
-        <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
+      </div>
+      <div style={{ height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, marginBottom: 6, position: 'relative' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '5%', background: '#fff', borderRadius: 2 }} />
+        <div style={{ position: 'absolute', left: '5%', top: '50%', transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24, color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+        <span>0:02</span><span>-4:45</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+        <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>⇄</span>
+        <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>⏮</span>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>⏸</div>
+        <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>⏭</span>
+        <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>↻</span>
+      </div>
+      {spotifyId && (
+        <div style={{ borderRadius: 12, overflow: 'hidden' }}>
           <iframe
             src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`}
-            width="100%" height="152" frameBorder={0}
+            width="100%" height="80" frameBorder={0}
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy" style={{ borderRadius: 16 }}
+            loading="lazy" style={{ borderRadius: 12 }}
           />
         </div>
-      ) : (
-        <div className="lv-card" style={{ padding: 20, textAlign: 'center', marginBottom: 16 }}>
-          <a href={carta.musica_link} target="_blank" rel="noopener noreferrer" style={{ color: '#1DB954', fontWeight: 600, textDecoration: 'none', fontSize: 15 }}>
-            🎵 Abrir música no Spotify
-          </a>
-        </div>
       )}
-      <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Toque a música e continue lendo 💕</p>
+      {!spotifyId && carta.musica_link && (
+        <a href={carta.musica_link} target="_blank" rel="noopener noreferrer"
+          style={{ display: 'block', textAlign: 'center', padding: '14px', borderRadius: 100, background: '#1DB954', color: '#000', fontWeight: 700, textDecoration: 'none', fontSize: 15 }}>
+          🎵 Abrir no Spotify
+        </a>
+      )}
     </div>
   )
 }
 
-export function Pagina3Contador({ carta }: { carta: Carta }) {
+export function SecaoContador({ carta }: { carta: Carta }) {
   const [tempo, setTempo] = useState(calcularTempo(carta.data_importante))
+  const fotoUrl = carta.foto_destaque
+    ? `${supabaseUrl}/storage/v1/object/public/fotos/${carta.foto_destaque}`
+    : null
+
   useEffect(() => {
     const interval = setInterval(() => setTempo(calcularTempo(carta.data_importante)), 1000)
     return () => clearInterval(interval)
   }, [carta.data_importante])
-  const estacao = carta.data_importante ? getEstacao(carta.data_importante) : null
+
+  const ano = new Date(carta.data_importante).getUTCFullYear()
 
   return (
-    <div style={{ width: '100%', textAlign: 'center' }}>
-      <p style={{ color: '#ff6b9d', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Sobre vocês</p>
-      <h2 className="lv-serif" style={{ fontSize: 28, fontWeight: 700, color: '#fff', marginBottom: 8 }}>
-        {carta.nome_remetente} & {carta.nome_destinatario}
+    <div style={{ background: '#1a1a1a', minHeight: '100vh', padding: '40px 20px' }}>
+      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Sobre o casal</p>
+      {fotoUrl && (
+        <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 20, height: 220 }}>
+          <img src={fotoUrl} alt="Casal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
+      )}
+      <h2 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 4 }}>
+        {carta.nome_remetente} e {carta.nome_destinatario}
       </h2>
-      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 40 }}>
-        Juntos desde {formatarData(carta.data_importante)} {estacao?.emoji}
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginBottom: 24 }}>Juntos desde {ano}</p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
         {[
-          { v: tempo.anos, l: tempo.anos === 1 ? 'Ano' : 'Anos' },
-          { v: tempo.meses, l: tempo.meses === 1 ? 'Mês' : 'Meses' },
-          { v: tempo.dias, l: tempo.dias === 1 ? 'Dia' : 'Dias' },
+          { v: tempo.anos, l: 'Anos' },
+          { v: tempo.meses, l: 'Meses' },
+          { v: tempo.dias, l: 'Dias' },
         ].map(item => (
-          <div key={item.l} className="lv-card" style={{ padding: '20px 8px' }}>
-            <p className="lv-gradient-text lv-serif" style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{item.v}</p>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>{item.l}</p>
+          <div key={item.l} style={{ background: '#2a2a2a', borderRadius: 12, padding: '16px 8px', textAlign: 'center' }}>
+            <p style={{ color: '#fff', fontSize: 32, fontWeight: 800, lineHeight: 1 }}>{item.v}</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4 }}>{item.l}</p>
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         {[
           { v: String(tempo.horas).padStart(2, '0'), l: 'Horas' },
           { v: String(tempo.minutos).padStart(2, '0'), l: 'Minutos' },
           { v: String(tempo.segundos).padStart(2, '0'), l: 'Segundos' },
         ].map(item => (
-          <div key={item.l} className="lv-card" style={{ padding: '16px 8px' }}>
-            <p className="lv-gradient-text lv-sans" style={{ fontSize: 28, fontWeight: 900 }}>{item.v}</p>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{item.l}</p>
+          <div key={item.l} style={{ background: '#2a2a2a', borderRadius: 12, padding: '16px 8px', textAlign: 'center' }}>
+            <p style={{ color: '#fff', fontSize: 32, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{item.v}</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4 }}>{item.l}</p>
           </div>
         ))}
       </div>
-      {estacao && (
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, marginTop: 24 }}>
-          Vocês se encontraram no {estacao.nome} {estacao.emoji}
+    </div>
+  )
+}
+
+export function SecaoMensagem({ carta }: { carta: Carta }) {
+  const [mostrar, setMostrar] = useState(false)
+  const preview = carta.mensagem_principal?.slice(0, 80) || ''
+
+  return (
+    <div style={{ background: '#1a7aad', minHeight: '60vh', padding: '40px 20px', borderRadius: '24px 24px 0 0', marginTop: -24 }}>
+      <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: 600, marginBottom: 20 }}>Mensagem especial</p>
+      <div style={{ position: 'relative' }}>
+        <p style={{ color: '#fff', fontSize: 22, fontWeight: 800, lineHeight: 1.4, marginBottom: mostrar ? 16 : 0 }}>
+          {mostrar ? carta.mensagem_principal : preview + (carta.mensagem_principal?.length > 80 ? '...' : '')}
         </p>
+        {!mostrar && carta.mensagem_principal?.length > 80 && (
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(to bottom, transparent, #1a7aad)' }} />
+        )}
+      </div>
+      {!mostrar && (
+        <button
+          onClick={() => setMostrar(true)}
+          style={{ marginTop: 20, background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 100, fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
+          Mostrar Mensagem
+        </button>
       )}
     </div>
   )
 }
 
-export function Pagina4Mensagem({ carta }: { carta: Carta }) {
-  const [typed, setTyped] = useState('')
-  const [done, setDone] = useState(false)
-  const texto = carta.mensagem_principal || ''
+export function SecaoFotos({ carta }: { carta: Carta }) {
+  const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
+  if (fotos.length === 0) return null
 
-  useEffect(() => {
-    if (done) return
-    let i = 0
-    const interval = setInterval(() => {
-      if (i < texto.length) { setTyped(texto.slice(0, i + 1)); i++ }
-      else { setDone(true); clearInterval(interval) }
-    }, 20)
-    return () => clearInterval(interval)
-  }, [texto, done])
+  const labels = ['Nossos Dates', 'Fotos aleatórias', 'Primeira viagem', 'Momentos', 'Favoritas']
 
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <div className="lv-heartbeat" style={{ fontSize: 48, marginBottom: 16 }}>💝</div>
-        <p style={{ color: '#ff6b9d', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Mensagem especial</p>
-        <h2 className="lv-serif" style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>
-          Do coração de {carta.nome_remetente}
-        </h2>
-      </div>
-      <div className="lv-card" style={{ padding: 28, marginBottom: 20 }}>
-        <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 16, lineHeight: 1.9, whiteSpace: 'pre-wrap', fontStyle: 'italic', fontFamily: 'Georgia,serif' }}>
-          &ldquo;{typed}{!done && <span className="lv-cursor" />}&rdquo;
-        </p>
-      </div>
-      {carta.como_se_conheceram && (
-        <div className="lv-card" style={{ padding: 20, marginBottom: 12 }}>
-          <p style={{ color: '#ff6b9d', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Como se conheceram</p>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6 }}>{carta.como_se_conheceram}</p>
-        </div>
-      )}
-      {carta.memoria_especial && (
-        <div className="lv-card" style={{ padding: 20 }}>
-          <p style={{ color: '#ff6b9d', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Uma memória especial</p>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6 }}>{carta.memoria_especial}</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-export function Pagina5Galeria({ carta }: { carta: Carta }) {
-  const [fotoAtiva, setFotoAtiva] = useState(0)
-  const fotos = carta.fotos.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem)
-
-  return (
-    <div style={{ width: '100%' }}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <p style={{ color: '#ff6b9d', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Galeria</p>
-        <h2 className="lv-serif" style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>Momentos de vocês 📸</h2>
-      </div>
-      {fotos.length > 0 && (
-        <div>
-          <div style={{ position: 'relative', marginBottom: 12, borderRadius: 20, overflow: 'hidden' }}>
+    <div style={{ background: '#121212', padding: '40px 20px' }}>
+      <h2 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 20 }}>
+        Conheça {carta.nome_remetente} e {carta.nome_destinatario}
+      </h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+        {fotos.map((foto, idx) => (
+          <div key={foto.id} style={{ position: 'relative', aspectRatio: '1', borderRadius: 8, overflow: 'hidden' }}>
             <img
-              src={`${supabaseUrl}/storage/v1/object/public/fotos/${fotos[fotoAtiva].storage_path}`}
-              alt="Memória"
-              style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
+              src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`}
+              alt="Foto"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
-            <div style={{ position: 'absolute', bottom: 12, right: 12, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, padding: '4px 12px', borderRadius: 20 }}>
-              {fotoAtiva + 1}/{fotos.length}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 8px 8px', background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }}>
+              <p style={{ color: '#fff', fontSize: 11, fontWeight: 600 }}>{labels[idx] || ''}</p>
             </div>
           </div>
-          {fotos.length > 1 && (
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-              {fotos.map((foto, idx) => (
-                <img key={foto.id}
-                  src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`}
-                  alt="Mini" onClick={() => setFotoAtiva(idx)}
-                  style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 12, cursor: 'pointer', flexShrink: 0, opacity: idx === fotoAtiva ? 1 : 0.5, border: idx === fotoAtiva ? '2px solid #ff6b9d' : '2px solid transparent', transition: 'all 0.2s' }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   )
 }
 
-export function Pagina6Retrospectiva({ carta }: { carta: Carta }) {
+export function SecaoRetrospectiva({ carta }: { carta: Carta }) {
   const estacao = carta.data_importante ? getEstacao(carta.data_importante) : null
-  const momentos = [
-    carta.como_se_conheceram && { emoji: '💫', titulo: 'Como se conheceram', desc: carta.como_se_conheceram },
-    carta.data_importante && { emoji: estacao?.emoji || '📅', titulo: 'Data especial', desc: `${formatarData(carta.data_importante)} — ${estacao?.nome}` },
-    carta.memoria_especial && { emoji: '🌟', titulo: 'Memória especial', desc: carta.memoria_especial },
-    carta.momento_marcante && { emoji: '✨', titulo: 'Momento marcante', desc: carta.momento_marcante },
-    carta.localizacao && { emoji: '📍', titulo: 'Lugar especial', desc: carta.localizacao },
-  ].filter(Boolean) as { emoji: string; titulo: string; desc: string }[]
 
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <p style={{ color: '#ff6b9d', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>A história de vocês</p>
-        <h2 className="lv-serif" style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>Retrospectiva 💕</h2>
-      </div>
-      <div style={{ position: 'relative' }}>
-        <div style={{ position: 'absolute', left: 20, top: 0, bottom: 0, width: 2, background: 'linear-gradient(to bottom,#ff6b9d,transparent)' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingLeft: 52 }}>
-          {momentos.map((m, i) => (
-            <div key={i} style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', left: -40, top: 8, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#ff6b9d,#c44569)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>
-                {m.emoji}
-              </div>
-              <div className="lv-card" style={{ padding: 16 }}>
-                <p style={{ color: '#ff6b9d', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{m.titulo}</p>
-                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6 }}>{m.desc}</p>
-              </div>
-            </div>
-          ))}
+    <div style={{ background: '#121212', minHeight: '100vh', padding: '0 0 40px', position: 'relative', overflow: 'hidden' }}>
+      {/* Fundo com ribbons decorativos estilo Spotify */}
+      <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 30% 50%, rgba(220,30,80,0.4) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(220,30,80,0.2) 0%, transparent 60%)', pointerEvents: 'none' }} />
+        {/* Ribbons decorativos */}
+        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+          <path d="M-50 150 Q100 200 200 100 Q300 0 450 80" stroke="rgba(220,30,80,0.6)" strokeWidth="40" fill="none" strokeLinecap="round" />
+          <path d="M-50 450 Q50 500 150 420 Q250 340 400 400 Q500 440 550 480" stroke="rgba(220,30,80,0.5)" strokeWidth="35" fill="none" strokeLinecap="round" />
+          <path d="M100 600 Q200 650 300 580 Q400 510 500 560" stroke="rgba(180,20,60,0.4)" strokeWidth="28" fill="none" strokeLinecap="round" />
+        </svg>
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+          <h2 style={{ color: '#fff', fontSize: 'clamp(36px,8vw,52px)', fontWeight: 900, marginBottom: 12 }}>
+            Sua Retrospectiva
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>
+            Explore o seu tempo de casal
+          </p>
         </div>
+        <div style={{ position: 'absolute', bottom: 48, zIndex: 1 }}>
+          <div style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', color: '#fff', fontWeight: 700, fontSize: 16, padding: '14px 40px', borderRadius: 100 }}>
+            Vamos lá
+          </div>
+        </div>
+      </div>
+
+      {/* Linha do tempo */}
+      <div style={{ padding: '0 20px' }}>
+        {[
+          carta.como_se_conheceram && { emoji: '💫', titulo: 'Como se conheceram', desc: carta.como_se_conheceram, cor: '#1a4a6e' },
+          carta.data_importante && { emoji: estacao?.emoji || '📅', titulo: 'Data especial', desc: `${formatarData(carta.data_importante)} — ${estacao?.nome}`, cor: '#2d1a4e' },
+          carta.memoria_especial && { emoji: '🌟', titulo: 'Memória especial', desc: carta.memoria_especial, cor: '#1a3a2e' },
+          carta.momento_marcante && { emoji: '✨', titulo: 'Momento marcante', desc: carta.momento_marcante, cor: '#4e1a2e' },
+          carta.localizacao && { emoji: '📍', titulo: 'Lugar especial', desc: carta.localizacao, cor: '#1a2e4e' },
+        ].filter(Boolean).map((m: any, i: number) => (
+          <div key={i} style={{ background: m.cor, borderRadius: 16, padding: '20px', marginBottom: 12 }}>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>{m.emoji} {m.titulo}</p>
+            <p style={{ color: '#fff', fontSize: 15, lineHeight: 1.6 }}>{m.desc}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-export function Pagina7Wrapped({ carta }: { carta: Carta }) {
+export function SecaoWrapped({ carta }: { carta: Carta }) {
   const [mapaUrl, setMapaUrl] = useState(carta.mapa_estrelas_url || '')
   const [loadingMapa, setLoadingMapa] = useState(!carta.mapa_estrelas_url && carta.recursos.includes('mapa_estrelas'))
   const [jogoAcertos, setJogoAcertos] = useState<string[]>([])
@@ -248,6 +258,9 @@ export function Pagina7Wrapped({ carta }: { carta: Carta }) {
   const [msgJogo, setMsgJogo] = useState('')
   const [jogoFinalizado, setJogoFinalizado] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  const tempo = carta.data_importante ? calcularTempo(carta.data_importante) : null
+  const estacao = carta.data_importante ? getEstacao(carta.data_importante) : null
+  const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
 
   const palavras: string[] = []
   if (carta.jogo_palavra1?.trim()) palavras.push(carta.jogo_palavra1.trim())
@@ -259,9 +272,6 @@ export function Pagina7Wrapped({ carta }: { carta: Carta }) {
     palavras.push('amor')
   }
   const palavrasJogo = palavras.slice(0, 3)
-  const estacao = carta.data_importante ? getEstacao(carta.data_importante) : null
-  const tempo = carta.data_importante ? calcularTempo(carta.data_importante) : null
-  const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
 
   useEffect(() => {
     if (!carta.recursos.includes('mapa_estrelas') || carta.mapa_estrelas_url) return
@@ -279,8 +289,7 @@ export function Pagina7Wrapped({ carta }: { carta: Carta }) {
   function tentarJogo() {
     const p = tentativa.toLowerCase().trim()
     if (!p) return
-    const lista = palavrasJogo.map(x => x.toLowerCase())
-    if (lista.includes(p) && !jogoAcertos.includes(p)) {
+    if (palavrasJogo.map(x => x.toLowerCase()).includes(p) && !jogoAcertos.includes(p)) {
       const novos = [...jogoAcertos, p]
       setJogoAcertos(novos)
       setMsgJogo('Acertou! 🎉')
@@ -297,7 +306,7 @@ export function Pagina7Wrapped({ carta }: { carta: Carta }) {
   function compartilhar() {
     const url = `https://lovefy.app.br/c/${carta.slug}`
     if (navigator.share) {
-      navigator.share({ title: 'Lovefy', text: `${carta.nome_remetente} criou algo especial para ${carta.nome_destinatario}`, url })
+      navigator.share({ title: 'Lovefy', text: `${carta.nome_remetente} criou algo especial`, url })
     } else {
       navigator.clipboard.writeText(url)
       setCopiado(true)
@@ -306,94 +315,98 @@ export function Pagina7Wrapped({ carta }: { carta: Carta }) {
   }
 
   const tempoLabel = tempo
-    ? tempo.anos > 0
-      ? `${tempo.anos} ${tempo.anos === 1 ? 'ano' : 'anos'}, ${tempo.meses} ${tempo.meses === 1 ? 'mês' : 'meses'} e ${tempo.dias} dias juntos`
-      : tempo.meses > 0
-        ? `${tempo.meses} ${tempo.meses === 1 ? 'mês' : 'meses'} e ${tempo.dias} dias juntos`
-        : `${tempo.dias} dias juntos`
+    ? tempo.anos > 0 ? `${tempo.anos} ${tempo.anos === 1 ? 'ano' : 'anos'} juntos`
+    : tempo.meses > 0 ? `${tempo.meses} ${tempo.meses === 1 ? 'mês' : 'meses'} juntos`
+    : `${tempo.dias} dias juntos`
     : ''
 
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ background: '#121212', padding: '40px 20px 60px' }}>
 
-      <div className="lv-gradient-bg" style={{ borderRadius: 24, padding: '32px 24px', textAlign: 'center', marginBottom: 20 }}>
-        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 8 }}>Lovefy Wrapped</p>
-        <h2 className="lv-serif" style={{ fontSize: 32, fontWeight: 900, color: '#fff', marginBottom: 4 }}>
+      {/* Header Wrapped */}
+      <div style={{ background: 'linear-gradient(135deg, #1DB954, #0d8c3c)', borderRadius: 20, padding: '28px 24px', marginBottom: 16, textAlign: 'center' }}>
+        <p style={{ color: 'rgba(0,0,0,0.6)', fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Lovefy Wrapped</p>
+        <h2 style={{ color: '#000', fontSize: 28, fontWeight: 900, marginBottom: 4 }}>
           {carta.nome_remetente} & {carta.nome_destinatario}
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16 }}>{tempoLabel}</p>
+        {tempo && <p style={{ color: 'rgba(0,0,0,0.7)', fontSize: 16, fontWeight: 600 }}>{tempoLabel}</p>}
       </div>
 
+      {/* Mapa das estrelas */}
       {carta.recursos.includes('mapa_estrelas') && (
-        <div className="lv-card" style={{ padding: 20, marginBottom: 16, textAlign: 'center' }}>
-          <p style={{ color: '#ff6b9d', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>⭐ O céu no dia de vocês</p>
+        <div style={{ background: '#1a1a2e', borderRadius: 20, padding: '24px', marginBottom: 12, textAlign: 'center' }}>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 }}>⭐ O céu no dia de vocês</p>
           {loadingMapa && <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Gerando mapa das estrelas...</p>}
           {mapaUrl && (
-            <div style={{ width: 200, height: 200, borderRadius: '50%', overflow: 'hidden', margin: '0 auto', border: '3px solid rgba(255,107,157,0.3)' }}>
+            <div style={{ width: 180, height: 180, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 12px', border: '3px solid rgba(255,255,255,0.1)' }}>
               <img src={mapaUrl} alt="Mapa das estrelas" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
-          {estacao && <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 12 }}>{estacao.emoji} {estacao.nome} · {formatarData(carta.data_importante)}</p>}
+          {estacao && <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>{estacao.emoji} {estacao.nome} · {formatarData(carta.data_importante)}</p>}
         </div>
       )}
 
+      {/* Jogo de palavras */}
       {carta.recursos.includes('jogo_palavras') && (
-        <div className="lv-card" style={{ padding: 20, marginBottom: 16 }}>
-          <p style={{ color: '#ff6b9d', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12, textAlign: 'center' }}>🎮 Jogo de palavras</p>
+        <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '24px', marginBottom: 12 }}>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16, textAlign: 'center' }}>🎮 Jogo de palavras</p>
           {jogoFinalizado ? (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
               <div style={{ fontSize: 40, marginBottom: 8 }}>🎊</div>
-              <p style={{ color: '#4ecdc4', fontWeight: 700 }}>Você descobriu tudo!</p>
+              <p style={{ color: '#1DB954', fontWeight: 700, fontSize: 16 }}>Você descobriu tudo!</p>
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
                 {palavrasJogo.map(p => (
-                  <div key={p} style={{ padding: '8px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, background: jogoAcertos.includes(p.toLowerCase()) ? 'linear-gradient(135deg,#ff6b9d,#c44569)' : '#0f3460', color: jogoAcertos.includes(p.toLowerCase()) ? '#fff' : 'rgba(255,255,255,0.3)', letterSpacing: jogoAcertos.includes(p.toLowerCase()) ? 0 : 4, transition: 'all 0.3s' }}>
+                  <div key={p} style={{ padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: jogoAcertos.includes(p.toLowerCase()) ? '#1DB954' : '#2a2a2a', color: jogoAcertos.includes(p.toLowerCase()) ? '#000' : 'rgba(255,255,255,0.3)', letterSpacing: jogoAcertos.includes(p.toLowerCase()) ? 0 : 4, transition: 'all 0.3s' }}>
                     {jogoAcertos.includes(p.toLowerCase()) ? p : '?'.repeat(p.length)}
                   </div>
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input type="text" value={tentativa} onChange={e => setTentativa(e.target.value)} onKeyDown={e => e.key === 'Enter' && tentarJogo()} placeholder="Digite uma palavra..."
-                  style={{ flex: 1, background: '#0f3460', color: '#fff', borderRadius: 12, padding: '12px 16px', outline: 'none', border: '1px solid rgba(255,107,157,0.3)', fontSize: 14 }} />
-                <button onClick={tentarJogo} className="lv-btn" style={{ padding: '12px 20px', borderRadius: 12, fontSize: 18 }}>→</button>
+                  style={{ flex: 1, background: '#2a2a2a', color: '#fff', borderRadius: 12, padding: '12px 16px', outline: 'none', border: '1px solid rgba(255,255,255,0.1)', fontSize: 14 }} />
+                <button onClick={tentarJogo} style={{ background: '#1DB954', color: '#000', padding: '12px 20px', borderRadius: 12, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 18 }}>→</button>
               </div>
-              {msgJogo && <p style={{ textAlign: 'center', color: msgJogo.includes('Acertou') ? '#4ecdc4' : '#ff6b9d', fontSize: 13, marginTop: 8 }}>{msgJogo}</p>}
+              {msgJogo && <p style={{ textAlign: 'center', color: msgJogo.includes('Acertou') ? '#1DB954' : '#e8375a', fontSize: 13, marginTop: 8 }}>{msgJogo}</p>}
               <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 8 }}>{jogoAcertos.length}/{palavrasJogo.length} descobertas</p>
             </>
           )}
         </div>
       )}
 
+      {/* Momento marcante */}
       {carta.momento_marcante && (
-        <div className="lv-card" style={{ padding: 20, marginBottom: 16 }}>
-          <p style={{ color: '#ff6b9d', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>✨ Momento marcante</p>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6 }}>{carta.momento_marcante}</p>
+        <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '24px', marginBottom: 12 }}>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>✨ Momento marcante</p>
+          <p style={{ color: '#fff', fontSize: 15, lineHeight: 1.6 }}>{carta.momento_marcante}</p>
           {carta.localizacao && <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 8 }}>📍 {carta.localizacao}</p>}
         </div>
       )}
 
+      {/* Galeria horizontal */}
       {fotos.length > 0 && (
-        <div className="lv-card" style={{ padding: 20, marginBottom: 16 }}>
-          <p style={{ color: '#ff6b9d', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>📸 Momentos juntos</p>
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>📸 Momentos juntos</p>
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
             {fotos.map(foto => (
               <img key={foto.id} src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`} alt="Foto"
-                style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} />
+                style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} />
             ))}
           </div>
         </div>
       )}
 
-      <div style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e)', border: '1px solid rgba(255,107,157,0.2)', borderRadius: 24, padding: 24, marginBottom: 16, textAlign: 'center' }}>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 16 }}>LOVEFY WRAPPED</p>
-        <p style={{ fontSize: 32, marginBottom: 8 }}>💝</p>
-        <h3 className="lv-serif" style={{ fontSize: 22, fontWeight: 700, color: '#fff', marginBottom: 12 }}>
+      {/* Resumo compartilhável */}
+      <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '28px 24px', marginBottom: 20, textAlign: 'center' }}>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Lovefy Wrapped</p>
+        <p style={{ fontSize: 40, marginBottom: 12 }}>💝</p>
+        <h3 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>
           {carta.nome_remetente} & {carta.nome_destinatario}
         </h3>
         {tempo && (
-          <p className="lv-gradient-text" style={{ fontSize: 48, fontWeight: 900, lineHeight: 1, marginBottom: 8 }}>
+          <p style={{ color: '#1DB954', fontSize: 40, fontWeight: 900, lineHeight: 1, marginBottom: 4 }}>
             {tempo.anos > 0 ? tempo.anos : tempo.meses > 0 ? tempo.meses : tempo.dias}
           </p>
         )}
@@ -401,29 +414,28 @@ export function Pagina7Wrapped({ carta }: { carta: Carta }) {
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Criado com amor no Lovefy</p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <button onClick={compartilhar} className="lv-btn" style={{ padding: 16, borderRadius: 16, fontSize: 15, width: '100%' }}>
-          {copiado ? '✅ Link copiado!' : '💚 Compartilhar no WhatsApp'}
+      {/* Botões compartilhar */}
+      <button onClick={compartilhar} style={{ width: '100%', padding: '16px', borderRadius: 100, background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
+        {copiado ? '✅ Link copiado!' : '💚 Compartilhar no WhatsApp'}
+      </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 32 }}>
+        <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
+          style={{ display: 'block', textAlign: 'center', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: 'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)', color: '#fff', textDecoration: 'none' }}>
+          📸 Stories
+        </a>
+        <button onClick={() => { navigator.clipboard.writeText(`https://lovefy.app.br/c/${carta.slug}`); setCopiado(true); setTimeout(() => setCopiado(false), 2500) }}
+          style={{ padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer' }}>
+          🔗 Copiar link
         </button>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer"
-            style={{ display: 'block', textAlign: 'center', padding: 14, borderRadius: 16, fontSize: 14, fontWeight: 600, background: 'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)', color: '#fff', textDecoration: 'none' }}>
-            📸 Instagram
-          </a>
-          <button onClick={() => { navigator.clipboard.writeText(`https://lovefy.app.br/c/${carta.slug}`); setCopiado(true); setTimeout(() => setCopiado(false), 2500) }}
-            style={{ padding: 14, borderRadius: 16, fontSize: 14, fontWeight: 600, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', cursor: 'pointer' }}>
-            🔗 Copiar link
-          </button>
-        </div>
       </div>
 
-      <div style={{ textAlign: 'center', marginTop: 40, paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginBottom: 16 }}>Quer criar uma carta para alguém especial?</p>
-        <a href="https://lovefy.app.br/criar" style={{ display: 'inline-block', padding: '14px 32px', borderRadius: 100, fontSize: 15, fontWeight: 700, background: 'linear-gradient(135deg,#ff6b9d,#c44569)', color: '#fff', textDecoration: 'none' }}>
+      {/* CTA */}
+      <div style={{ textAlign: 'center' }}>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 16 }}>Quer criar uma carta para alguém especial?</p>
+        <a href="https://lovefy.app.br/criar" style={{ display: 'inline-block', padding: '14px 32px', borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#1DB954', color: '#000', textDecoration: 'none' }}>
           💝 Criar minha carta
         </a>
       </div>
-
     </div>
   )
 }
