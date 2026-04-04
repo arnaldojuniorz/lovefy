@@ -38,6 +38,7 @@ export function SecaoPlayer({ carta }: { carta: Carta }) {
   const fotoUrl = carta.foto_destaque
     ? `${supabaseUrl}/storage/v1/object/public/fotos/${carta.foto_destaque}`
     : null
+  const [tocando, setTocando] = useState(false)
 
   return (
     <div style={{ background: 'linear-gradient(180deg, #1a4a6e 0%, #0d2d45 100%)', minHeight: '100vh', padding: '56px 20px 40px', display: 'flex', flexDirection: 'column' }}>
@@ -46,35 +47,57 @@ export function SecaoPlayer({ carta }: { carta: Carta }) {
         <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Juntos para sempre ❤️</span>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>···</span>
       </div>
-      <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 28, width: '100%', aspectRatio: '1', background: 'rgba(255,255,255,0.05)' }}>
+
+      {/* Imagem com player integrado */}
+      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', marginBottom: 28, width: '100%', aspectRatio: '1', background: '#1a1a1a' }}>
         {fotoUrl ? (
           <img src={fotoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80, minHeight: 300 }}>💝</div>
         )}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <p style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 2 }}>Nossa música especial</p>
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>{carta.nome_remetente} & {carta.nome_destinatario}</p>
+
+        {/* Overlay escuro na parte inferior */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', pointerEvents: 'none' }} />
+
+        {/* Info da música sobre a imagem */}
+        <div style={{ position: 'absolute', bottom: 20, left: 20, right: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p style={{ color: '#fff', fontWeight: 700, fontSize: 18, marginBottom: 2 }}>Nossa música especial</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>{carta.nome_remetente} & {carta.nome_destinatario}</p>
+          </div>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid #1DB954', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)' }}>
+            <span style={{ color: '#1DB954', fontSize: 14 }}>✓</span>
+          </div>
         </div>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid #1DB954', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ color: '#1DB954', fontSize: 14 }}>✓</span>
-        </div>
+
+        {/* Botão play centralizado */}
+        {spotifyId && !tocando && (
+          <button
+            onClick={() => setTocando(true)}
+            style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 72, height: 72, borderRadius: '50%', background: '#1DB954', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#000">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </button>
+        )}
       </div>
-      {spotifyId ? (
+
+      {/* Spotify embed — aparece ao clicar em play */}
+      {spotifyId && tocando && (
         <iframe
-          src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`}
+          src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
           width="100%" height="152" frameBorder={0}
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
           loading="lazy" style={{ borderRadius: 12 }}
         />
-      ) : carta.musica_link ? (
+      )}
+
+      {!spotifyId && carta.musica_link && (
         <a href={carta.musica_link} target="_blank" rel="noopener noreferrer"
           style={{ display: 'block', textAlign: 'center', padding: '14px', borderRadius: 100, background: '#1DB954', color: '#000', fontWeight: 700, textDecoration: 'none', fontSize: 15 }}>
-          🎵 Abrir no Spotify
+          Abrir no Spotify
         </a>
-      ) : null}
+      )}
     </div>
   )
 }
@@ -162,7 +185,6 @@ export function SecaoMensagem({ carta }: { carta: Carta }) {
 export function SecaoFotos({ carta }: { carta: Carta }) {
   const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
   if (fotos.length === 0) return null
-
   const labels = ['Nossos Dates', 'Fotos aleatórias', 'Primeira viagem', 'Momentos', 'Favoritas']
 
   return (
@@ -173,11 +195,7 @@ export function SecaoFotos({ carta }: { carta: Carta }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
         {fotos.map((foto, idx) => (
           <div key={foto.id} style={{ position: 'relative', aspectRatio: '1', borderRadius: 8, overflow: 'hidden' }}>
-            <img
-              src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`}
-              alt="Foto"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
+            <img src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 8px 8px', background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }}>
               <p style={{ color: '#fff', fontSize: 11, fontWeight: 600 }}>{labels[idx] || ''}</p>
             </div>
@@ -188,7 +206,6 @@ export function SecaoFotos({ carta }: { carta: Carta }) {
   )
 }
 
-// Galeria horizontal com scroll — substitui a retrospectiva
 export function SecaoRetrospectiva({ carta }: { carta: Carta }) {
   const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
   const [fotoAtiva, setFotoAtiva] = useState(0)
@@ -196,7 +213,8 @@ export function SecaoRetrospectiva({ carta }: { carta: Carta }) {
 
   function irPara(idx: number) {
     setFotoAtiva(idx)
-    scrollRef.current?.children[idx]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    const el = scrollRef.current?.children[idx] as HTMLElement
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }
 
   return (
@@ -207,44 +225,22 @@ export function SecaoRetrospectiva({ carta }: { carta: Carta }) {
         <path d="M-50 340 Q50 390 150 320 Q250 250 400 300" stroke="rgba(220,30,80,0.5)" strokeWidth="26" fill="none" strokeLinecap="round" />
         <path d="M80 460 Q180 500 280 440 Q380 380 480 420" stroke="rgba(180,20,60,0.4)" strokeWidth="20" fill="none" strokeLinecap="round" />
       </svg>
-
       <div style={{ position: 'relative', zIndex: 1, padding: '0 20px', marginBottom: 24 }}>
-        <h2 style={{ color: '#fff', fontSize: 'clamp(28px,6vw,40px)', fontWeight: 900, marginBottom: 6 }}>
-          Galeria de vocês
-        </h2>
+        <h2 style={{ color: '#fff', fontSize: 'clamp(28px,6vw,40px)', fontWeight: 900, marginBottom: 6 }}>Galeria de vocês</h2>
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15 }}>Deslize para ver todos os momentos →</p>
       </div>
-
       {fotos.length > 0 ? (
         <div style={{ position: 'relative', zIndex: 1 }}>
-          {/* Scroll horizontal */}
-          <div
-            ref={scrollRef}
-            style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingLeft: 20, paddingRight: 20, paddingBottom: 12, scrollSnapType: 'x mandatory', msOverflowStyle: 'none', scrollbarWidth: 'none' }}
-          >
+          <div ref={scrollRef} style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingLeft: 20, paddingRight: 20, paddingBottom: 12, scrollSnapType: 'x mandatory', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
             {fotos.map((foto, idx) => (
-              <div
-                key={foto.id}
-                onClick={() => setFotoAtiva(idx)}
-                style={{ flexShrink: 0, width: '80vw', maxWidth: 320, aspectRatio: '3/4', borderRadius: 20, overflow: 'hidden', scrollSnapAlign: 'start', border: idx === fotoAtiva ? '3px solid #1DB954' : '3px solid transparent', transition: 'border 0.2s' }}
-              >
-                <img
-                  src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`}
-                  alt="Foto"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+              <div key={foto.id} onClick={() => setFotoAtiva(idx)} style={{ flexShrink: 0, width: '80vw', maxWidth: 320, aspectRatio: '3/4', borderRadius: 20, overflow: 'hidden', scrollSnapAlign: 'start', border: idx === fotoAtiva ? '3px solid #1DB954' : '3px solid transparent', transition: 'border 0.2s' }}>
+                <img src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             ))}
           </div>
-
-          {/* Indicadores */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 16, padding: '0 20px' }}>
             {fotos.map((_, idx) => (
-              <div
-                key={idx}
-                onClick={() => irPara(idx)}
-                style={{ width: idx === fotoAtiva ? 20 : 6, height: 6, borderRadius: 3, background: idx === fotoAtiva ? '#1DB954' : 'rgba(255,255,255,0.2)', cursor: 'pointer', transition: 'all 0.3s' }}
-              />
+              <div key={idx} onClick={() => irPara(idx)} style={{ width: idx === fotoAtiva ? 20 : 6, height: 6, borderRadius: 3, background: idx === fotoAtiva ? '#1DB954' : 'rgba(255,255,255,0.2)', cursor: 'pointer', transition: 'all 0.3s' }} />
             ))}
           </div>
         </div>
@@ -303,34 +299,87 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
       setMsgJogo('Acertou! 🎉')
       if (novos.length === palavrasJogo.length) setJogoFinalizado(true)
     } else if (jogoAcertos.includes(p)) {
-      setMsgJogo('Já descobriu essa! 😄')
+      setMsgJogo('Já descobriu essa!')
     } else {
-      setMsgJogo('Tente novamente! 🤔')
+      setMsgJogo('Tente novamente!')
     }
     setTentativa('')
     setTimeout(() => setMsgJogo(''), 1500)
   }
 
-  // Dica genérica baseada no tamanho da palavra
   function getDica(palavra: string): string {
     const len = palavra.length
-    if (len <= 3) return `Palavra curta (${len} letras)`
+    if (len <= 3) return `Palavra curta — ${len} letras`
     if (len <= 5) return `${len} letras`
     if (len <= 8) return `Palavra com ${len} letras`
-    return `Palavra longa (${len} letras)`
+    return `Palavra longa — ${len} letras`
   }
 
+  const url = `https://lovefy.app.br/c/${carta.slug}`
+
   function compartilharWhatsapp() {
-    const url = `https://lovefy.app.br/c/${carta.slug}`
-    const texto = `${carta.nome_remetente} criou algo especial para ${carta.nome_destinatario}! 💝 Veja aqui: ${url}`
+    const texto = `${carta.nome_remetente} criou algo especial para ${carta.nome_destinatario}! Ver aqui: ${url}`
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
   }
 
   function copiarLink() {
-    const url = `https://lovefy.app.br/c/${carta.slug}`
     navigator.clipboard.writeText(url)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 2500)
+  }
+
+  // Compartilhar para Stories do Instagram via Web Share API com fallback
+  async function compartilharStories() {
+    // Tenta gerar uma imagem canvas do card e compartilhar nativamente
+    const canvas = document.createElement('canvas')
+    canvas.width = 1080
+    canvas.height = 1920
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { setMostrarStories(true); return }
+
+    // Fundo gradiente
+    const grad = ctx.createLinearGradient(0, 0, 1080, 1920)
+    grad.addColorStop(0, '#1DB954')
+    grad.addColorStop(0.5, '#0d8c3c')
+    grad.addColorStop(1, '#121212')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, 1080, 1920)
+
+    // Textos
+    ctx.fillStyle = '#fff'
+    ctx.font = 'bold 80px Inter, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(`${carta.nome_remetente} & ${carta.nome_destinatario}`, 540, 900)
+
+    if (tempo) {
+      ctx.font = 'bold 160px Inter, sans-serif'
+      ctx.fillStyle = '#fff'
+      const num = tempo.anos > 0 ? tempo.anos : tempo.meses > 0 ? tempo.meses : tempo.dias
+      ctx.fillText(String(num), 540, 1100)
+      ctx.font = '60px Inter, sans-serif'
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'
+      ctx.fillText(tempoLabel, 540, 1200)
+    }
+
+    ctx.font = 'bold 48px Inter, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'
+    ctx.fillText('lovefy.app.br', 540, 1750)
+
+    // Tenta Web Share API com arquivo
+    try {
+      canvas.toBlob(async (blob) => {
+        if (!blob) { setMostrarStories(true); return }
+        const file = new File([blob], 'lovefy-wrapped.png', { type: 'image/png' })
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Lovefy Wrapped', text: `Ver presente: ${url}` })
+        } else {
+          // Fallback: abre modal com imagem para salvar e instruções
+          setMostrarStories(true)
+        }
+      }, 'image/png')
+    } catch {
+      setMostrarStories(true)
+    }
   }
 
   const tempoLabel = tempo
@@ -339,50 +388,41 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
     : `${tempo.dias} dias juntos`
     : ''
 
-  const url = `https://lovefy.app.br/c/${carta.slug}`
-
   return (
     <div style={{ background: '#121212', padding: '40px 20px 60px' }}>
 
-      {/* Stories modal */}
+      {/* Modal Stories */}
       {mostrarStories && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ width: '100%', maxWidth: 360, position: 'relative' }}>
-            {/* Card estilo stories do Instagram */}
+          <div style={{ width: '100%', maxWidth: 360 }}>
             <div style={{ borderRadius: 20, overflow: 'hidden', background: 'linear-gradient(135deg, #1DB954 0%, #0d8c3c 40%, #121212 100%)', aspectRatio: '9/16', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, position: 'relative' }}>
-              {/* Logo no topo */}
               <div style={{ position: 'absolute', top: 24, left: 24, right: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>Lovefy</span>
                 <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Wrapped</span>
               </div>
-
-              {/* Foto destaque */}
               {carta.foto_destaque && (
-                <div style={{ width: 120, height: 120, borderRadius: '50%', overflow: 'hidden', border: '4px solid rgba(255,255,255,0.3)', marginBottom: 20 }}>
+                <div style={{ width: 120, height: 120, borderRadius: '50%', overflow: 'hidden', border: '4px solid rgba(255,255,255,0.3)', marginBottom: 24 }}>
                   <img src={`${supabaseUrl}/storage/v1/object/public/fotos/${carta.foto_destaque}`} alt="Casal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
               )}
-
-              <h2 style={{ color: '#fff', fontSize: 28, fontWeight: 900, textAlign: 'center', marginBottom: 8, lineHeight: 1.2 }}>
+              <h2 style={{ color: '#fff', fontSize: 28, fontWeight: 900, textAlign: 'center', marginBottom: 12, lineHeight: 1.2 }}>
                 {carta.nome_remetente} & {carta.nome_destinatario}
               </h2>
-
               {tempo && (
-                <p style={{ color: '#1DB954', fontSize: 48, fontWeight: 900, lineHeight: 1, marginBottom: 4 }}>
+                <p style={{ color: '#fff', fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 8 }}>
                   {tempo.anos > 0 ? tempo.anos : tempo.meses > 0 ? tempo.meses : tempo.dias}
                 </p>
               )}
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 16, marginBottom: 24 }}>{tempoLabel}</p>
-
-              {/* Link */}
-              <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 20px', textAlign: 'center' }}>
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginBottom: 2 }}>Ver presente completo</p>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18, marginBottom: 32 }}>{tempoLabel}</p>
+              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 12, padding: '10px 20px', textAlign: 'center' }}>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 2 }}>Ver presente completo</p>
                 <p style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>lovefy.app.br/c/{carta.slug}</p>
               </div>
             </div>
-
-            {/* Botões abaixo do card */}
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center' }}>
+                Salve a imagem e poste nos Stories do Instagram
+              </p>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(url)
@@ -390,7 +430,7 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
                   setTimeout(() => setCopiado(false), 2500)
                 }}
                 style={{ padding: '14px', borderRadius: 100, background: 'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer' }}>
-                {copiado ? '✅ Link copiado! Cole nos Stories' : '📸 Copiar link para Stories do Instagram'}
+                {copiado ? 'Link copiado! Cole nos Stories' : 'Copiar link para Stories'}
               </button>
               <button onClick={() => setMostrarStories(false)}
                 style={{ padding: '12px', borderRadius: 100, background: 'rgba(255,255,255,0.1)', color: '#fff', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer' }}>
@@ -410,24 +450,29 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         {tempo && <p style={{ color: 'rgba(0,0,0,0.7)', fontSize: 16, fontWeight: 600 }}>{tempoLabel}</p>}
       </div>
 
-      {/* Mapa das estrelas */}
+      {/* Mapa das estrelas — maior destaque */}
       {carta.recursos.includes('mapa_estrelas') && (
-        <div style={{ background: '#1a1a2e', borderRadius: 20, padding: '24px', marginBottom: 12, textAlign: 'center' }}>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 }}>⭐ O céu no dia de vocês</p>
+        <div style={{ background: '#0d0d1a', borderRadius: 20, padding: '28px 24px', marginBottom: 16, textAlign: 'center' }}>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 20 }}>O céu no dia de vocês</p>
           {loadingMapa && <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Gerando mapa das estrelas...</p>}
           {mapaUrl && (
-            <div style={{ width: 180, height: 180, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 12px', border: '3px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ width: '100%', maxWidth: 280, aspectRatio: '1', borderRadius: '50%', overflow: 'hidden', margin: '0 auto 16px', border: '4px solid rgba(255,255,255,0.08)', boxShadow: '0 0 60px rgba(255,255,255,0.05)' }}>
               <img src={mapaUrl} alt="Mapa das estrelas" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
-          {estacao && <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>{estacao.emoji} {estacao.nome} · {formatarData(carta.data_importante)}</p>}
+          {estacao && (
+            <div>
+              <p style={{ color: '#fff', fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{estacao.emoji} {estacao.nome}</p>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>{formatarData(carta.data_importante)}</p>
+            </div>
+          )}
         </div>
       )}
 
       {/* Jogo de palavras com dicas */}
       {carta.recursos.includes('jogo_palavras') && (
-        <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '24px', marginBottom: 12 }}>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16, textAlign: 'center' }}>🎮 Jogo de palavras</p>
+        <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '24px', marginBottom: 16 }}>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16, textAlign: 'center' }}>Jogo de palavras</p>
           {jogoFinalizado ? (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
               <div style={{ fontSize: 40, marginBottom: 8 }}>🎊</div>
@@ -435,17 +480,15 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-                {palavrasJogo.map((p, idx) => (
-                  <div key={p} style={{ background: '#2a2a2a', borderRadius: 12, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                {palavrasJogo.map((p) => (
+                  <div key={p} style={{ background: '#2a2a2a', borderRadius: 12, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <p style={{ color: jogoAcertos.includes(p.toLowerCase()) ? '#1DB954' : 'rgba(255,255,255,0.3)', fontSize: 16, fontWeight: 700, letterSpacing: jogoAcertos.includes(p.toLowerCase()) ? 0 : 4, marginBottom: 2 }}>
+                      <p style={{ color: jogoAcertos.includes(p.toLowerCase()) ? '#1DB954' : 'rgba(255,255,255,0.3)', fontSize: 16, fontWeight: 700, letterSpacing: jogoAcertos.includes(p.toLowerCase()) ? 0 : 4, marginBottom: 4 }}>
                         {jogoAcertos.includes(p.toLowerCase()) ? p : '?'.repeat(p.length)}
                       </p>
                       {!jogoAcertos.includes(p.toLowerCase()) && (
-                        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
-                          💡 {getDica(p)}
-                        </p>
+                        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Dica: {getDica(p)}</p>
                       )}
                     </div>
                     {jogoAcertos.includes(p.toLowerCase()) && (
@@ -466,10 +509,10 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         </div>
       )}
 
-      {/* Galeria horizontal no wrapped */}
+      {/* Galeria horizontal */}
       {fotos.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>📸 Momentos juntos</p>
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Momentos juntos</p>
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
             {fotos.map(foto => (
               <img key={foto.id} src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`} alt="Foto"
@@ -479,7 +522,7 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         </div>
       )}
 
-      {/* Resumo compartilhável */}
+      {/* Resumo */}
       <div style={{ background: '#1a1a1a', borderRadius: 20, padding: '28px 24px', marginBottom: 20, textAlign: 'center' }}>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Lovefy Wrapped</p>
         <p style={{ fontSize: 40, marginBottom: 12 }}>💝</p>
@@ -495,27 +538,25 @@ export function SecaoWrapped({ carta }: { carta: Carta }) {
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Criado com amor no Lovefy</p>
       </div>
 
-      {/* Botões de compartilhamento */}
+      {/* Botões sem emojis */}
       <button onClick={compartilharWhatsapp} style={{ width: '100%', padding: '16px', borderRadius: 100, background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', marginBottom: 12 }}>
-        💚 Compartilhar no WhatsApp
+        WhatsApp
       </button>
-
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 32 }}>
-        <button
-          onClick={() => setMostrarStories(true)}
+        <button onClick={compartilharStories}
           style={{ padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: 'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          📸 Stories
+          Stories
         </button>
         <button onClick={copiarLink}
           style={{ padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 700, background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer' }}>
-          {copiado ? '✅ Copiado!' : '🔗 Copiar link'}
+          {copiado ? 'Copiado!' : 'Copiar link'}
         </button>
       </div>
 
       <div style={{ textAlign: 'center' }}>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 16 }}>Quer criar uma carta para alguém especial?</p>
         <a href="https://lovefy.app.br/criar" style={{ display: 'inline-block', padding: '14px 32px', borderRadius: 100, fontSize: 15, fontWeight: 700, background: '#1DB954', color: '#000', textDecoration: 'none' }}>
-          💝 Criar minha carta
+          Criar minha carta
         </a>
       </div>
     </div>
