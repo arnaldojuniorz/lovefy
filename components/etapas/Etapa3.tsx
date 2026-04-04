@@ -30,30 +30,17 @@ export default function Etapa3() {
 
   async function uploadFotoDestaque(file: File) {
     if (!data.carta_id) {
-      alert('Salve a carta primeiro.')
+      alert('Aguarde a carta ser criada.')
       return
     }
-
     setUploadandoDestaque(true)
-
     try {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('carta_id', data.carta_id)
-      formData.append('tipo', 'destaque')
-
-      const res = await fetch('/api/upload-destaque', {
-        method: 'POST',
-        body: formData,
-      })
-
+      const res = await fetch('/api/upload-destaque', { method: 'POST', body: formData })
       const result = await res.json()
-
-      if (!res.ok) {
-        alert(result.error || 'Erro ao fazer upload')
-        return
-      }
-
+      if (!res.ok) { alert(result.error || 'Erro ao fazer upload'); return }
       update({ foto_destaque: result.url })
     } catch {
       alert('Erro de conexão')
@@ -84,24 +71,19 @@ export default function Etapa3() {
   return (
     <div className="bg-[#16213e] rounded-3xl p-8">
       <h1 className="text-2xl font-bold text-white mb-2">Recursos extras ✨</h1>
-      <p className="text-white/50 text-sm mb-8">Selecione o que quer incluir</p>
+      <p className="text-white/50 text-sm mb-6">Personalize sua carta</p>
 
       {/* Foto destaque */}
       <div className="mb-6">
         <label className="text-white/70 text-sm block mb-2">
-          Foto destaque do casal <span className="text-white/30">(aparece no player de música)</span>
+          Foto destaque do casal <span className="text-white/30">(aparece no player de música e no contador)</span>
         </label>
         {data.foto_destaque ? (
           <div className="relative">
-            <img
-              src={data.foto_destaque}
-              alt="Foto destaque"
-              className="w-full h-48 object-cover rounded-xl border border-white/10"
-            />
+            <img src={data.foto_destaque} alt="Foto destaque" className="w-full h-48 object-cover rounded-xl border border-white/10" />
             <button
               onClick={() => update({ foto_destaque: '' })}
-              className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-lg"
-            >
+              className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">
               Trocar
             </button>
           </div>
@@ -112,19 +94,12 @@ export default function Etapa3() {
             ) : (
               <>
                 <span className="text-3xl mb-2">📸</span>
-                <p className="text-white/50 text-sm">Clique para adicionar foto</p>
+                <p className="text-white/50 text-sm">Clique para adicionar foto principal</p>
                 <p className="text-white/30 text-xs mt-1">JPG, PNG ou WEBP — máx 5MB</p>
               </>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={e => {
-                const file = e.target.files?.[0]
-                if (file) uploadFotoDestaque(file)
-              }}
-            />
+            <input type="file" accept="image/*" className="hidden"
+              onChange={e => { const file = e.target.files?.[0]; if (file) uploadFotoDestaque(file) }} />
           </label>
         )}
       </div>
@@ -164,9 +139,7 @@ export default function Etapa3() {
             {/* Mapa das Estrelas */}
             {r.id === 'mapa_estrelas' && data.recursos.includes('mapa_estrelas') && (
               <div className="mt-3 ml-2 bg-[#0f3460] rounded-xl p-4 border border-white/10">
-                <p className="text-white/70 text-sm">
-                  O mapa será gerado automaticamente com base na data que você informou.
-                </p>
+                <p className="text-white/70 text-sm">O mapa será gerado automaticamente com base na data que você informou.</p>
                 <p className="text-pink-400 font-medium text-sm mt-2">
                   {data.data_importante
                     ? new Date(data.data_importante).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -178,14 +151,18 @@ export default function Etapa3() {
             {/* Jogo de Palavras */}
             {r.id === 'jogo_palavras' && data.recursos.includes('jogo_palavras') && (
               <div className="mt-3 ml-2 bg-[#0f3460] rounded-xl p-4 border border-white/10">
-                <p className="text-white/70 text-sm mb-3">3 palavras para o jogo:</p>
+                <p className="text-white/70 text-sm mb-1">3 palavras para o jogo:</p>
+                <p className="text-white/30 text-xs mb-3">A dica exibida será o número de letras de cada palavra</p>
                 <div className="space-y-2">
                   <input type="text" value={data.jogo_palavra1} onChange={e => update({ jogo_palavra1: e.target.value })}
-                    placeholder="Palavra 1" className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm" />
+                    placeholder="Palavra 1 (ex: cidade onde se conheceram)"
+                    className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm" />
                   <input type="text" value={data.jogo_palavra2} onChange={e => update({ jogo_palavra2: e.target.value })}
-                    placeholder="Palavra 2" className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm" />
+                    placeholder="Palavra 2 (ex: apelido carinhoso)"
+                    className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm" />
                   <input type="text" value={data.jogo_palavra3} onChange={e => update({ jogo_palavra3: e.target.value })}
-                    placeholder="Palavra 3" className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm" />
+                    placeholder="Palavra 3 (ex: lugar favorito)"
+                    className="w-full bg-[#16213e] text-white rounded-xl px-4 py-2 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm" />
                 </div>
               </div>
             )}

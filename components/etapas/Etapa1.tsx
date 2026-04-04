@@ -7,7 +7,6 @@ export default function Etapa1() {
   const { data, update } = useCarta()
   const [loading, setLoading] = useState(false)
 
-  // Aquece a função serverless assim que o usuário abre a página
   useEffect(() => {
     fetch('/api/cartas?slug=warmup').catch(() => {})
   }, [])
@@ -29,8 +28,6 @@ export default function Etapa1() {
             carta_id: data.carta_id,
             nome_destinatario: data.nome_destinatario,
             nome_remetente: data.nome_remetente,
-            como_se_conheceram: data.como_se_conheceram,
-            memoria_especial: data.memoria_especial,
           }),
         })
         update({ etapa_atual: 2 })
@@ -41,10 +38,8 @@ export default function Etapa1() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nome_destinatario:  data.nome_destinatario,
-          nome_remetente:     data.nome_remetente,
-          como_se_conheceram: data.como_se_conheceram || null,
-          memoria_especial:   data.memoria_especial   || null,
+          nome_destinatario: data.nome_destinatario,
+          nome_remetente: data.nome_remetente,
         }),
       })
 
@@ -89,32 +84,6 @@ export default function Etapa1() {
             onChange={e => update({ nome_remetente: e.target.value })}
             placeholder="Ex: Lucas"
             className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
-          />
-        </div>
-
-        <div>
-          <label className="text-white/70 text-sm block mb-2">
-            Como vocês se conheceram? <span className="text-white/30">(opcional)</span>
-          </label>
-          <input
-            type="text"
-            value={data.como_se_conheceram}
-            onChange={e => update({ como_se_conheceram: e.target.value })}
-            placeholder="Ex: Na faculdade, em 2019"
-            className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
-          />
-        </div>
-
-        <div>
-          <label className="text-white/70 text-sm block mb-2">
-            Uma memória especial <span className="text-white/30">(opcional)</span>
-          </label>
-          <textarea
-            value={data.memoria_especial}
-            onChange={e => update({ memoria_especial: e.target.value })}
-            placeholder="Ex: Nossa primeira viagem juntos..."
-            rows={3}
-            className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none"
           />
         </div>
       </div>
