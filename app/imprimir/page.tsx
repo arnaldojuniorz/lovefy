@@ -10,8 +10,6 @@ export default function ImprimirPage() {
   const [dados, setDados] = useState({
     destinatario: '',
     remetente: '',
-    como_se_conheceram: '',
-    memoria_especial: '',
     mensagem: '',
     data_importante: '',
     cor: '#ff6b9d',
@@ -56,47 +54,20 @@ export default function ImprimirPage() {
     }
   }
 
-  const inputStyle = {
-    width: '100%',
-    padding: '12px 16px',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '12px',
-    fontSize: '15px',
-    color: '#fff',
-    background: '#0f3460',
-    outline: 'none',
-    boxSizing: 'border-box' as const,
-    fontFamily: 'inherit',
-  }
-
-  const textareaStyle = {
-    ...inputStyle,
-    resize: 'vertical' as const,
-  }
-
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      padding: '40px 16px',
-      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-    }}>
-      <div style={{maxWidth: '500px', margin: '0 auto'}}>
+    <main style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '40px 16px', fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <div style={{ maxWidth: '500px', margin: '0 auto' }}>
 
-        <div style={{textAlign: 'center', marginBottom: '32px'}}>
-          <a href="/" style={{color: '#ff6b9d', textDecoration: 'none', fontSize: '14px', display: 'block', marginBottom: '16px'}}>← Voltar</a>
-          <h1 style={{color: '#fff', fontSize: '24px', fontWeight: '700', margin: '0 0 8px'}}>
-            Carta para impressão
-          </h1>
-          <p style={{color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: '0'}}>
-            Um presente simples, mas inesquecível
-          </p>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <a href="/" style={{ color: '#ff6b9d', textDecoration: 'none', fontSize: '14px', display: 'block', marginBottom: '16px' }}>← Voltar</a>
+          <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: '700', margin: '0 0 8px' }}>Carta para impressão</h1>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: '0' }}>Um presente simples, mas inesquecível</p>
         </div>
 
         {/* Barra de progresso */}
-        <div style={{display: 'flex', gap: '8px', marginBottom: '32px'}}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
           {[1, 2, 3].map(n => (
-            <div key={n} style={{flex: 1, height: '4px', borderRadius: '4px', background: n <= etapa ? '#ff6b9d' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s'}} />
+            <div key={n} style={{ flex: 1, height: '4px', borderRadius: '4px', background: n <= etapa ? '#ff6b9d' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s' }} />
           ))}
         </div>
 
@@ -104,7 +75,7 @@ export default function ImprimirPage() {
         {etapa === 1 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
             <h1 className="text-2xl font-bold text-white mb-2">Para quem é essa carta? 💌</h1>
-            <p className="text-white/50 text-sm mb-8">Conte um pouco sobre a história</p>
+            <p className="text-white/50 text-sm mb-8">Preencha os dados principais</p>
 
             <div className="space-y-4">
               <div>
@@ -122,23 +93,10 @@ export default function ImprimirPage() {
               </div>
 
               <div>
-                <label className="text-white/70 text-sm block mb-2">Como se conheceram? <span className="text-white/30">(opcional)</span></label>
-                <input type="text" value={dados.como_se_conheceram} onChange={e => atualizar('como_se_conheceram', e.target.value)}
-                  placeholder="Ex: Na faculdade, em 2019"
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
-              </div>
-
-              <div>
-                <label className="text-white/70 text-sm block mb-2">Uma memória especial <span className="text-white/30">(opcional)</span></label>
-                <textarea value={dados.memoria_especial} onChange={e => atualizar('memoria_especial', e.target.value)}
-                  placeholder="Ex: Nossa primeira viagem juntos..." rows={3}
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none" />
-              </div>
-
-              <div>
                 <label className="text-white/70 text-sm block mb-2">Sua mensagem *</label>
                 <textarea value={dados.mensagem} onChange={e => atualizar('mensagem', e.target.value)}
-                  placeholder="Escreva tudo que você sente..." rows={6}
+                  placeholder="Escreva tudo que você sente..."
+                  rows={8}
                   className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none" />
               </div>
 
@@ -178,15 +136,8 @@ export default function ImprimirPage() {
                     { id: 'classico', emoji: '✨', nome: 'Clássico' },
                     { id: 'moderno', emoji: '🌟', nome: 'Moderno' },
                   ].map(e => (
-                    <div
-                      key={e.id}
-                      onClick={() => atualizar('estilo', e.id)}
-                      className={`p-4 rounded-xl border cursor-pointer transition-all text-center ${
-                        dados.estilo === e.id
-                          ? 'border-pink-500 bg-pink-500/10'
-                          : 'border-white/10 bg-[#0f3460] hover:border-white/30'
-                      }`}
-                    >
+                    <div key={e.id} onClick={() => atualizar('estilo', e.id)}
+                      className={`p-4 rounded-xl border cursor-pointer transition-all text-center ${dados.estilo === e.id ? 'border-pink-500 bg-pink-500/10' : 'border-white/10 bg-[#0f3460] hover:border-white/30'}`}>
                       <div className="text-2xl mb-2">{e.emoji}</div>
                       <div className="text-white/80 text-sm font-medium">{e.nome}</div>
                     </div>
@@ -203,19 +154,8 @@ export default function ImprimirPage() {
                     { cor: '#ffffff', nome: 'Branco' },
                     { cor: '#1a1a1a', nome: 'Preto' },
                   ].map(c => (
-                    <div
-                      key={c.cor}
-                      onClick={() => atualizar('cor', c.cor)}
-                      title={c.nome}
-                      style={{
-                        width: '48px', height: '48px', borderRadius: '50%',
-                        background: c.cor, cursor: 'pointer',
-                        border: dados.cor === c.cor ? '3px solid rgba(255,255,255,0.8)' : '2px solid transparent',
-                        transform: dados.cor === c.cor ? 'scale(1.1)' : 'scale(1)',
-                        transition: 'all 0.2s',
-                        boxShadow: (c.cor === '#ffffff' || c.cor === '#f5e6d3') ? '0 0 0 1px rgba(255,255,255,0.2)' : 'none',
-                      }}
-                    />
+                    <div key={c.cor} onClick={() => atualizar('cor', c.cor)} title={c.nome}
+                      style={{ width: '48px', height: '48px', borderRadius: '50%', background: c.cor, cursor: 'pointer', border: dados.cor === c.cor ? '3px solid rgba(255,255,255,0.8)' : '2px solid transparent', transform: dados.cor === c.cor ? 'scale(1.1)' : 'scale(1)', transition: 'all 0.2s', boxShadow: (c.cor === '#ffffff' || c.cor === '#f5e6d3') ? '0 0 0 1px rgba(255,255,255,0.2)' : 'none' }} />
                   ))}
                 </div>
               </div>
@@ -230,14 +170,8 @@ export default function ImprimirPage() {
             </div>
 
             <div className="flex gap-3 mt-8">
-              <button onClick={() => setEtapa(1)}
-                className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all">
-                ← Voltar
-              </button>
-              <button onClick={() => setEtapa(3)}
-                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all">
-                Continuar →
-              </button>
+              <button onClick={() => setEtapa(1)} className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all">← Voltar</button>
+              <button onClick={() => setEtapa(3)} className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all">Continuar →</button>
             </div>
           </div>
         )}
@@ -263,7 +197,6 @@ export default function ImprimirPage() {
                   className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
               </div>
 
-              {/* Resumo do pedido */}
               <div className="bg-pink-500/10 border border-pink-500/20 rounded-xl p-5">
                 <div className="flex justify-between items-center">
                   <div>
@@ -284,10 +217,12 @@ export default function ImprimirPage() {
               </button>
               <button onClick={handlePagar} disabled={loading}
                 className="flex-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
-                style={{flex: 2}}>
+                style={{ flex: 2 }}>
                 {loading ? 'Aguarde...' : `Pagar R$ ${PRECO_IMPRESSAO.toFixed(2).replace('.', ',')} 💳`}
               </button>
             </div>
+
+            <p className="text-center text-white/30 text-xs mt-4">🔒 Pagamento seguro pelo Mercado Pago</p>
           </div>
         )}
 
