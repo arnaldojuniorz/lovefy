@@ -57,7 +57,6 @@ export async function PATCH(request: NextRequest) {
       if (!campos.slug || campos.slug.length < 3) {
         return NextResponse.json({ error: 'O link deve ter pelo menos 3 caracteres' }, { status: 400 })
       }
-
       const { data: slugExistente } = await supabaseAdmin
         .from('cartas')
         .select('id')
@@ -94,13 +93,27 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const slug = new URL(request.url).searchParams.get('slug')
-  if (!slug || slug.length < 3) return NextResponse.json({ disponivel: false })
+  const url  = new URL(request.url)
+  const id   = url.searchParams.get('id')
+  const slug = url.searchParams.get('slug')
+
+  if (!id && !slug) {
+    return NextResponse.json({ disponivel: false })
+  }
+
+  if (id) {
+    const { data } = await supabaseAdmin
+      .from('cartas')
+      .select('id, slug, status, nome_destinatario, nome_remetente')
+      .eq('id', id)
+      .single()
+    return NextResponse.json(data ?? {})
+  }
 
   const { data } = await supabaseAdmin
     .from('cartas')
     .select('id')
-    .eq('slug', slug)
+    .eq('slug', slug!)
     .neq('status', 'rascunho')
     .maybeSingle()
 

@@ -8,8 +8,6 @@ export async function POST(request: NextRequest) {
     const {
       destinatario,
       remetente,
-      como_se_conheceram,
-      memoria_especial,
       mensagem,
       data_importante,
       cor,
@@ -38,35 +36,43 @@ export async function POST(request: NextRequest) {
       .insert({
         destinatario,
         remetente,
-        como_se_conheceram,
-        memoria_especial,
         mensagem,
         data_importante: data_importante || null,
-        cor: cor || '#ff6b9d',
-        estilo: estilo || 'classico',
-        musica_link,
+        cor:             '#ffffff',
+        estilo:          'moderno',
+        musica_link:     musica_link || null,
         nome_pagador,
         email_pagador,
-        status: 'pendente',
+        status:          'pendente',
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Erro ao salvar carta impressao:', error)
-      return NextResponse.json(
-        { error: 'Erro ao salvar carta' },
-        { status: 500 }
-      )
+      console.error('[cartas-impressao POST] erro:', error)
+      return NextResponse.json({ error: 'Erro ao salvar carta' }, { status: 500 })
     }
 
     return NextResponse.json({ carta_id: carta.id })
 
   } catch (error) {
-    console.error('Erro interno:', error)
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    console.error('[cartas-impressao POST] erro interno:', error)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
+}
+
+export async function GET(request: NextRequest) {
+  const id = new URL(request.url).searchParams.get('id')
+
+  if (!id) {
+    return NextResponse.json({ error: 'id obrigatório' }, { status: 400 })
+  }
+
+  const { data } = await supabaseAdmin
+    .from('cartas_impressao')
+    .select('id, status, pdf_url, destinatario')
+    .eq('id', id)
+    .single()
+
+  return NextResponse.json(data ?? {})
 }
