@@ -73,7 +73,8 @@ export function CartaProvider({ children }: { children: ReactNode }) {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<CartaData>
-        if (parsed.etapa_atual && parsed.etapa_atual < 5) {
+        // ✅ restaura em qualquer etapa, inclusive etapa 5
+        if (parsed.etapa_atual && parsed.etapa_atual >= 1) {
           setData(prev => ({ ...prev, ...parsed }))
         }
       }
@@ -86,12 +87,9 @@ export function CartaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return
     try {
-      const { carta_id, ...semId } = data
-      if (data.etapa_atual > 0 && data.etapa_atual < 5) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(semId))
-      }
-    } catch {
-    }
+      // ✅ salva carta_id também — sem excluir nada
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    } catch { }
   }, [data, hydrated])
 
   function update(fields: Partial<CartaData>) {
