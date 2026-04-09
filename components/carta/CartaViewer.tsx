@@ -1,617 +1,508 @@
 'use client'
-
+ 
 import { useState, useEffect, useRef } from 'react'
 import { Carta, getEstacao, getSpotifyId, formatarData, calcularTempo } from './CartaTypes'
-
+ 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-
-// ─── Máquina de estados da experiência ───────────────────────────────────────
-type Ato =
-  | 'tela_preta'      // 0–3s: tela preta + frase typewriter
-  | 'nome_trovao'     // 3–8s: nome do remetente surge
-  | 'botao_coragem'   // 8–20s: botão pulsante
-  | 'capitulos'       // 20–60s: slides
-  | 'climax'          // 60–90s: foto fullscreen + mensagem
-  | 'final'           // 90–120s: contador + screenshot
-  | 'pos_carta'       // após: rever + CTA
-
+ 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700;800;900&family=Inter:wght@400;500;600&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #000; overflow-x: hidden; }
-
-  @keyframes typewriter { from { width: 0 } to { width: 100% } }
-  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
-  @keyframes scaleIn { from { opacity: 0; transform: scale(0.8) } to { opacity: 1; transform: scale(1) } }
-  @keyframes pulse { 0%,100% { opacity: 0.7 } 50% { opacity: 1 } }
-  @keyframes zoomSlow { from { transform: scale(1) } to { transform: scale(1.05) } }
-  @keyframes countUp { from { transform: translateY(20px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-  @keyframes slideInRight { from { opacity: 0; transform: translateX(40px) } to { opacity: 1; transform: translateX(0) } }
-  @keyframes slideOutLeft { from { opacity: 1; transform: translateX(0) } to { opacity: 0; transform: translateX(-40px) } }
-
-  .fade-in { animation: fadeIn 1s ease forwards; }
-  .fade-in-up { animation: fadeInUp 0.8s ease forwards; }
-  .scale-in { animation: scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-  .pulse-btn { animation: pulse 2s ease-in-out infinite; }
-  .zoom-slow { animation: zoomSlow 10s ease-out forwards; }
-  .slide-in { animation: slideInRight 0.6s ease forwards; }
-  .slide-out { animation: slideOutLeft 0.4s ease forwards; }
+  html, body { background: #0B0B0F; overflow: hidden; }
+ 
+  @keyframes fadeIn       { from { opacity: 0 }                          to { opacity: 1 } }
+  @keyframes fadeInUp     { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: translateY(0) } }
+  @keyframes scaleIn      { from { opacity: 0; transform: scale(0.92) }  to { opacity: 1; transform: scale(1) } }
+  @keyframes gradientMove { 0%,100% { background-position: 0% 50% }     50% { background-position: 100% 50% } }
+  @keyframes pulse        { 0%,100% { opacity: 0.7; transform: scale(1) } 50% { opacity: 1; transform: scale(1.04) } }
+  @keyframes countUp      { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+  @keyframes glow         { 0%,100% { box-shadow: 0 0 20px rgba(123,46,255,0.4) } 50% { box-shadow: 0 0 40px rgba(255,46,154,0.6) } }
+  @keyframes blink        { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
+  @keyframes zoomSlow     { from { transform: scale(1) } to { transform: scale(1.06) } }
+ 
+  .fade-in     { animation: fadeIn 1s ease forwards; }
+  .fade-in-up  { animation: fadeInUp 0.8s ease forwards; }
+  .scale-in    { animation: scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  .pulse-btn   { animation: pulse 2s ease-in-out infinite; }
+  .glow-btn    { animation: glow 2s ease-in-out infinite; }
+  .zoom-slow   { animation: zoomSlow 12s ease-out forwards; }
+  .cursor      { display: inline-block; width: 2px; height: 1em; background: #fff; margin-left: 3px; animation: blink 0.8s infinite; vertical-align: text-bottom; }
+ 
+  .grad-bg {
+    background: linear-gradient(135deg, #7B2EFF, #FF2E9A, #2E9AFF, #7B2EFF);
+    background-size: 300% 300%;
+    animation: gradientMove 6s ease infinite;
+  }
+ 
+  .slide-enter { animation: fadeInUp 0.6s ease forwards; }
+ 
+  /* Scrollbar invisível */
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
 `
-
+ 
+type Slide = number // 1–24
+ 
 export default function CartaViewer({ carta }: { carta: Carta }) {
-  const [ato, setAto] = useState<Ato>('tela_preta')
-  const [capitulo, setCapitulo] = useState(0)
+  const [slide, setSlide] = useState<Slide>(1)
   const [transitioning, setTransitioning] = useState(false)
-  const [musicaIniciada, setMusicaIniciada] = useState(false)
-
-  const capitulos = buildCapitulos(carta)
-
-  function avancarAto(proximo: Ato) {
-    setTransitioning(true)
-    setTimeout(() => {
-      setAto(proximo)
-      setTransitioning(false)
-    }, 400)
-  }
-
-  function avancarCapitulo() {
-    if (capitulo < capitulos.length - 1) {
-      setTransitioning(true)
-      setTimeout(() => {
-        setCapitulo(c => c + 1)
-        setTransitioning(false)
-      }, 400)
-    } else {
-      avancarAto('climax')
-    }
-  }
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#000', fontFamily: 'Inter, system-ui, sans-serif', position: 'relative', overflow: 'hidden' }}>
-      <style>{STYLES}</style>
-
-      <div style={{ opacity: transitioning ? 0 : 1, transition: 'opacity 0.4s ease' }}>
-
-        {ato === 'tela_preta' && (
-          <AtoPretaRespira
-            carta={carta}
-            onNext={() => avancarAto('nome_trovao')}
-          />
-        )}
-
-        {ato === 'nome_trovao' && (
-          <AtoNomeTrovao
-            carta={carta}
-            onNext={() => avancarAto('botao_coragem')}
-            onMusicaIniciada={() => setMusicaIniciada(true)}
-          />
-        )}
-
-        {ato === 'botao_coragem' && (
-          <AtoBotaoCoragem
-            carta={carta}
-            onNext={() => avancarAto('capitulos')}
-          />
-        )}
-
-        {ato === 'capitulos' && (
-          <AtoCapitulos
-            carta={carta}
-            capitulo={capitulo}
-            capitulos={capitulos}
-            total={capitulos.length}
-            onNext={avancarCapitulo}
-            musicaIniciada={musicaIniciada}
-          />
-        )}
-
-        {ato === 'climax' && (
-          <AtoClimax
-            carta={carta}
-            onNext={() => avancarAto('final')}
-          />
-        )}
-
-        {ato === 'final' && (
-          <AtoFinal
-            carta={carta}
-            onNext={() => avancarAto('pos_carta')}
-          />
-        )}
-
-        {ato === 'pos_carta' && (
-          <AtoPosCarta
-            carta={carta}
-            onRever={() => {
-              setCapitulo(0)
-              setAto('tela_preta')
-            }}
-          />
-        )}
-
-      </div>
-    </div>
-  )
-}
-
-// ─── ATO 1: Tela preta que respira ───────────────────────────────────────────
-function AtoPretaRespira({ carta, onNext }: { carta: Carta; onNext: () => void }) {
-  const [fase, setFase] = useState<'silencio' | 'frase'>('silencio')
-  const [typed, setTyped] = useState('')
-  const frase = 'Alguém está pensando em você agora.'
-
-  useEffect(() => {
-    const t1 = setTimeout(() => setFase('frase'), 1200)
-    return () => clearTimeout(t1)
-  }, [])
-
-  useEffect(() => {
-    if (fase !== 'frase') return
-    let i = 0
-    const interval = setInterval(() => {
-      if (i < frase.length) {
-        setTyped(frase.slice(0, i + 1))
-        i++
-      } else {
-        clearInterval(interval)
-        setTimeout(onNext, 1000)
-      }
-    }, 80)
-    return () => clearInterval(interval)
-  }, [fase, onNext])
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-      {fase === 'frase' && (
-        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(18px,4vw,24px)', fontWeight: 300, textAlign: 'center', lineHeight: 1.6, letterSpacing: 0.5 }}>
-          &ldquo;{typed}<span style={{ display: 'inline-block', width: 2, height: '1em', background: 'rgba(255,255,255,0.5)', marginLeft: 2, animation: 'pulse 0.8s infinite', verticalAlign: 'text-bottom' }} />&rdquo;
-        </p>
-      )}
-    </div>
-  )
-}
-
-// ─── ATO 1: Nome como trovão ──────────────────────────────────────────────────
-function AtoNomeTrovao({ carta, onNext, onMusicaIniciada }: { carta: Carta; onNext: () => void; onMusicaIniciada: () => void }) {
-  const [fase, setFase] = useState<'frase' | 'nome'>('frase')
-  const spotifyId = getSpotifyId(carta.musica_link)
-
-  useEffect(() => {
-    const t1 = setTimeout(() => {
-      setFase('nome')
-      if (carta.musica_link) onMusicaIniciada()
-    }, 1500)
-    const t2 = setTimeout(onNext, 4000)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [onNext, onMusicaIniciada, carta.musica_link])
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, flexDirection: 'column', gap: 32 }}>
-      {fase === 'frase' && (
-        <p className="fade-in" style={{ color: 'rgba(255,255,255,0.5)', fontSize: 18, fontWeight: 300, textAlign: 'center' }}>
-          {carta.nome_remetente} preparou algo para você.
-        </p>
-      )}
-      {fase === 'nome' && (
-        <div className="scale-in" style={{ textAlign: 'center' }}>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16, marginBottom: 12 }}>
-            {carta.nome_remetente} preparou algo para você.
-          </p>
-          <h1 style={{ color: '#fff', fontSize: 'clamp(48px,10vw,80px)', fontWeight: 900, lineHeight: 1, letterSpacing: -2 }}>
-            {carta.nome_destinatario}
-          </h1>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── ATO 1: Botão que exige coragem ──────────────────────────────────────────
-function AtoBotaoCoragem({ carta, onNext }: { carta: Carta; onNext: () => void }) {
-  const [visivel, setVisivel] = useState(false)
-
-  useEffect(() => {
-    setTimeout(() => setVisivel(true), 600)
-  }, [])
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-      {visivel && (
-        <div className="fade-in-up" style={{ textAlign: 'center' }}>
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14, marginBottom: 48, letterSpacing: 2, textTransform: 'uppercase' }}>
-            uma carta especial te espera
-          </p>
-          <button
-            onClick={onNext}
-            className="pulse-btn"
-            style={{ background: '#fff', color: '#000', border: 'none', borderRadius: 100, padding: '20px 56px', fontSize: 18, fontWeight: 700, cursor: 'pointer', letterSpacing: -0.5 }}>
-            Abrir a carta
-          </button>
-          <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13, marginTop: 16, fontStyle: 'italic' }}>
-            {carta.nome_remetente} levou dias para escrever isso.
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── ATO 2: Capítulos ────────────────────────────────────────────────────────
-function AtoCapitulos({
-  carta, capitulo, capitulos, total, onNext, musicaIniciada
-}: {
-  carta: Carta
-  capitulo: number
-  capitulos: React.ReactNode[]
-  total: number
-  onNext: () => void
-  musicaIniciada: boolean
-}) {
-  const spotifyId = getSpotifyId(carta.musica_link)
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#111', display: 'flex', flexDirection: 'column' }}>
-      {/* Barra de progresso */}
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 3, background: 'rgba(255,255,255,0.1)' }}>
-        <div style={{ height: '100%', width: `${((capitulo + 1) / total) * 100}%`, background: '#fff', transition: 'width 0.6s ease' }} />
-      </div>
-
-      {/* Player discreto no topo */}
-      {spotifyId && (
-        <div style={{ position: 'fixed', bottom: 80, right: 16, zIndex: 100 }}>
-          <details style={{ background: 'rgba(0,0,0,0.8)', borderRadius: 12, overflow: 'hidden', backdropFilter: 'blur(10px)' }}>
-            <summary style={{ padding: '8px 14px', color: 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer', listStyle: 'none' }}>
-              🎵 música
-            </summary>
-            <iframe
-              src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`}
-              width="260" height="80" frameBorder={0}
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              style={{ display: 'block' }}
-            />
-          </details>
-        </div>
-      )}
-
-      <div className="slide-in" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {capitulos[capitulo]}
-      </div>
-
-      <div style={{ padding: '20px 24px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>{capitulo + 1} / {total}</span>
-        <button
-          onClick={onNext}
-          style={{ background: '#fff', color: '#000', border: 'none', borderRadius: 100, padding: '14px 32px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-          {capitulo < total - 1 ? 'Continuar →' : 'Ver clímax →'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ─── ATO 2: Clímax visual ────────────────────────────────────────────────────
-function AtoClimax({ carta, onNext }: { carta: Carta; onNext: () => void }) {
-  const [mostrarMensagem, setMostrarMensagem] = useState(false)
+  const [musicaAtiva, setMusicaAtiva] = useState(false)
+ 
+  const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
   const fotoUrl = carta.foto_destaque
     ? `${supabaseUrl}/storage/v1/object/public/fotos/${carta.foto_destaque}`
     : null
-
+  const spotifyId = getSpotifyId(carta.musica_link)
+ 
+  function avancar() {
+    if (slide >= 24 || transitioning) return
+    setTransitioning(true)
+    setTimeout(() => {
+      setSlide(s => s + 1)
+      setTransitioning(false)
+    }, 350)
+  }
+ 
+  function reiniciar() {
+    setTransitioning(true)
+    setTimeout(() => {
+      setSlide(1)
+      setMusicaAtiva(false)
+      setTransitioning(false)
+    }, 350)
+  }
+ 
+  // Ativa música na tela 16
   useEffect(() => {
-    setTimeout(() => setMostrarMensagem(true), 2000)
-  }, [])
-
+    if (slide === 16 && spotifyId) setMusicaAtiva(true)
+  }, [slide, spotifyId])
+ 
+  const props = { carta, avancar, fotoUrl, fotos, spotifyId, musicaAtiva, reiniciar }
+ 
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', cursor: 'pointer' }} onClick={onNext}>
-      {/* Foto fullscreen com zoom lento */}
-      {fotoUrl ? (
-        <img
-          src={fotoUrl}
-          className="zoom-slow"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          alt="Foto"
-        />
-      ) : (
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a1a2e, #0f3460)' }} />
-      )}
-
-      {/* Overlay */}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.1) 100%)' }} />
-
-      {/* Mensagem como subtítulo cinematográfico */}
-      {mostrarMensagem && (
-        <div className="fade-in" style={{ position: 'absolute', bottom: 60, left: 24, right: 24 }}>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>
-            {carta.nome_remetente} escreveu
-          </p>
-          <p style={{ color: '#fff', fontSize: 'clamp(20px,4vw,28px)', fontWeight: 700, lineHeight: 1.4, fontStyle: 'italic' }}>
-            &ldquo;{carta.mensagem_principal?.slice(0, 120)}{(carta.mensagem_principal?.length || 0) > 120 ? '...' : ''}&rdquo;
-          </p>
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, marginTop: 32 }}>Toque para continuar</p>
-        </div>
-      )}
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#0B0B0F',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: slide < 24 ? 'pointer' : 'default',
+      }}
+      onClick={slide < 24 ? avancar : undefined}
+    >
+      <style>{STYLES}</style>
+ 
+      {/* Barra de progresso */}
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 2, background: 'rgba(255,255,255,0.08)', zIndex: 200 }}>
+        <div style={{ height: '100%', width: `${(slide / 24) * 100}%`, background: 'linear-gradient(90deg, #7B2EFF, #FF2E9A)', transition: 'width 0.5s ease' }} />
+      </div>
+ 
+      <div style={{ opacity: transitioning ? 0 : 1, transition: 'opacity 0.35s ease' }}>
+        {slide === 1  && <S1  {...props} />}
+        {slide === 2  && <S2  {...props} />}
+        {slide === 3  && <S3  {...props} />}
+        {slide === 4  && <S4  {...props} />}
+        {slide === 5  && <S5  {...props} />}
+        {slide === 6  && <S6  {...props} />}
+        {slide === 7  && <S7  {...props} />}
+        {slide === 8  && <S8  {...props} />}
+        {slide === 9  && <S9  {...props} />}
+        {slide === 10 && <S10 {...props} />}
+        {slide === 11 && <S11 {...props} />}
+        {slide === 12 && <S12 {...props} />}
+        {slide === 13 && <S13 {...props} />}
+        {slide === 14 && <S14 {...props} />}
+        {slide === 15 && <S15 {...props} />}
+        {slide === 16 && <S16 {...props} />}
+        {slide === 17 && <S17 {...props} />}
+        {slide === 18 && <S18 {...props} />}
+        {slide === 19 && <S19 {...props} />}
+        {slide === 20 && <S20 {...props} />}
+        {slide === 21 && <S21 {...props} />}
+        {slide === 22 && <S22 {...props} />}
+        {slide === 23 && <S23 {...props} />}
+        {slide === 24 && <S24 {...props} />}
+      </div>
     </div>
   )
 }
-
-// ─── ATO 3: Final que vira screenshot ────────────────────────────────────────
-function AtoFinal({ carta, onNext }: { carta: Carta; onNext: () => void }) {
-  const [tempo, setTempo] = useState(calcularTempo(carta.data_importante))
-  const [visivel, setVisivel] = useState(false)
-
-  useEffect(() => {
-    setTimeout(() => setVisivel(true), 300)
-    const interval = setInterval(() => setTempo(calcularTempo(carta.data_importante)), 1000)
-    return () => clearInterval(interval)
-  }, [carta.data_importante])
-
-  const tempoLabel = tempo.anos > 0
-    ? `${tempo.anos} ${tempo.anos === 1 ? 'ano' : 'anos'}, ${tempo.dias} dias`
-    : `${tempo.meses} meses, ${tempo.dias} dias`
-
+ 
+// ─── Tipos ───────────────────────────────────────────────────────────────────
+type SP = {
+  carta: Carta
+  avancar: () => void
+  fotoUrl: string | null
+  fotos: { id: string; storage_path: string; ordem: number; is_temp: boolean }[]
+  spotifyId: string | null
+  musicaAtiva: boolean
+  reiniciar: () => void
+}
+ 
+// ─── Utilitários de layout ────────────────────────────────────────────────────
+function Tela({ children, bg = '#0B0B0F', center = true }: { children: React.ReactNode; bg?: string; center?: boolean }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 32px', textAlign: 'center' }}>
-      {visivel && (
-        <div className="fade-in-up">
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 40 }}>
-            {carta.nome_remetente} & {carta.nome_destinatario}
-          </p>
-
-          <div style={{ marginBottom: 16 }}>
-            <span className="count-up" style={{ color: '#fff', fontSize: 'clamp(72px,18vw,120px)', fontWeight: 900, lineHeight: 1, display: 'block' }}>
-              {tempo.anos > 0 ? tempo.anos : tempo.meses > 0 ? tempo.meses : tempo.dias}
-            </span>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 20, fontWeight: 300 }}>
-              {tempo.anos > 0 ? (tempo.anos === 1 ? 'ano juntos' : 'anos juntos') : tempo.meses > 0 ? (tempo.meses === 1 ? 'mês juntos' : 'meses juntos') : 'dias juntos'}
-            </span>
-          </div>
-
-          <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14, marginBottom: 64, fontStyle: 'italic' }}>
-            Cada segundo valeu.
-          </p>
-
-          {/* Contador detalhado */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 64, width: '100%', maxWidth: 320 }}>
-            {[
-              { v: String(tempo.horas).padStart(2, '0'), l: 'horas' },
-              { v: String(tempo.minutos).padStart(2, '0'), l: 'min' },
-              { v: String(tempo.segundos).padStart(2, '0'), l: 'seg' },
-            ].map(item => (
-              <div key={item.l} style={{ background: '#111', borderRadius: 12, padding: '16px 8px' }}>
-                <p style={{ color: '#fff', fontSize: 28, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{item.v}</p>
-                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{item.l}</p>
+    <div style={{
+      minHeight: '100vh',
+      background: bg,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: center ? 'center' : 'flex-start',
+      justifyContent: center ? 'center' : 'flex-start',
+      padding: '60px 28px 48px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {children}
+    </div>
+  )
+}
+ 
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
+      {children}
+    </p>
+  )
+}
+ 
+function Titulo({ children, grad }: { children: React.ReactNode; grad?: boolean }) {
+  return (
+    <h1 style={{
+      fontFamily: 'Poppins, sans-serif',
+      fontSize: 'clamp(32px, 8vw, 52px)',
+      fontWeight: 800,
+      lineHeight: 1.15,
+      textAlign: 'center',
+      ...(grad ? {
+        background: 'linear-gradient(135deg, #7B2EFF, #FF2E9A)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+      } : { color: '#fff' }),
+    }}>
+      {children}
+    </h1>
+  )
+}
+ 
+function Subtitulo({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 'clamp(16px, 4vw, 22px)', fontFamily: 'Inter, sans-serif', textAlign: 'center', lineHeight: 1.6, marginTop: 16 }}>
+      {children}
+    </p>
+  )
+}
+ 
+function GradOverlay({ from = 'bottom' }: { from?: 'bottom' | 'top' | 'full' }) {
+  const maps = {
+    bottom: 'to top',
+    top: 'to bottom',
+    full: '180deg',
+  }
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: `linear-gradient(${maps[from]}, rgba(11,11,15,0.95) 0%, rgba(11,11,15,0.4) 50%, rgba(11,11,15,0.1) 100%)`,
+      pointerEvents: 'none',
+    }} />
+  )
+}
+ 
+// ─── SLIDE 1 — HOOK ──────────────────────────────────────────────────────────
+function S1({ carta }: SP) {
+  const [vis, setVis] = useState(false)
+  useEffect(() => { setTimeout(() => setVis(true), 400) }, [])
+  return (
+    <Tela>
+      <div className="grad-bg" style={{ position: 'absolute', inset: 0, opacity: 0.12 }} />
+      {vis && (
+        <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 380 }}>
+          <Titulo>
+            Eu transformei a gente em algo que você nunca viu…
+          </Titulo>
+        </div>
+      )}
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 2 — QUEBRA ────────────────────────────────────────────────────────
+function S2({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 360 }}>
+        <Label>Your Love</Label>
+        <Titulo grad>
+          Se nosso amor virasse um "Wrapped"…
+        </Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 3 — INTRO ─────────────────────────────────────────────────────────
+function S3({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="scale-in" style={{ textAlign: 'center' }}>
+        <p style={{ fontFamily: 'Poppins, sans-serif', fontSize: 'clamp(48px, 12vw, 80px)', fontWeight: 900, color: '#fff', letterSpacing: -2 }}>
+          seria assim.
+        </p>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 4 — DATA ───────────────────────────────────────────────────────────
+function S4({ carta, fotoUrl }: SP) {
+  const dataFmt = carta.data_importante ? formatarData(carta.data_importante) : ''
+  return (
+    <Tela center={false}>
+      {fotoUrl && (
+        <>
+          <img src={fotoUrl} alt="Foto" className="zoom-slow"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          <GradOverlay from="full" />
+        </>
+      )}
+      {!fotoUrl && <div className="grad-bg" style={{ position: 'absolute', inset: 0, opacity: 0.3 }} />}
+      <div className="fade-in" style={{ position: 'relative', zIndex: 1, marginTop: 'auto', marginBottom: 'auto', width: '100%', textAlign: 'center' }}>
+        <Label>O início de tudo</Label>
+        <Titulo>Tudo começou em {dataFmt}</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 5 — CONTADOR ───────────────────────────────────────────────────────
+function S5({ carta, fotoUrl }: SP) {
+  const [tempo, setTempo] = useState(calcularTempo(carta.data_importante))
+  useEffect(() => {
+    const t = setInterval(() => setTempo(calcularTempo(carta.data_importante)), 1000)
+    return () => clearInterval(t)
+  }, [carta.data_importante])
+ 
+  const total = tempo.anos * 365 + tempo.meses * 30 + tempo.dias
+ 
+  return (
+    <Tela center={false}>
+      {fotoUrl && (
+        <>
+          <img src={fotoUrl} alt="Foto" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.35)' }} />
+          <GradOverlay from="bottom" />
+        </>
+      )}
+      {!fotoUrl && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #0B0B0F, #1a0533)' }} />}
+      <div className="fade-in-up" style={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%', marginTop: 'auto', marginBottom: 'auto' }}>
+        <p style={{ fontFamily: 'Poppins, sans-serif', fontSize: 'clamp(80px, 22vw, 130px)', fontWeight: 900, color: '#fff', lineHeight: 1, display: 'block', animation: 'countUp 0.8s ease forwards' }}>
+          {total}
+        </p>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 22, fontFamily: 'Inter, sans-serif', marginBottom: 8 }}>dias com você…</p>
+        <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>
+          {carta.nome_remetente} & {carta.nome_destinatario}
+        </p>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 6 — SIGNIFICADO ────────────────────────────────────────────────────
+function S6({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 340 }}>
+        <Titulo>e nenhum deles foi comum.</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 7 — VERDADE ───────────────────────────────────────────────────────
+function S7({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 340 }}>
+        <Label>A verdade</Label>
+        <Titulo>Nem sempre foi perfeito…</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 8 — RESOLUÇÃO ─────────────────────────────────────────────────────
+function S8({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="scale-in" style={{ textAlign: 'center', maxWidth: 340 }}>
+        <Titulo grad>mas sempre foi você.</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 9 — GALERIA ───────────────────────────────────────────────────────
+const fotoLabels = [
+  'esse dia ainda mora em mim',
+  'a gente sendo a gente',
+  'aqui eu já sabia',
+  'um dos meus favoritos',
+  'impossível esquecer',
+]
+ 
+function S9({ carta, fotos }: SP) {
+  const [ativa, setAtiva] = useState(0)
+ 
+  return (
+    <div style={{ minHeight: '100vh', background: '#0B0B0F', display: 'flex', flexDirection: 'column', paddingTop: 60, overflow: 'hidden' }}
+      onClick={e => e.stopPropagation()}>
+      <div className="fade-in" style={{ padding: '0 28px', marginBottom: 24 }}>
+        <Label>Memórias</Label>
+        <p style={{ fontFamily: 'Poppins, sans-serif', fontSize: 28, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+          Alguns momentos que ficaram…
+        </p>
+      </div>
+      {fotos.length > 0 ? (
+        <>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingLeft: 28, paddingRight: 28, paddingBottom: 12, scrollSnapType: 'x mandatory', scrollbarWidth: 'none', flex: 1 }}>
+            {fotos.map((foto, idx) => (
+              <div key={foto.id} onClick={() => setAtiva(idx)}
+                style={{ flexShrink: 0, width: '75vw', maxWidth: 300, aspectRatio: '3/4', borderRadius: 20, overflow: 'hidden', scrollSnapAlign: 'start', position: 'relative', border: idx === ativa ? '2px solid #FF2E9A' : '2px solid transparent', transition: 'border 0.2s' }}>
+                <img src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`} alt="Foto"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px 16px 16px', background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontStyle: 'italic', fontFamily: 'Inter, sans-serif' }}>
+                    {fotoLabels[idx] || ''}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
-
-          <button
-            onClick={onNext}
-            style={{ background: 'transparent', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 100, padding: '14px 32px', fontSize: 15, cursor: 'pointer' }}>
-            Quero responder com uma carta
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '16px 28px 40px' }}>
+            {fotos.map((_, idx) => (
+              <div key={idx} style={{ width: idx === ativa ? 20 : 6, height: 6, borderRadius: 3, background: idx === ativa ? '#FF2E9A' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s' }} />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14 }}>Adicione fotos para aparecerem aqui</p>
         </div>
       )}
-    </div>
-  )
-}
-
-// ─── PÓS-CARTA ───────────────────────────────────────────────────────────────
-function AtoPosCarta({ carta, onRever }: { carta: Carta; onRever: () => void }) {
-  const [mostrarRever, setMostrarRever] = useState(false)
-  const [copiado, setCopiado] = useState(false)
-  const url = `https://lovefy.app.br/c/${carta.slug}`
-
-  useEffect(() => {
-    setTimeout(() => setMostrarRever(true), 10000)
-  }, [])
-
-  function compartilharWhatsapp() {
-    const texto = `${carta.nome_remetente} criou algo especial para ${carta.nome_destinatario}! Ver aqui: ${url}`
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
-  }
-
-  function copiarLink() {
-    navigator.clipboard.writeText(url)
-    setCopiado(true)
-    setTimeout(() => setCopiado(false), 2500)
-  }
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 24px', textAlign: 'center' }}>
-      <div className="fade-in-up">
-        <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 24 }}>
-          a história de vocês merece ser contada
-        </p>
-
-        <h2 style={{ color: '#fff', fontSize: 'clamp(24px,5vw,36px)', fontWeight: 800, lineHeight: 1.2, marginBottom: 12, maxWidth: 400 }}>
-          Crie uma carta para alguém especial
-        </h2>
-
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 15, marginBottom: 48, maxWidth: 320 }}>
-          Como {carta.nome_remetente} fez por {carta.nome_destinatario}.
-        </p>
-
-        <a href="https://lovefy.app.br/criar"
-          style={{ display: 'inline-block', background: '#fff', color: '#000', fontWeight: 700, fontSize: 17, padding: '18px 48px', borderRadius: 100, textDecoration: 'none', marginBottom: 40 }}>
-          Criar minha carta
-        </a>
-
-        {/* Compartilhar */}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: 40, flexWrap: 'wrap' }}>
-          <button onClick={compartilharWhatsapp}
-            style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: 100, padding: '12px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-            WhatsApp
-          </button>
-          <button onClick={copiarLink}
-            style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 100, padding: '12px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-            {copiado ? 'Copiado!' : 'Copiar link'}
-          </button>
-        </div>
-
-        {/* Botão rever discreto */}
-        {mostrarRever && (
-          <button
-            onClick={onRever}
-            className="fade-in"
-            style={{ background: 'transparent', color: 'rgba(255,255,255,0.2)', border: 'none', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
-            Rever do início
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Capítulos do ATO 2 ───────────────────────────────────────────────────────
-function buildCapitulos(carta: Carta): React.ReactNode[] {
-  const caps: React.ReactNode[] = []
-
-  // Cap 1: Sobre o casal + contador
-  caps.push(<CapContador carta={carta} key="contador" />)
-
-  // Cap 2: Mensagem completa
-  caps.push(<CapMensagem carta={carta} key="mensagem" />)
-
-  // Cap 3: Galeria (se tiver)
-  const fotos = carta.fotos?.filter(f => !f.is_temp) || []
-  if (carta.recursos.includes('galeria') && fotos.length > 0) {
-    caps.push(<CapGaleria carta={carta} key="galeria" />)
-  }
-
-  // Cap 4: Mapa + jogo (se tiver)
-  if (carta.recursos.includes('mapa_estrelas') || carta.recursos.includes('jogo_palavras')) {
-    caps.push(<CapExtras carta={carta} key="extras" />)
-  }
-
-  return caps
-}
-
-function CapContador({ carta }: { carta: Carta }) {
-  const [tempo, setTempo] = useState(calcularTempo(carta.data_importante))
-  const fotoUrl = carta.foto_destaque
-    ? `${supabaseUrl}/storage/v1/object/public/fotos/${carta.foto_destaque}`
-    : null
-  const ano = new Date(carta.data_importante).getUTCFullYear()
-
-  useEffect(() => {
-    const interval = setInterval(() => setTempo(calcularTempo(carta.data_importante)), 1000)
-    return () => clearInterval(interval)
-  }, [carta.data_importante])
-
-  return (
-    <div style={{ flex: 1, padding: '48px 24px 24px' }}>
-      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 24 }}>Sobre o casal</p>
-      {fotoUrl && (
-        <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 24, height: 240 }}>
-          <img src={fotoUrl} alt="Casal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        </div>
-      )}
-      <h2 style={{ color: '#fff', fontSize: 28, fontWeight: 800, marginBottom: 4 }}>
-        {carta.nome_remetente} e {carta.nome_destinatario}
-      </h2>
-      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 24 }}>Juntos desde {ano}</p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-        {[
-          { v: tempo.anos, l: 'Anos' },
-          { v: tempo.meses, l: 'Meses' },
-          { v: tempo.dias, l: 'Dias' },
-        ].map(i => (
-          <div key={i.l} style={{ background: '#1a1a1a', borderRadius: 12, padding: '16px 8px', textAlign: 'center' }}>
-            <p style={{ color: '#fff', fontSize: 32, fontWeight: 800 }}>{i.v}</p>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>{i.l}</p>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-        {[
-          { v: String(tempo.horas).padStart(2, '0'), l: 'Horas' },
-          { v: String(tempo.minutos).padStart(2, '0'), l: 'Minutos' },
-          { v: String(tempo.segundos).padStart(2, '0'), l: 'Segundos' },
-        ].map(i => (
-          <div key={i.l} style={{ background: '#1a1a1a', borderRadius: 12, padding: '16px 8px', textAlign: 'center' }}>
-            <p style={{ color: '#fff', fontSize: 28, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{i.v}</p>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>{i.l}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function CapMensagem({ carta }: { carta: Carta }) {
-  const [mostrar, setMostrar] = useState(false)
-  const preview = carta.mensagem_principal?.slice(0, 120) || ''
-  const temMais = (carta.mensagem_principal?.length || 0) > 120
-
-  return (
-    <div style={{ flex: 1, padding: '48px 24px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 24 }}>Mensagem especial</p>
-      <div style={{ position: 'relative', marginBottom: 24 }}>
-        <p style={{ color: '#fff', fontSize: 'clamp(18px,4vw,24px)', fontWeight: 600, lineHeight: 1.7, fontStyle: 'italic' }}>
-          &ldquo;{mostrar ? carta.mensagem_principal : preview}{temMais && !mostrar ? '...' : ''}&rdquo;
-        </p>
-        {!mostrar && temMais && (
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: 'linear-gradient(to bottom, transparent, #111)' }} />
-        )}
-      </div>
-      {!mostrar && temMais && (
-        <button onClick={() => setMostrar(true)}
-          style={{ alignSelf: 'flex-start', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 100, padding: '10px 20px', fontSize: 14, cursor: 'pointer' }}>
-          Ler tudo
+      <div style={{ padding: '0 28px 48px', textAlign: 'right' }}>
+        <button
+          onClick={e => { e.stopPropagation(); /* parent avancar is disabled */ }}
+          onClickCapture={e => { e.stopPropagation() }}
+          style={{ background: 'linear-gradient(135deg, #7B2EFF, #FF2E9A)', color: '#fff', border: 'none', borderRadius: 100, padding: '14px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+          onClick={(e) => { e.stopPropagation(); /* handled by parent tap */ }}>
+          Continuar →
         </button>
-      )}
+      </div>
     </div>
   )
 }
-
-function CapGaleria({ carta }: { carta: Carta }) {
-  const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
-  const [ativa, setAtiva] = useState(0)
-
+ 
+// ─── SLIDE 10 — RESPIRO ──────────────────────────────────────────────────────
+function S10({ carta, fotoUrl }: SP) {
   return (
-    <div style={{ flex: 1, padding: '48px 0 24px' }}>
-      <div style={{ padding: '0 24px', marginBottom: 24 }}>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Galeria de vocês</p>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Deslize →</p>
-      </div>
-      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingLeft: 24, paddingRight: 24, paddingBottom: 12, scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-        {fotos.map((foto, idx) => (
-          <div key={foto.id} onClick={() => setAtiva(idx)}
-            style={{ flexShrink: 0, width: '75vw', maxWidth: 300, aspectRatio: '3/4', borderRadius: 16, overflow: 'hidden', scrollSnapAlign: 'start', border: idx === ativa ? '2px solid #fff' : '2px solid transparent', transition: 'border 0.2s' }}>
-            <img src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`} alt="Foto"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 16 }}>
-        {fotos.map((_, idx) => (
-          <div key={idx} style={{ width: idx === ativa ? 20 : 6, height: 6, borderRadius: 3, background: idx === ativa ? '#fff' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s' }} />
-        ))}
-      </div>
+    <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>
+      {fotoUrl && (
+        <img src={fotoUrl} alt="Foto" className="zoom-slow"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.5)' }} />
+      )}
+      {!fotoUrl && <div className="grad-bg" style={{ position: 'absolute', inset: 0, opacity: 0.2 }} />}
     </div>
   )
 }
-
-function CapExtras({ carta }: { carta: Carta }) {
-  const [mapaUrl, setMapaUrl] = useState(carta.mapa_estrelas_url || '')
-  const [loadingMapa, setLoadingMapa] = useState(!carta.mapa_estrelas_url && carta.recursos.includes('mapa_estrelas'))
-  const [jogoAcertos, setJogoAcertos] = useState<string[]>([])
-  const [tentativa, setTentativa] = useState('')
-  const [msgJogo, setMsgJogo] = useState('')
-  const [jogoFinalizado, setJogoFinalizado] = useState(false)
-  const estacao = carta.data_importante ? getEstacao(carta.data_importante) : null
-
-  const palavras: string[] = []
-  if (carta.jogo_palavra1?.trim()) palavras.push(carta.jogo_palavra1.trim())
-  if (carta.jogo_palavra2?.trim()) palavras.push(carta.jogo_palavra2.trim())
-  if (carta.jogo_palavra3?.trim()) palavras.push(carta.jogo_palavra3.trim())
-  if (palavras.length === 0) {
-    if (carta.nome_remetente) palavras.push(carta.nome_remetente)
-    if (carta.nome_destinatario) palavras.push(carta.nome_destinatario)
-    palavras.push('amor')
+ 
+// ─── SLIDE 11 — QUIZ ─────────────────────────────────────────────────────────
+const QUIZ_PALAVRAS = [
+  { label: carta_palavra1_placeholder('Casa'), resposta: 'porque é onde eu pertenço' },
+  { label: carta_palavra2_placeholder('Incrível'), resposta: 'porque você é' },
+  { label: carta_palavra3_placeholder('Amor'), resposta: 'porque virou isso pra mim' },
+]
+ 
+function carta_palavra1_placeholder(d: string) { return d }
+function carta_palavra2_placeholder(d: string) { return d }
+function carta_palavra3_placeholder(d: string) { return d }
+ 
+function S11({ carta }: SP) {
+  const [escolhida, setEscolhida] = useState<number | null>(null)
+  const [finalizado, setFinalizado] = useState(false)
+ 
+  const palavras = [
+    { label: carta.jogo_palavra1 || 'Casa', resposta: 'porque é onde eu pertenço' },
+    { label: carta.jogo_palavra2 || 'Incrível', resposta: 'porque você é' },
+    { label: carta.jogo_palavra3 || 'Amor', resposta: 'porque virou isso pra mim' },
+  ]
+ 
+  function escolher(idx: number) {
+    setEscolhida(idx)
+    setTimeout(() => setFinalizado(true), 1200)
   }
-  const palavrasJogo = palavras.slice(0, 3)
-
+ 
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 360, width: '100%' }}
+        onClick={e => e.stopPropagation()}>
+        <Label>Jogo de palavras</Label>
+        <Titulo>Se eu tivesse que te definir…</Titulo>
+        <div style={{ marginTop: 36, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {!finalizado ? palavras.map((p, idx) => (
+            <button key={idx} onClick={(e) => { e.stopPropagation(); escolher(idx) }}
+              style={{
+                padding: '16px 24px', borderRadius: 16, border: `1px solid ${escolhida === idx ? '#FF2E9A' : 'rgba(255,255,255,0.1)'}`,
+                background: escolhida === idx ? 'rgba(255,46,154,0.15)' : 'rgba(255,255,255,0.04)',
+                color: '#fff', fontSize: 17, fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+                transition: 'all 0.3s', textAlign: 'left',
+              }}>
+              {p.label}
+              {escolhida === idx && (
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 400, marginTop: 4, fontFamily: 'Inter, sans-serif' }}>
+                  → {p.resposta}
+                </p>
+              )}
+            </button>
+          )) : (
+            <div className="fade-in" style={{ padding: '24px 0', textAlign: 'center' }}>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, fontStyle: 'italic', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                "E ainda assim… faltariam palavras."
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 12 — CONEXÃO ──────────────────────────────────────────────────────
+function S12({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 340 }}>
+        <Titulo>Entre todos os caminhos…</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 13 — COMPLEMENTO ──────────────────────────────────────────────────
+function S13({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="scale-in" style={{ textAlign: 'center', maxWidth: 360 }}>
+        <Titulo grad>você virou o meu favorito.</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 14 — MAPA DAS ESTRELAS ────────────────────────────────────────────
+function S14({ carta }: SP) {
+  const [mapaUrl, setMapaUrl] = useState(carta.mapa_estrelas_url || '')
+  const [loading, setLoading] = useState(!carta.mapa_estrelas_url && carta.recursos.includes('mapa_estrelas'))
+  const estacao = carta.data_importante ? getEstacao(carta.data_importante) : null
+ 
   useEffect(() => {
     if (!carta.recursos.includes('mapa_estrelas') || carta.mapa_estrelas_url) return
     fetch('/api/mapa-estrelas', {
@@ -622,77 +513,294 @@ function CapExtras({ carta }: { carta: Carta }) {
       .then(r => r.json())
       .then(d => { if (d.imageUrl) setMapaUrl(d.imageUrl) })
       .catch(() => {})
-      .finally(() => setLoadingMapa(false))
+      .finally(() => setLoading(false))
   }, [])
-
-  function tentarJogo() {
-    const p = tentativa.toLowerCase().trim()
-    if (!p) return
-    if (palavrasJogo.map(x => x.toLowerCase()).includes(p) && !jogoAcertos.includes(p)) {
-      const novos = [...jogoAcertos, p]
-      setJogoAcertos(novos)
-      setMsgJogo('Acertou!')
-      if (novos.length === palavrasJogo.length) setJogoFinalizado(true)
-    } else if (jogoAcertos.includes(p)) {
-      setMsgJogo('Já descobriu essa!')
-    } else {
-      setMsgJogo('Tente novamente!')
-    }
-    setTentativa('')
-    setTimeout(() => setMsgJogo(''), 1500)
-  }
-
+ 
   return (
-    <div style={{ flex: 1, padding: '48px 24px 24px' }}>
-      {carta.recursos.includes('mapa_estrelas') && (
-        <div style={{ marginBottom: 32, textAlign: 'center' }}>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 20 }}>O céu no dia de vocês</p>
-          {loadingMapa && <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>Gerando mapa das estrelas...</p>}
-          {mapaUrl && (
-            <div style={{ width: '100%', maxWidth: 260, aspectRatio: '1', borderRadius: '50%', overflow: 'hidden', margin: '0 auto 16px', border: '3px solid rgba(255,255,255,0.08)' }}>
-              <img src={mapaUrl} alt="Mapa das estrelas" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          )}
-          {estacao && <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>{estacao.emoji} {estacao.nome} · {formatarData(carta.data_importante)}</p>}
-        </div>
-      )}
-
-      {carta.recursos.includes('jogo_palavras') && (
-        <div>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Jogo de palavras</p>
-          {jogoFinalizado ? (
-            <div style={{ textAlign: 'center', padding: '20px 0' }}>
-              <p style={{ fontSize: 32, marginBottom: 8 }}>🎊</p>
-              <p style={{ color: '#fff', fontWeight: 700 }}>Você descobriu tudo!</p>
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                {palavrasJogo.map(p => (
-                  <div key={p} style={{ background: '#1a1a1a', borderRadius: 12, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <p style={{ color: jogoAcertos.includes(p.toLowerCase()) ? '#fff' : 'rgba(255,255,255,0.2)', fontSize: 16, fontWeight: 700, letterSpacing: jogoAcertos.includes(p.toLowerCase()) ? 0 : 4, marginBottom: 2 }}>
-                        {jogoAcertos.includes(p.toLowerCase()) ? p : '?'.repeat(p.length)}
-                      </p>
-                      {!jogoAcertos.includes(p.toLowerCase()) && (
-                        <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>Dica: {p.length} letras</p>
-                      )}
-                    </div>
-                    {jogoAcertos.includes(p.toLowerCase()) && <span style={{ color: '#fff' }}>✓</span>}
-                  </div>
-                ))}
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', width: '100%', maxWidth: 380 }}>
+        <Label>Momento cósmico</Label>
+        <Titulo>Naquele dia… o universo já sabia.</Titulo>
+        {carta.recursos.includes('mapa_estrelas') && (
+          <div style={{ marginTop: 32 }}>
+            {loading && <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>Gerando mapa das estrelas…</p>}
+            {mapaUrl && (
+              <div style={{ width: 220, height: 220, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 16px', border: '3px solid rgba(123,46,255,0.4)', boxShadow: '0 0 60px rgba(123,46,255,0.3)' }}>
+                <img src={mapaUrl} alt="Mapa das estrelas" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input type="text" value={tentativa} onChange={e => setTentativa(e.target.value)} onKeyDown={e => e.key === 'Enter' && tentarJogo()}
-                  placeholder="Digite uma palavra..."
-                  style={{ flex: 1, background: '#1a1a1a', color: '#fff', borderRadius: 12, padding: '12px 16px', outline: 'none', border: '1px solid rgba(255,255,255,0.1)', fontSize: 14 }} />
-                <button onClick={tentarJogo} style={{ background: '#fff', color: '#000', padding: '12px 20px', borderRadius: 12, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 16 }}>→</button>
-              </div>
-              {msgJogo && <p style={{ color: msgJogo.includes('Acertou') ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 8, textAlign: 'center' }}>{msgJogo}</p>}
-            </>
-          )}
+            )}
+            {estacao && (
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>
+                {estacao.emoji} {estacao.nome} · {formatarData(carta.data_importante)}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 15 — PRÉ-MÚSICA ───────────────────────────────────────────────────
+function S15({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 340 }}>
+        <Label>A trilha sonora</Label>
+        <Titulo>Se nosso amor tivesse som…</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 16 — PLAYER ───────────────────────────────────────────────────────
+function S16({ carta, fotoUrl, spotifyId, musicaAtiva }: SP) {
+  const [tocando, setTocando] = useState(false)
+ 
+  return (
+    <Tela center={false}>
+      <div className="grad-bg" style={{ position: 'absolute', inset: 0, opacity: 0.15 }} />
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 400, margin: 'auto', padding: '0 8px' }}>
+        <Label>seria esse.</Label>
+        {/* Capa */}
+        <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', marginBottom: 24, aspectRatio: '1', background: '#1a1a2e' }}
+          onClick={e => e.stopPropagation()}>
+          {fotoUrl && <img src={fotoUrl} alt="Capa" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.6)' }} />}
+          {!fotoUrl && <div className="grad-bg" style={{ position: 'absolute', inset: 0, opacity: 0.5 }} />}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {spotifyId && !tocando && (
+              <button onClick={() => setTocando(true)}
+                style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, #7B2EFF, #FF2E9A)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 30px rgba(123,46,255,0.6)' }}
+                className="pulse-btn">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+              </button>
+            )}
+          </div>
+          <div style={{ position: 'absolute', bottom: 20, left: 20, right: 20 }}>
+            <p style={{ color: '#fff', fontWeight: 700, fontSize: 18, fontFamily: 'Poppins, sans-serif' }}>Nossa música</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>{carta.nome_remetente} & {carta.nome_destinatario}</p>
+          </div>
         </div>
-      )}
+        {spotifyId && tocando && (
+          <div onClick={e => e.stopPropagation()}>
+            <iframe
+              src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
+              width="100%" height="152" frameBorder={0}
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              style={{ borderRadius: 16 }} />
+          </div>
+        )}
+        {!spotifyId && carta.musica_link && (
+          <a href={carta.musica_link} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'block', textAlign: 'center', padding: 16, borderRadius: 100, background: 'linear-gradient(135deg, #7B2EFF, #FF2E9A)', color: '#fff', fontWeight: 700, textDecoration: 'none', fontSize: 15 }}>
+            Abrir no Spotify
+          </a>
+        )}
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 17 — SURPRESA ─────────────────────────────────────────────────────
+function S17({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 360 }}>
+        <Titulo>Mas tem uma coisa que eu nunca te disse…</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 18 — MENSAGEM COM TYPING ──────────────────────────────────────────
+function S18({ carta }: SP) {
+  const mensagem = carta.mensagem_principal || ''
+  const [typed, setTyped] = useState('')
+  const [done, setDone] = useState(false)
+ 
+  useEffect(() => {
+    let i = 0
+    const interval = setInterval(() => {
+      if (i < mensagem.length) {
+        setTyped(mensagem.slice(0, i + 1))
+        i++
+      } else {
+        setDone(true)
+        clearInterval(interval)
+      }
+    }, 35)
+    return () => clearInterval(interval)
+  }, [mensagem])
+ 
+  return (
+    <Tela center={false}>
+      <div className="grad-bg" style={{ position: 'absolute', inset: 0, opacity: 0.08 }} />
+      <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', width: '100%' }}>
+        <Label>A mensagem</Label>
+        <p style={{ color: '#fff', fontSize: 'clamp(18px, 4.5vw, 26px)', fontFamily: 'Inter, sans-serif', fontWeight: 500, lineHeight: 1.7, fontStyle: 'italic' }}>
+          &ldquo;{typed}{!done && <span className="cursor" />}&rdquo;
+        </p>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 19 — CLÍMAX ───────────────────────────────────────────────────────
+function S19({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 360 }}>
+        <Titulo>Você não foi só um capítulo…</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 20 — RESOLUÇÃO DO CLÍMAX ─────────────────────────────────────────
+function S20({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="scale-in" style={{ textAlign: 'center', maxWidth: 360 }}>
+        <Titulo grad>foi onde tudo fez sentido.</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 21 — DECLARAÇÃO ───────────────────────────────────────────────────
+function S21({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="scale-in" style={{ textAlign: 'center' }}>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16, fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>{carta.nome_remetente} diz:</p>
+        <p style={{
+          fontFamily: 'Poppins, sans-serif',
+          fontSize: 'clamp(40px, 10vw, 68px)',
+          fontWeight: 900,
+          lineHeight: 1.1,
+          background: 'linear-gradient(135deg, #7B2EFF, #FF2E9A)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
+          {carta.nome_destinatario}…<br />eu te amo.
+        </p>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 22 — FINAL CINEMATOGRÁFICO ────────────────────────────────────────
+function S22({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="fade-in-up" style={{ textAlign: 'center', maxWidth: 360 }}>
+        <Titulo>E eu escolheria você…</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 23 — FECHAMENTO ───────────────────────────────────────────────────
+function S23({ carta }: SP) {
+  return (
+    <Tela>
+      <div className="scale-in" style={{ textAlign: 'center', maxWidth: 400 }}>
+        <Titulo grad>em todas as versões da vida.</Titulo>
+      </div>
+    </Tela>
+  )
+}
+ 
+// ─── SLIDE 24 — BOTÃO FINAL ──────────────────────────────────────────────────
+function S24({ carta, reiniciar }: SP) {
+  const [copiado, setCopiado] = useState(false)
+  const url = `https://www.lovefy.app.br/c/${carta.slug}`
+ 
+  const [tempo, setTempo] = useState(calcularTempo(carta.data_importante))
+  useEffect(() => {
+    const t = setInterval(() => setTempo(calcularTempo(carta.data_importante)), 1000)
+    return () => clearInterval(t)
+  }, [carta.data_importante])
+ 
+  function compartilharWpp() {
+    const texto = `${carta.nome_remetente} criou algo especial para ${carta.nome_destinatario}! Ver aqui: ${url}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
+  }
+ 
+  function copiar() {
+    navigator.clipboard.writeText(url)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2500)
+  }
+ 
+  return (
+    <div style={{ minHeight: '100vh', background: '#0B0B0F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 28px 48px', position: 'relative', overflow: 'hidden' }}>
+      <div className="grad-bg" style={{ position: 'absolute', inset: 0, opacity: 0.1 }} />
+      <div className="fade-in-up" style={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%', maxWidth: 400 }}>
+ 
+        {/* Contador ao vivo */}
+        <div style={{ marginBottom: 40 }}>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>
+            {carta.nome_remetente} & {carta.nome_destinatario}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+            {[{ v: tempo.anos, l: 'Anos' }, { v: tempo.meses, l: 'Meses' }, { v: tempo.dias, l: 'Dias' }].map(i => (
+              <div key={i.l} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '14px 8px' }}>
+                <p style={{ color: '#fff', fontSize: 28, fontWeight: 800, fontFamily: 'Poppins, sans-serif' }}>{i.v}</p>
+                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontFamily: 'Inter, sans-serif', marginTop: 4 }}>{i.l}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            {[
+              { v: String(tempo.horas).padStart(2, '0'), l: 'Horas' },
+              { v: String(tempo.minutos).padStart(2, '0'), l: 'Min' },
+              { v: String(tempo.segundos).padStart(2, '0'), l: 'Seg' },
+            ].map(i => (
+              <div key={i.l} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '14px 8px' }}>
+                <p style={{ color: '#fff', fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontFamily: 'Poppins, sans-serif' }}>{i.v}</p>
+                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontFamily: 'Inter, sans-serif', marginTop: 4 }}>{i.l}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+ 
+        {/* Botão principal */}
+        <button
+          className="glow-btn pulse-btn"
+          onClick={compartilharWpp}
+          style={{ width: '100%', padding: '20px', borderRadius: 100, background: 'linear-gradient(135deg, #7B2EFF, #FF2E9A)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 17, fontFamily: 'Poppins, sans-serif', marginBottom: 12 }}>
+          💌 Escolher você de novo
+        </button>
+ 
+        {/* Compartilhar */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 32 }}>
+          <button onClick={compartilharWpp}
+            style={{ padding: 14, borderRadius: 100, background: '#25D366', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14, fontFamily: 'Inter, sans-serif' }}>
+            WhatsApp
+          </button>
+          <button onClick={copiar}
+            style={{ padding: 14, borderRadius: 100, background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontWeight: 600, fontSize: 14, fontFamily: 'Inter, sans-serif' }}>
+            {copiado ? 'Copiado!' : 'Copiar link'}
+          </button>
+        </div>
+ 
+        {/* CTA criar */}
+        <div style={{ marginBottom: 32 }}>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14, marginBottom: 12, fontFamily: 'Inter, sans-serif' }}>
+            Como {carta.nome_remetente} fez por você.
+          </p>
+          <a href="https://www.lovefy.app.br/criar"
+            style={{ display: 'inline-block', padding: '14px 32px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: 14, fontWeight: 600, textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>
+            Criar minha carta
+          </a>
+        </div>
+ 
+        <button onClick={reiniciar}
+          style={{ background: 'transparent', color: 'rgba(255,255,255,0.2)', border: 'none', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'Inter, sans-serif' }}>
+          Rever do início
+        </button>
+      </div>
     </div>
   )
 }
