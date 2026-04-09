@@ -10,9 +10,39 @@ const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
 })
 
+const WEBHOOK_SECRET = process.env.MERCADOPAGO_WEBHOOK_SECRET!
+
+function validarAssinatura(request: NextRequest, rawBody: string): boolean {
+  const xSignature = request.headers.get('x-signature')
+  const xRequestId = request.headers.get('x-request-id')
+
+  if (!xSignature || !xRequestId) return false
+
+  const params = new URLSearchParams(request.nextUrl.search)
+  const dataId = params.get('data.id') ?? ''
+  const ts = xSignature.split(',').find(p => p.startsWith('ts='))?.split('=')[1] ?? ''
+
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
+
+  const crypto = require('crypto')
+  const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET)
+  hmac.update(manifest)
+  const hash = hmac.digest('hex')
+
+  const v1 = xSignature.split(',').find(p => p.startsWith('v1='))?.split('=')[1]
+  return hash === v1
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const rawBody = await request.text()
+
+    if (!validarAssinatura(request, rawBody)) {
+      console.warn('[webhook] assinatura inválida — request bloqueado')
+      return NextResponse.json({ ok: false }, { status: 401 })
+    }
+
+    const body = JSON.parse(rawBody)
     console.log('[webhook] recebido:', JSON.stringify(body))
 
     if (body.type !== 'payment') {
@@ -38,12 +68,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    const [carta_id, tipo] = externalRef.includes('|')
+    const [carta_id, plano] = externalRef.includes('|')
       ? externalRef.split('|')
-      : [externalRef, 'digital']
+      : [externalRef, 'forever']
 
-    // Idempotência — verifica se já foi processado
-    const tabela = tipo === 'impressao' ? 'cartas_impressao' : 'cartas'
+    const tabela = plano === 'impressao' ? 'cartas_impressao' : 'cartas'
     const { data: cartaAtual } = await supabaseAdmin
       .from(tabela)
       .select('id, status')
@@ -60,10 +89,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    if (tipo === 'impressao') {
+    if (plano === 'impressao') {
       await processarImpressao(carta_id, String(paymentId))
     } else {
-      await processarDigital(carta_id, String(paymentId), tipo)
+      await processarDigital(carta_id, String(paymentId), plano)
     }
 
     return NextResponse.json({ ok: true })
@@ -74,7 +103,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processarDigital(carta_id: string, paymentId: string, tipo: string) {
+async function processarDigital(carta_id: string, paymentId: string, plano: string) {
   const { data: carta, error } = await supabaseAdmin
     .from('cartas')
     .update({
@@ -93,8 +122,7 @@ async function processarDigital(carta_id: string, paymentId: string, tipo: strin
 
   console.log('[webhook] carta digital ativada:', carta_id)
 
-  // Agenda deleção automática para cartas 24h
-  if (tipo === '24h') {
+  if (plano === '24h') {
     try {
       await supabaseAdmin.from('jobs').insert({
         tipo: 'deletar_carta_24h',

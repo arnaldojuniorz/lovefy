@@ -7,53 +7,41 @@ const client = new MercadoPagoConfig({
 })
 
 const PLANOS = {
-  '24h': { preco: 6.90, titulo: 'Lovefy 24 Horas' },
-  'forever': { preco: 12.90, titulo: 'Lovefy Para Sempre' },
-  'impressao': { preco: 9.90, titulo: 'Lovefy Carta Impressao' },
+  '24h':       { preco: 6.90,  titulo: 'Lovefy - Carta Digital 24h' },
+  'forever':   { preco: 12.90, titulo: 'Lovefy - Carta Digital Para Sempre' },
+  'impressao': { preco: 9.90,  titulo: 'Lovefy - Carta para Impressão' },
 }
+
+const BASE_URL = 'https://lovefy.app.br'
 
 export async function POST(request: NextRequest) {
   try {
     const { carta_id, plano, tipo } = await request.json()
 
-    if (!carta_id) {
+    if (!carta_id || !plano) {
       return NextResponse.json(
-        { error: 'carta_id é obrigatório' },
+        { error: 'carta_id e plano são obrigatórios' },
         { status: 400 }
       )
     }
 
-    const planoSelecionado = PLANOS[plano as keyof typeof PLANOS] || PLANOS['forever']
+    const planoSelecionado = PLANOS[plano as keyof typeof PLANOS] ?? PLANOS['forever']
+    const tabela = tipo === 'impressao' ? 'cartas_impressao' : 'cartas'
 
-    // Buscar carta na tabela correta
-    let carta = null
-    if (tipo === 'impressao') {
-      const { data } = await supabaseAdmin
-        .from('cartas_impressao')
-        .select('*')
-        .eq('id', carta_id)
-        .single()
-      carta = data
-    } else {
-      const { data } = await supabaseAdmin
-        .from('cartas')
-        .select('*')
-        .eq('id', carta_id)
-        .single()
-      carta = data
-    }
+    const { data: carta } = await supabaseAdmin
+      .from(tabela)
+      .select('id, nome_pagador, email_pagador, slug')
+      .eq('id', carta_id)
+      .single()
 
     if (!carta) {
-      return NextResponse.json(
-        { error: 'Carta não encontrada' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Carta não encontrada' }, { status: 404 })
     }
 
-    const successUrl = 'https://lovefy.app.br/obrigado?carta_id=' + carta_id + '&tipo=' + (tipo || 'digital')
-    const failureUrl = tipo === 'impressao' ? 'https://lovefy.app.br/imprimir' : 'https://lovefy.app.br/criar'
-    const pendingUrl = successUrl
-    const webhookUrl = 'https://lovefy.app.br/api/webhook'
+    const externalReference = `${carta_id}|${plano}`
+
+    const successUrl = `${BASE_URL}/obrigado?carta_id=${carta_id}&plano=${plano}&tipo=${tipo || 'digital'}`
+    const failureUrl = tipo === 'impressao' ? `${BASE_URL}/imprimir` : `${BASE_URL}/criar`
 
     const preference = new Preference(client)
     const response = await preference.create({
@@ -68,22 +56,25 @@ export async function POST(request: NextRequest) {
           },
         ],
         payer: {
-          name: carta.nome_pagador,
-          email: carta.email_pagador,
+          name: carta.nome_pagador ?? 'Cliente',
+          email: carta.email_pagador ?? 'pagador@lovefy.app.br',
         },
         back_urls: {
           success: successUrl,
           failure: failureUrl,
-          pending: pendingUrl,
+          pending: successUrl,
         },
         auto_return: 'approved',
-        external_reference: carta_id + '|' + (tipo || 'digital'),
-        notification_url: webhookUrl,
+        external_reference: externalReference,
+        notification_url: `${BASE_URL}/api/webhook`,
+        expires: true,
+        expiration_date_from: new Date().toISOString(),
+        expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       },
     })
 
     await supabaseAdmin
-      .from(tipo === 'impressao' ? 'cartas_impressao' : 'cartas')
+      .from(tabela)
       .update({ mercadopago_preference_id: response.id })
       .eq('id', carta_id)
 
@@ -92,10 +83,10 @@ export async function POST(request: NextRequest) {
       checkout_url: response.init_point,
     })
 
-  } catch (error) {
-    console.error('Erro ao criar preferência:', error)
+  } catch (error: any) {
+    console.error('[checkout] erro:', error)
     return NextResponse.json(
-      { error: 'Erro ao criar preferência de pagamento' },
+      { error: 'Erro ao criar preferência de pagamento', detalhe: error?.message },
       { status: 500 }
     )
   }
