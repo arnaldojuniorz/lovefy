@@ -28,16 +28,20 @@ export async function POST(request: NextRequest) {
     const planoSelecionado = PLANOS[plano as keyof typeof PLANOS] ?? PLANOS['forever']
     const tabela = tipo === 'impressao' ? 'cartas_impressao' : 'cartas'
 
-    const { data: carta } = await supabaseAdmin
+    const { data: carta, error: cartaError } = await supabaseAdmin
       .from(tabela)
-      .select('id, nome_pagador, email_pagador, slug')
+      .select('*')
       .eq('id', carta_id)
       .single()
 
-    if (!carta) {
+    if (cartaError || !carta) {
+      console.error('[checkout] carta não encontrada:', cartaError)
       return NextResponse.json({ error: 'Carta não encontrada' }, { status: 404 })
     }
 
+    // Suporta ambos os schemas (cartas e cartas_impressao)
+    const nomePagador  = carta.nome_pagador  ?? carta.remetente  ?? 'Cliente'
+    const emailPagador = carta.email_pagador ?? 'pagador@lovefy.app.br'
     const externalReference = `${carta_id}|${plano}`
 
     const successUrl = `${BASE_URL}/obrigado?carta_id=${carta_id}&plano=${plano}&tipo=${tipo || 'digital'}`
@@ -56,8 +60,8 @@ export async function POST(request: NextRequest) {
           },
         ],
         payer: {
-          name: carta.nome_pagador ?? 'Cliente',
-          email: carta.email_pagador ?? 'pagador@lovefy.app.br',
+          name: nomePagador,
+          email: emailPagador,
         },
         back_urls: {
           success: successUrl,
