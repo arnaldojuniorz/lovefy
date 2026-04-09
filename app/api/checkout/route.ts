@@ -12,7 +12,7 @@ const PLANOS = {
   'impressao': { preco: 9.90,  titulo: 'Lovefy - Carta para Impressão' },
 }
 
-const BASE_URL = 'https://lovefy.app.br'
+const BASE_URL = 'https://www.lovefy.app.br'
 
 export async function POST(request: NextRequest) {
   try {

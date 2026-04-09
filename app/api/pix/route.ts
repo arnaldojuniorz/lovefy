@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
           first_name: nome_pagador || 'Cliente',
         },
         external_reference: `${carta_id}|${plano}`,
-        notification_url: 'https://lovefy.app.br/api/webhook',
+        notification_url: 'https://www.lovefy.app.br/api/webhook',
       },
     })
 
