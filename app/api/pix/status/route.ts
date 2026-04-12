@@ -20,25 +20,23 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tabela = tipo === 'impressao' ? 'cartas_impressao' : 'cartas'
+    const isImpressao = tipo === 'impressao'
+    const tabela = isImpressao ? 'cartas_impressao' : 'cartas'
 
-    const { data: carta, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from(tabela)
-      .select('status, slug, pdf_url')
+      .select('*')
       .eq('id', carta_id)
       .single()
 
-    // ✅ log temporário para debug
-    console.log('[pix/status] carta_id:', carta_id)
-    console.log('[pix/status] carta:', JSON.stringify(carta))
-    console.log('[pix/status] error:', JSON.stringify(error))
+    console.log('[pix/status] carta:', JSON.stringify(data), 'error:', JSON.stringify(error))
 
-    if (carta?.status === 'ativo') {
+    if (data?.status === 'ativo') {
       return NextResponse.json({
         status: 'approved',
         carta_status: 'ativo',
-        slug: carta.slug ?? null,
-        pdf_url: carta.pdf_url ?? null,
+        slug: data.slug ?? null,
+        pdf_url: data.pdf_url ?? null,
       })
     }
 
@@ -47,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       status: response.status,
-      carta_status: carta?.status ?? 'pendente',
+      carta_status: data?.status ?? 'pendente',
       slug: null,
       pdf_url: null,
     })
