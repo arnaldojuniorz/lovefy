@@ -19,24 +19,67 @@ export default function Etapa5() {
     setErro('')
 
     try {
-      const patchResponse = await fetch('/api/cartas', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          carta_id: data.carta_id,
-          nome_pagador: data.nome_pagador,
-          email_pagador: data.email_pagador,
-          status: 'pendente',
-        }),
-      })
+      let carta_id = data.carta_id
 
-      if (!patchResponse.ok) {
-        const result = await patchResponse.json()
-        setErro(result.error || 'Erro ao salvar dados')
-        return
+      // Se tem carta_id, tenta atualizar
+      if (carta_id) {
+        const patchRes = await fetch('/api/cartas', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            carta_id,
+            nome_pagador: data.nome_pagador,
+            email_pagador: data.email_pagador,
+            status: 'pendente',
+          }),
+        })
+
+        // Se carta não existe mais, recria
+        if (!patchRes.ok) {
+          carta_id = ''
+        }
       }
 
-      window.location.href = `/checkout?carta_id=${data.carta_id}&plano=${plano}&tipo=digital&nome=${encodeURIComponent(data.nome_pagador)}&email=${encodeURIComponent(data.email_pagador)}`
+      // Cria nova carta se não tem ID ou se o PATCH falhou
+      if (!carta_id) {
+        const postRes = await fetch('/api/cartas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nome_destinatario:  data.nome_destinatario,
+            nome_remetente:     data.nome_remetente,
+            como_se_conheceram: data.como_se_conheceram,
+            memoria_especial:   data.memoria_especial,
+            mensagem_principal: data.mensagem_principal,
+            data_importante:    data.data_importante,
+            musica_link:        data.musica_link,
+            musica_nome:        data.musica_nome,
+            foto_destaque:      data.foto_destaque,
+            localizacao:        data.localizacao,
+            momento_marcante:   data.momento_marcante,
+            recursos:           data.recursos,
+            jogo_palavra1:      data.jogo_palavra1,
+            jogo_palavra2:      data.jogo_palavra2,
+            jogo_palavra3:      data.jogo_palavra3,
+            slug:               data.slug,
+            nome_pagador:       data.nome_pagador,
+            email_pagador:      data.email_pagador,
+            status:             'pendente',
+          }),
+        })
+
+        const postResult = await postRes.json()
+
+        if (!postRes.ok) {
+          setErro(postResult.error || 'Erro ao criar carta')
+          return
+        }
+
+        carta_id = postResult.carta_id
+        update({ carta_id })
+      }
+
+      window.location.href = `/checkout?carta_id=${carta_id}&plano=${plano}&tipo=digital&nome=${encodeURIComponent(data.nome_pagador)}&email=${encodeURIComponent(data.email_pagador)}`
 
     } catch {
       setErro('Erro de conexão. Tente novamente.')
@@ -73,7 +116,6 @@ export default function Etapa5() {
           />
         </div>
 
-        {/* Seleção de plano */}
         <div>
           <label className="text-white/70 text-sm block mb-3">Escolha seu plano *</label>
           <div className="grid grid-cols-2 gap-3">
