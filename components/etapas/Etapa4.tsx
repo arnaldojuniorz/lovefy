@@ -6,6 +6,7 @@ import { useCarta } from '@/lib/carta-context'
 export default function Etapa4() {
   const { data, update } = useCarta()
   const [status, setStatus] = useState<'idle' | 'verificando' | 'disponivel' | 'indisponivel'>('idle')
+  const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
     if (!data.slug || data.slug.length < 3) {
@@ -28,7 +29,7 @@ export default function Etapa4() {
     return () => clearTimeout(timer)
   }, [data.slug])
 
-  function avancar() {
+  async function avancar() {
     if (!data.slug || data.slug.length < 3) {
       alert('O link deve ter pelo menos 3 caracteres!')
       return
@@ -41,7 +42,38 @@ export default function Etapa4() {
       alert('Aguarde a verificação do link!')
       return
     }
-    update({ etapa_atual: 5 })
+    if (!data.carta_id) {
+      alert('Erro: carta não encontrada. Volte para o início.')
+      return
+    }
+
+    setSalvando(true)
+
+    try {
+      // ✅ salva slug no Supabase antes de avançar
+      const res = await fetch('/api/cartas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          carta_id: data.carta_id,
+          slug: data.slug,
+        }),
+      })
+
+      const result = await res.json()
+
+      if (!res.ok) {
+        alert(result.error || 'Erro ao salvar link. Tente novamente.')
+        return
+      }
+
+      update({ etapa_atual: 5 })
+
+    } catch {
+      alert('Erro de conexão. Tente novamente.')
+    } finally {
+      setSalvando(false)
+    }
   }
 
   return (
@@ -62,7 +94,6 @@ export default function Etapa4() {
           />
         </div>
 
-        {/* Status do slug */}
         <div className="mt-2 h-5">
           {status === 'verificando' && (
             <p className="text-white/40 text-xs">⏳ Verificando disponibilidade...</p>
@@ -88,16 +119,17 @@ export default function Etapa4() {
       <div className="flex gap-3 mt-8">
         <button
           onClick={() => update({ etapa_atual: 3 })}
-          className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all"
+          disabled={salvando}
+          className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50"
         >
           ← Voltar
         </button>
         <button
           onClick={avancar}
-          disabled={status === 'verificando' || status === 'indisponivel'}
+          disabled={status === 'verificando' || status === 'indisponivel' || salvando}
           className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
         >
-          Continuar →
+          {salvando ? 'Salvando...' : 'Continuar →'}
         </button>
       </div>
     </div>
