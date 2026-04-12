@@ -21,11 +21,17 @@ export async function GET(request: NextRequest) {
     }
 
     const tabela = tipo === 'impressao' ? 'cartas_impressao' : 'cartas'
-    const { data: carta } = await supabaseAdmin
+
+    const { data: carta, error } = await supabaseAdmin
       .from(tabela)
       .select('status, slug, pdf_url')
       .eq('id', carta_id)
       .single()
+
+    // ✅ log temporário para debug
+    console.log('[pix/status] carta_id:', carta_id)
+    console.log('[pix/status] carta:', JSON.stringify(carta))
+    console.log('[pix/status] error:', JSON.stringify(error))
 
     if (carta?.status === 'ativo') {
       return NextResponse.json({
