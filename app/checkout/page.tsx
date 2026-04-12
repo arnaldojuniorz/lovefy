@@ -77,7 +77,6 @@ function CheckoutContent() {
         return
       }
 
-      // Cartão
       const res = await fetch('/api/checkout/processar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -132,11 +131,12 @@ function CheckoutContent() {
               initialization={{ amount: valor, preferenceId }}
               customization={{
                 paymentMethods: {
-                  creditCard:   'all' as const,
-                  bankTransfer: 'all' as const,
-                  mercadoPago:  [] as const,
-                  debitCard:    [] as const,
-                  ticket:       [] as const,
+                  creditCard:      'all' as const,
+                  bankTransfer:    'all' as const,
+                  mercadoPago:     [] as const,
+                  debitCard:       [] as const,
+                  ticket:          [] as const,
+                  maxInstallments: 1,
                 },
                 visual: { style: { theme: 'dark' } },
               }}
