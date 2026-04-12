@@ -73,7 +73,6 @@ function CheckoutContent() {
           return
         }
 
-        // ✅ passa carta_id e plano para o polling funcionar corretamente
         window.location.href = `/aguardando-pix?payment_id=${result.payment_id}&carta_id=${carta_id}&tipo=${tipo}&plano=${plano}&qr=${encodeURIComponent(result.qr_code)}&qr64=${encodeURIComponent(result.qr_code_base64 ?? '')}`
         return
       }
@@ -133,11 +132,11 @@ function CheckoutContent() {
               initialization={{ amount: valor, preferenceId }}
               customization={{
                 paymentMethods: {
-                  creditCard: 'all' as const,
-                  debitCard:  'all' as const,
-                  ticket:     'all' as const,
+                  creditCard:   'all' as const,
                   bankTransfer: 'all' as const,
                   mercadoPago:  [] as const,
+                  debitCard:    [] as const,
+                  ticket:       [] as const,
                 },
                 visual: { style: { theme: 'dark' } },
               }}
