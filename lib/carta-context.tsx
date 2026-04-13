@@ -5,18 +5,13 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 export type CartaData = {
   nome_destinatario: string
   nome_remetente: string
-  como_se_conheceram: string
-  memoria_especial: string
   data_importante: string
   mensagem_principal: string
   estilo_fundo: string
   estilo_animacao: string
   recursos: string[]
   musica_link: string
-  musica_nome: string
   foto_destaque: string
-  localizacao: string
-  momento_marcante: string
   fotos_ids: string[]
   jogo_palavra1: string
   jogo_palavra2: string
@@ -31,18 +26,13 @@ export type CartaData = {
 const defaultData: CartaData = {
   nome_destinatario: '',
   nome_remetente: '',
-  como_se_conheceram: '',
-  memoria_especial: '',
   data_importante: '',
   mensagem_principal: '',
   estilo_fundo: 'stars',
   estilo_animacao: 'float',
   recursos: [],
   musica_link: '',
-  musica_nome: '',
   foto_destaque: '',
-  localizacao: '',
-  momento_marcante: '',
   fotos_ids: [],
   jogo_palavra1: '',
   jogo_palavra2: '',
@@ -73,7 +63,6 @@ export function CartaProvider({ children }: { children: ReactNode }) {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<CartaData>
-        // ✅ restaura em qualquer etapa, inclusive etapa 5
         if (parsed.etapa_atual && parsed.etapa_atual >= 1) {
           setData(prev => ({ ...prev, ...parsed }))
         }
@@ -87,7 +76,6 @@ export function CartaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return
     try {
-      // ✅ salva carta_id também — sem excluir nada
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     } catch { }
   }, [data, hydrated])
