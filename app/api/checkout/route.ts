@@ -39,10 +39,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Carta não encontrada' }, { status: 404 })
     }
 
-    const nomePagador  = carta.nome_pagador  ?? carta.remetente  ?? 'Cliente'
+    const nomeCompleto = carta.nome_pagador ?? carta.remetente ?? 'Cliente'
+    const nomeParts    = nomeCompleto.trim().split(' ')
+    const firstName    = nomeParts[0] ?? 'Cliente'
+    const lastName     = nomeParts.slice(1).join(' ') || firstName
     const emailPagador = carta.email_pagador ?? 'pagador@lovefy.app.br'
-    const externalReference = `${carta_id}|${plano}`
 
+    const externalReference = `${carta_id}|${plano}`
     const successUrl = `${BASE_URL}/obrigado?carta_id=${carta_id}&plano=${plano}&tipo=${tipo || 'digital'}`
     const failureUrl = tipo === 'impressao' ? `${BASE_URL}/imprimir` : `${BASE_URL}/criar`
 
@@ -61,19 +64,21 @@ export async function POST(request: NextRequest) {
           },
         ],
         payer: {
-          name:  nomePagador,
-          email: emailPagador,
-        },
+          name:       nomeCompleto,
+          email:      emailPagador,
+          first_name: firstName,
+          last_name:  lastName,
+        } as any,
         back_urls: {
           success: successUrl,
           failure: failureUrl,
           pending: successUrl,
         },
-        auto_return: 'approved',
-        external_reference: externalReference,
-        notification_url: `${BASE_URL}/api/webhook`,
+        auto_return:          'approved',
+        external_reference:   externalReference,
+        notification_url:     `${BASE_URL}/api/webhook`,
         statement_descriptor: 'LOVEFY',
-        expires: true,
+        expires:              true,
         expiration_date_from: new Date().toISOString(),
         expiration_date_to:   new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       },
