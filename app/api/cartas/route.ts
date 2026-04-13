@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { nome_destinatario, nome_remetente, como_se_conheceram, memoria_especial } = body
+    const { nome_destinatario, nome_remetente } = body
 
     if (!nome_destinatario || !nome_remetente) {
       return NextResponse.json(
@@ -18,12 +18,10 @@ export async function POST(request: NextRequest) {
       .insert({
         nome_destinatario,
         nome_remetente,
-        como_se_conheceram:  como_se_conheceram || null,
-        memoria_especial:    memoria_especial   || null,
-        estilo_fundo:        'stars',
-        estilo_animacao:     'float',
-        recursos:            [],
-        status:              'rascunho',
+        estilo_fundo:    'stars',
+        estilo_animacao: 'float',
+        recursos:        [],
+        status:          'rascunho',
       })
       .select()
       .single()
@@ -50,17 +48,49 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'carta_id é obrigatório' }, { status: 400 })
     }
 
-    const protegidos = ['id', 'created_at', 'mercadopago_payment_id', 'paid_at']
-    protegidos.forEach(c => delete campos[c])
+    // Colunas permitidas — apenas as que existem na tabela
+    const COLUNAS_PERMITIDAS = [
+      'nome_destinatario',
+      'nome_remetente',
+      'data_importante',
+      'mensagem_principal',
+      'estilo_fundo',
+      'estilo_animacao',
+      'recursos',
+      'musica_link',
+      'slug',
+      'nome_pagador',
+      'email_pagador',
+      'status',
+      'mercadopago_preference_id',
+      'mercadopago_payment_id',
+      'qr_code_url',
+      'plano',
+      'jogo_palavra1',
+      'jogo_palavra2',
+      'jogo_palavra3',
+      'mapa_estrelas_url',
+      'foto_destaque',
+    ]
 
-    if (campos.slug !== undefined) {
-      if (!campos.slug || campos.slug.length < 3) {
+    // Filtra apenas colunas válidas
+    const camposValidos = Object.fromEntries(
+      Object.entries(campos).filter(([key]) => COLUNAS_PERMITIDAS.includes(key))
+    )
+
+    if (Object.keys(camposValidos).length === 0) {
+      return NextResponse.json({ error: 'Nenhum campo válido para atualizar' }, { status: 400 })
+    }
+
+    // Verifica slug duplicado
+    if (camposValidos.slug !== undefined) {
+      if (!camposValidos.slug || (camposValidos.slug as string).length < 3) {
         return NextResponse.json({ error: 'O link deve ter pelo menos 3 caracteres' }, { status: 400 })
       }
       const { data: slugExistente } = await supabaseAdmin
         .from('cartas')
         .select('id')
-        .eq('slug', campos.slug)
+        .eq('slug', camposValidos.slug)
         .neq('id', carta_id)
         .maybeSingle()
 
@@ -71,7 +101,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data: carta, error } = await supabaseAdmin
       .from('cartas')
-      .update(campos)
+      .update(camposValidos)
       .eq('id', carta_id)
       .select()
       .single()
@@ -104,7 +134,7 @@ export async function GET(request: NextRequest) {
   if (id) {
     const { data } = await supabaseAdmin
       .from('cartas')
-      .select('id, slug, status, nome_destinatario, nome_remetente')
+      .select('id, slug, status, nome_destinatario, nome_remetente, qr_code_url')
       .eq('id', id)
       .single()
     return NextResponse.json(data ?? {})
