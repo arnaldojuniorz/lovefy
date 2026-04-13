@@ -21,26 +21,20 @@ export default function Etapa5() {
     try {
       let carta_id = data.carta_id
 
-      // Se tem carta_id, tenta atualizar
       if (carta_id) {
         const patchRes = await fetch('/api/cartas', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             carta_id,
-            nome_pagador: data.nome_pagador,
+            nome_pagador:  data.nome_pagador,
             email_pagador: data.email_pagador,
-            status: 'pendente',
+            status:        'pendente',
           }),
         })
-
-        // Se carta não existe mais, recria
-        if (!patchRes.ok) {
-          carta_id = ''
-        }
+        if (!patchRes.ok) carta_id = ''
       }
 
-      // Cria nova carta se não tem ID ou se o PATCH falhou
       if (!carta_id) {
         const postRes = await fetch('/api/cartas', {
           method: 'POST',
@@ -48,15 +42,10 @@ export default function Etapa5() {
           body: JSON.stringify({
             nome_destinatario:  data.nome_destinatario,
             nome_remetente:     data.nome_remetente,
-            como_se_conheceram: data.como_se_conheceram,
-            memoria_especial:   data.memoria_especial,
             mensagem_principal: data.mensagem_principal,
             data_importante:    data.data_importante,
             musica_link:        data.musica_link,
-            musica_nome:        data.musica_nome,
             foto_destaque:      data.foto_destaque,
-            localizacao:        data.localizacao,
-            momento_marcante:   data.momento_marcante,
             recursos:           data.recursos,
             jogo_palavra1:      data.jogo_palavra1,
             jogo_palavra2:      data.jogo_palavra2,
@@ -96,49 +85,29 @@ export default function Etapa5() {
       <div className="space-y-4">
         <div>
           <label className="text-white/70 text-sm block mb-2">Seu nome *</label>
-          <input
-            type="text"
-            value={data.nome_pagador}
-            onChange={e => update({ nome_pagador: e.target.value })}
+          <input type="text" value={data.nome_pagador} onChange={e => update({ nome_pagador: e.target.value })}
             placeholder="Seu nome completo"
-            className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
-          />
+            className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
         </div>
 
         <div>
           <label className="text-white/70 text-sm block mb-2">Seu e-mail *</label>
-          <input
-            type="email"
-            value={data.email_pagador}
-            onChange={e => update({ email_pagador: e.target.value })}
+          <input type="email" value={data.email_pagador} onChange={e => update({ email_pagador: e.target.value })}
             placeholder="seu@email.com"
-            className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
-          />
+            className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
         </div>
 
         <div>
           <label className="text-white/70 text-sm block mb-3">Escolha seu plano *</label>
           <div className="grid grid-cols-2 gap-3">
-            <div
-              onClick={() => setPlano('24h')}
-              className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                plano === '24h'
-                  ? 'border-pink-500 bg-pink-500/10'
-                  : 'border-white/10 bg-[#0f3460] hover:border-white/30'
-              }`}
-            >
+            <div onClick={() => setPlano('24h')}
+              className={`p-4 rounded-xl border cursor-pointer transition-all ${plano === '24h' ? 'border-pink-500 bg-pink-500/10' : 'border-white/10 bg-[#0f3460] hover:border-white/30'}`}>
               <p className="text-white font-bold text-lg">R$ 6,90</p>
               <p className="text-white/70 text-sm font-medium">24 Horas</p>
               <p className="text-white/40 text-xs mt-1">Expira em 24h</p>
             </div>
-            <div
-              onClick={() => setPlano('forever')}
-              className={`p-4 rounded-xl border cursor-pointer transition-all relative ${
-                plano === 'forever'
-                  ? 'border-pink-500 bg-pink-500/10'
-                  : 'border-white/10 bg-[#0f3460] hover:border-white/30'
-              }`}
-            >
+            <div onClick={() => setPlano('forever')}
+              className={`p-4 rounded-xl border cursor-pointer transition-all relative ${plano === 'forever' ? 'border-pink-500 bg-pink-500/10' : 'border-white/10 bg-[#0f3460] hover:border-white/30'}`}>
               <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs px-2 py-0.5 rounded-full">Popular</span>
               <p className="text-white font-bold text-lg">R$ 12,90</p>
               <p className="text-white/70 text-sm font-medium">Para Sempre</p>
@@ -147,24 +116,16 @@ export default function Etapa5() {
           </div>
         </div>
 
-        {erro && (
-          <p className="text-red-400 text-sm bg-red-500/10 rounded-xl px-4 py-3">{erro}</p>
-        )}
+        {erro && <p className="text-red-400 text-sm bg-red-500/10 rounded-xl px-4 py-3">{erro}</p>}
       </div>
 
       <div className="flex gap-3 mt-8">
-        <button
-          onClick={() => update({ etapa_atual: 4 })}
-          disabled={loading}
-          className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50"
-        >
+        <button onClick={() => update({ etapa_atual: 4 })} disabled={loading}
+          className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50">
           ← Voltar
         </button>
-        <button
-          onClick={handleContinuar}
-          disabled={loading}
-          className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
-        >
+        <button onClick={handleContinuar} disabled={loading}
+          className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50">
           {loading ? 'Aguarde...' : 'Continuar →'}
         </button>
       </div>
