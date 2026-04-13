@@ -7,9 +7,9 @@ const client = new MercadoPagoConfig({
 })
 
 const PLANOS = {
-  '24h':       { preco: 6.90,  titulo: 'Lovefy - Carta Digital 24h' },
-  'forever':   { preco: 12.90, titulo: 'Lovefy - Carta Digital Para Sempre' },
-  'impressao': { preco: 9.90,  titulo: 'Lovefy - Carta para Impressão' },
+  '24h':       { preco: 6.90,  titulo: 'Carta Digital 24h',        categoria: 'services' },
+  'forever':   { preco: 12.90, titulo: 'Carta Digital Para Sempre', categoria: 'services' },
+  'impressao': { preco: 9.90,  titulo: 'Carta para Impressão',      categoria: 'services' },
 }
 
 const BASE_URL = 'https://www.lovefy.app.br'
@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Carta não encontrada' }, { status: 404 })
     }
 
-    // Suporta ambos os schemas (cartas e cartas_impressao)
     const nomePagador  = carta.nome_pagador  ?? carta.remetente  ?? 'Cliente'
     const emailPagador = carta.email_pagador ?? 'pagador@lovefy.app.br'
     const externalReference = `${carta_id}|${plano}`
@@ -52,15 +51,17 @@ export async function POST(request: NextRequest) {
       body: {
         items: [
           {
-            id: carta_id,
-            title: planoSelecionado.titulo,
-            quantity: 1,
-            unit_price: planoSelecionado.preco,
+            id:          carta_id,
+            title:       planoSelecionado.titulo,
+            description: `Lovefy - ${planoSelecionado.titulo}`,
+            category_id: planoSelecionado.categoria,
+            quantity:    1,
+            unit_price:  planoSelecionado.preco,
             currency_id: 'BRL',
           },
         ],
         payer: {
-          name: nomePagador,
+          name:  nomePagador,
           email: emailPagador,
         },
         back_urls: {
@@ -71,9 +72,10 @@ export async function POST(request: NextRequest) {
         auto_return: 'approved',
         external_reference: externalReference,
         notification_url: `${BASE_URL}/api/webhook`,
+        statement_descriptor: 'LOVEFY',
         expires: true,
         expiration_date_from: new Date().toISOString(),
-        expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        expiration_date_to:   new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       },
     })
 
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       preference_id: response.id,
-      checkout_url: response.init_point,
+      checkout_url:  response.init_point,
     })
 
   } catch (error: any) {
