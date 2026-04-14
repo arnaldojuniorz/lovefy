@@ -6,281 +6,245 @@ import { Carta, getEstacao, getSpotifyId, formatarData, calcularTempo } from './
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&family=Inter:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&family=Inter:wght@300;400;500;600&display=swap');
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0B0A1A; overflow: hidden; height: 100%; }
+  html { scroll-behavior: smooth; }
+  body { background: #0D0D0D; font-family: 'Inter', sans-serif; }
 
-  @keyframes fadeIn       { from { opacity: 0 }                            to { opacity: 1 } }
-  @keyframes fadeInUp     { from { opacity: 0; transform: translateY(32px) } to { opacity: 1; transform: translateY(0) } }
-  @keyframes scaleIn      { from { opacity: 0; transform: scale(0.88) }    to { opacity: 1; transform: scale(1) } }
-  @keyframes countUp      { from { opacity: 0; transform: translateY(40px) } to { opacity: 1; transform: translateY(0) } }
-  @keyframes zoomSlow     { from { transform: scale(1.04) }                 to { transform: scale(1) } }
-  @keyframes pulse        { 0%,100% { transform: scale(1); opacity: 0.9 }  50% { transform: scale(1.06); opacity: 1 } }
-  @keyframes blink        { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
-  @keyframes gradMove     { 0%,100% { background-position: 0% 50% }        50% { background-position: 100% 50% } }
-  @keyframes starBurst    { 0% { transform: scale(0) translateY(0); opacity: 1 } 100% { transform: scale(1.5) translateY(-80px); opacity: 0 } }
-  @keyframes sealIn       { from { opacity: 0; transform: scale(0.6) rotate(-10deg) } to { opacity: 1; transform: scale(1) rotate(0deg) } }
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(28px) } to { opacity:1; transform:translateY(0) } }
+  @keyframes scaleIn  { from { opacity:0; transform:scale(0.9) }       to { opacity:1; transform:scale(1) } }
+  @keyframes pulse    { 0%,100% { transform:scale(1) } 50% { transform:scale(1.05) } }
+  @keyframes blink    { 0%,49% { opacity:1 } 50%,100% { opacity:0 } }
+  @keyframes gradAnim { 0%,100% { background-position:0% 50% } 50% { background-position:100% 50% } }
+  @keyframes zoomSlow { from { transform:scale(1.05) } to { transform:scale(1) } }
+  @keyframes burst    { 0% { transform:scale(0) translateY(0); opacity:1 } 100% { transform:scale(2) translateY(-60px); opacity:0 } }
+  @keyframes sealPop  { from { opacity:0; transform:scale(0.5) rotate(-12deg) } to { opacity:1; transform:scale(1) rotate(0deg) } }
 
-  .fade-in      { animation: fadeIn 1s ease forwards; }
-  .fade-in-up   { animation: fadeInUp 0.8s ease forwards; }
-  .scale-in     { animation: scaleIn 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-  .zoom-slow    { animation: zoomSlow 8s ease-out forwards; }
-  .pulse-btn    { animation: pulse 2s ease-in-out infinite; }
-  .cursor       { display: inline-block; width: 2px; height: 1em; background: #fff; margin-left: 2px; animation: blink 0.8s infinite; vertical-align: text-bottom; }
+  .fu  { animation: fadeUp 0.7s ease both; }
+  .si  { animation: scaleIn 0.6s cubic-bezier(.34,1.56,.64,1) both; }
+  .pb  { animation: pulse 2s ease-in-out infinite; }
+  .cur { display:inline-block; width:2px; height:1em; background:#fff; margin-left:2px; animation:blink .8s infinite; vertical-align:text-bottom; }
 
-  .grad-text {
-    background: linear-gradient(135deg, #FF2D7A, #7928FF);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .grad-pill {
+    background: linear-gradient(135deg,#FF2D7A,#7928FF);
+    background-size:200% 200%;
+    animation: gradAnim 4s ease infinite;
   }
 
-  .grad-bg {
-    background: linear-gradient(135deg, #FF2D7A, #7928FF, #00F0FF, #FF2D7A);
-    background-size: 300% 300%;
-    animation: gradMove 5s ease infinite;
+  .section-card {
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 12px;
   }
 
-  .neon-border {
-    box-shadow: 0 0 20px rgba(255,45,122,0.4), 0 0 40px rgba(121,40,255,0.2);
-  }
-
-  ::-webkit-scrollbar { display: none; }
-  * { scrollbar-width: none; }
+  ::-webkit-scrollbar { display:none; }
+  * { scrollbar-width:none; }
 `
 
-type CardId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
-
 export default function CartaViewer({ carta }: { carta: Carta }) {
-  const [card, setCard] = useState<CardId>(1)
-  const [transitioning, setTransitioning] = useState(false)
-  const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a, b) => a.ordem - b.ordem) || []
+  const fotos = carta.fotos?.filter(f => !f.is_temp).sort((a,b) => a.ordem - b.ordem) || []
   const fotoUrl = carta.foto_destaque
     ? `${supabaseUrl}/storage/v1/object/public/fotos/${carta.foto_destaque}`
     : null
   const spotifyId = getSpotifyId(carta.musica_link)
 
-  function avancar() {
-    if (card >= 8 || transitioning) return
-    setTransitioning(true)
-    setTimeout(() => {
-      setCard(c => (c + 1) as CardId)
-      setTransitioning(false)
-    }, 380)
-  }
-
-  function irPara(n: CardId) {
-    if (transitioning) return
-    setTransitioning(true)
-    setTimeout(() => {
-      setCard(n)
-      setTransitioning(false)
-    }, 380)
-  }
-
-  const props = { carta, avancar, irPara, fotoUrl, fotos, spotifyId }
-
   return (
-    <div style={{ height: '100vh', background: '#0B0A1A', fontFamily: 'Inter, system-ui, sans-serif', position: 'relative', overflow: 'hidden', cursor: card < 8 ? 'pointer' : 'default' }}
-      onClick={card < 8 ? avancar : undefined}>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:48 }}>
       <style>{STYLES}</style>
-
-      {/* Barra de progresso */}
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 2, background: 'rgba(255,255,255,0.06)', zIndex: 200 }}>
-        <div style={{ height: '100%', width: `${(card / 8) * 100}%`, background: 'linear-gradient(90deg, #FF2D7A, #7928FF)', transition: 'width 0.5s ease' }} />
-      </div>
-
-      {/* Indicadores */}
-      <div style={{ position: 'fixed', top: 12, right: 16, zIndex: 200, display: 'flex', gap: 4 }}>
-        {[1,2,3,4,5,6,7,8].map(n => (
-          <div key={n} style={{ width: n === card ? 16 : 5, height: 5, borderRadius: 3, background: n === card ? '#FF2D7A' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s' }} />
-        ))}
-      </div>
-
-      <div style={{ opacity: transitioning ? 0 : 1, transition: 'opacity 0.38s ease', height: '100%' }}>
-        {card === 1 && <Card1 {...props} />}
-        {card === 2 && <Card2 {...props} />}
-        {card === 3 && <Card3 {...props} />}
-        {card === 4 && <Card4 {...props} />}
-        {card === 5 && <Card5 {...props} />}
-        {card === 6 && <Card6 {...props} />}
-        {card === 7 && <Card7 {...props} />}
-        {card === 8 && <Card8 {...props} />}
+      <HeroSection carta={carta} fotoUrl={fotoUrl} />
+      <div style={{ padding:'0 12px' }}>
+        <PlayerSection carta={carta} fotoUrl={fotoUrl} spotifyId={spotifyId} />
+        <ContadorSection carta={carta} fotoUrl={fotoUrl} />
+        {carta.recursos.includes('mapa_estrelas') && <MapaSection carta={carta} />}
+        {fotos.length > 0 && carta.recursos.includes('galeria') && <GaleriaSection carta={carta} fotos={fotos} />}
+        {carta.recursos.includes('jogo_palavras') && <JogoSection carta={carta} />}
+        <MensagemSection carta={carta} />
+        <CTASection carta={carta} />
       </div>
     </div>
   )
 }
 
-type CP = {
-  carta: Carta
-  avancar: () => void
-  irPara: (n: CardId) => void
-  fotoUrl: string | null
-  fotos: Carta['fotos']
-  spotifyId: string | null
-}
-
-function Tela({ children, bg = '#0B0A1A' }: { children: React.ReactNode; bg?: string }) {
+// ─── HERO ─────────────────────────────────────────────────────────────────────
+function HeroSection({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null }) {
   return (
-    <div style={{ height: '100vh', background: bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 28px 48px', position: 'relative', overflow: 'hidden' }}>
-      {children}
-    </div>
-  )
-}
-
-// ─── CARD 1 — Hook numérico ───────────────────────────────────────────────────
-function Card1({ carta }: CP) {
-  const [vis, setVis] = useState(false)
-  const tempo = calcularTempo(carta.data_importante)
-  const total = tempo.anos * 365 + tempo.meses * 30 + tempo.dias
-
-  useEffect(() => { setTimeout(() => setVis(true), 200) }, [])
-
-  return (
-    <Tela>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 30% 40%, rgba(255,45,122,0.15) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(121,40,255,0.12) 0%, transparent 60%)', pointerEvents: 'none' }} />
-      {vis && (
-        <div className="fade-in-up" style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
-            Wrapped do Afeto
-          </p>
-          <p className="grad-text" style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 'clamp(90px, 25vw, 160px)', fontWeight: 900, lineHeight: 1, display: 'block', animation: 'countUp 1s ease forwards' }}>
-            {total}
-          </p>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(16px, 4vw, 22px)', fontFamily: 'Inter, sans-serif', marginTop: 16, fontWeight: 300 }}>
-            Não é só um número.
-          </p>
-          <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14, fontFamily: 'Inter, sans-serif', marginTop: 8 }}>
-            {carta.nome_remetente} → {carta.nome_destinatario}
-          </p>
-          <p style={{ color: 'rgba(255,255,255,0.15)', fontSize: 12, marginTop: 48 }}>toque para continuar</p>
-        </div>
-      )}
-    </Tela>
-  )
-}
-
-// ─── CARD 2 — Foto + Player ───────────────────────────────────────────────────
-function Card2({ carta, fotoUrl, spotifyId, avancar }: CP) {
-  const [tocando, setTocando] = useState(false)
-  const [vis, setVis] = useState(false)
-
-  useEffect(() => { setTimeout(() => setVis(true), 300) }, [])
-
-  return (
-    <div style={{ height: '100vh', position: 'relative', overflow: 'hidden', cursor: 'pointer' }} onClick={avancar}>
+    <div style={{ position:'relative', height:'100vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+      {/* Fundo foto ou gradiente */}
       {fotoUrl ? (
-        <img src={fotoUrl} alt="Foto" className="zoom-slow" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img src={fotoUrl} alt="" className="zoom-slow"
+          style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', filter:'brightness(0.35)' }} />
       ) : (
-        <div style={{ position: 'absolute', inset: 0 }} className="grad-bg" />
+        <div className="grad-pill" style={{ position:'absolute', inset:0 }} />
       )}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,10,26,0.97) 0%, rgba(11,10,26,0.5) 50%, rgba(11,10,26,0.2) 100%)' }} />
+      <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, #0D0D0D 0%, rgba(13,13,13,0.4) 50%, rgba(13,13,13,0.2) 100%)' }} />
 
-      {vis && (
-        <div className="fade-in" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 28px 48px', zIndex: 10 }}>
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, fontStyle: 'italic', marginBottom: 20, fontFamily: 'Inter, sans-serif' }}>
-            "Essa música sempre me leva até você."
-          </p>
-
-          {spotifyId && (
-            <div onClick={e => e.stopPropagation()} style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)', borderRadius: 20, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: 16 }}>
-              {!tocando ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.1)' }}>
-                    {fotoUrl && <img src={fotoUrl} alt="Capa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ color: '#fff', fontWeight: 600, fontSize: 15, marginBottom: 2, fontFamily: 'Inter, sans-serif' }}>Nossa música</p>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>{carta.nome_remetente} & {carta.nome_destinatario}</p>
-                  </div>
-                  <button onClick={() => setTocando(true)} className="pulse-btn"
-                    style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, #FF2D7A, #7928FF)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
-                  </button>
-                </div>
-              ) : (
-                <iframe src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
-                  width="100%" height="80" frameBorder={0}
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  style={{ borderRadius: 12, display: 'block' }} />
-              )}
-            </div>
-          )}
-
-          {!spotifyId && carta.musica_link && (
-            <a href={carta.musica_link} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-              style={{ display: 'block', textAlign: 'center', padding: '14px', borderRadius: 100, background: 'linear-gradient(135deg, #FF2D7A, #7928FF)', color: '#fff', fontWeight: 600, textDecoration: 'none', fontSize: 15, marginBottom: 16 }}>
-              Abrir no Spotify
-            </a>
-          )}
-
-          <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
-            Aperte o play. O resto você já sabe de cor.
-          </p>
+      {/* Top bar */}
+      <div style={{ position:'relative', zIndex:10, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 20px 0' }}>
+        <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(255,255,255,0.12)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:16 }}>✕</div>
+        <div className="grad-pill" style={{ color:'#fff', fontWeight:800, fontSize:12, padding:'5px 14px', borderRadius:100, fontFamily:'Poppins, sans-serif', letterSpacing:1 }}>
+          Wrapped
         </div>
-      )}
+        <div style={{ width:36 }} />
+      </div>
+
+      {/* Conteúdo central */}
+      <div className="fu" style={{ position:'relative', zIndex:10, flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 28px', textAlign:'center' }}>
+        <p style={{ color:'rgba(255,255,255,0.45)', fontSize:13, letterSpacing:2, textTransform:'uppercase', marginBottom:20, fontFamily:'Inter, sans-serif' }}>
+          {carta.nome_remetente} preparou algo para você
+        </p>
+        <h1 style={{ fontFamily:'Poppins, sans-serif', fontSize:'clamp(40px,10vw,68px)', fontWeight:900, color:'#fff', lineHeight:1.1, marginBottom:16 }}>
+          {carta.nome_destinatario}
+        </h1>
+        <p style={{ color:'rgba(255,255,255,0.5)', fontSize:16, fontFamily:'Inter, sans-serif', fontWeight:300, maxWidth:280, lineHeight:1.6 }}>
+          Um presente feito só para você.
+        </p>
+      </div>
+
+      {/* Scroll hint */}
+      <div style={{ position:'relative', zIndex:10, textAlign:'center', paddingBottom:32 }}>
+        <p style={{ color:'rgba(255,255,255,0.25)', fontSize:12, marginBottom:8 }}>Role para ver</p>
+        <div style={{ width:2, height:24, background:'linear-gradient(to bottom, rgba(255,255,255,0.3), transparent)', margin:'0 auto', borderRadius:2 }} />
+      </div>
     </div>
   )
 }
 
-// ─── CARD 3 — Contador animado ────────────────────────────────────────────────
-function Card3({ carta }: CP) {
+// ─── PLAYER ───────────────────────────────────────────────────────────────────
+function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: string | null; spotifyId: string | null }) {
+  const [tocando, setTocando] = useState(false)
+
+  return (
+    <div className="section-card" style={{ background:'#1A1A1A', marginBottom:12 }}>
+      {/* Foto ocupando 60% */}
+      <div style={{ position:'relative', height:280, overflow:'hidden' }}>
+        {fotoUrl ? (
+          <img src={fotoUrl} alt="Foto" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+        ) : (
+          <div className="grad-pill" style={{ width:'100%', height:'100%' }} />
+        )}
+        <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, #1A1A1A 0%, transparent 60%)' }} />
+        {/* Top bar estilo player */}
+        <div style={{ position:'absolute', top:16, left:16, right:16, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span style={{ color:'rgba(255,255,255,0.6)', fontSize:20 }}>↓</span>
+          <span style={{ color:'#fff', fontWeight:700, fontSize:14, fontFamily:'Inter, sans-serif' }}>Juntos para sempre ❤️</span>
+          <span style={{ color:'rgba(255,255,255,0.6)', fontSize:18 }}>···</span>
+        </div>
+      </div>
+
+      {/* Info + Player */}
+      <div style={{ padding:'0 20px 24px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
+          <div>
+            <p style={{ color:'#fff', fontWeight:700, fontSize:20, fontFamily:'Poppins, sans-serif', marginBottom:4 }}>
+            </p>
+            <p style={{ color:'rgba(255,255,255,0.45)', fontSize:14 }}>{carta.nome_remetente} & {carta.nome_destinatario}</p>
+          </div>
+          <div style={{ width:36, height:36, borderRadius:'50%', border:'2px solid rgba(255,45,122,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ color:'#FF2D7A', fontSize:14 }}>✓</span>
+          </div>
+        </div>
+
+        {/* Barra de progresso decorativa */}
+        <div style={{ height:4, background:'rgba(255,255,255,0.1)', borderRadius:2, marginBottom:8, overflow:'hidden' }}>
+          <div style={{ height:'100%', width:'30%', background:'linear-gradient(90deg,#FF2D7A,#7928FF)', borderRadius:2 }} />
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:20 }}>
+          <span style={{ color:'rgba(255,255,255,0.3)', fontSize:11 }}>0:05</span>
+          <span style={{ color:'rgba(255,255,255,0.3)', fontSize:11 }}>-4:42</span>
+        </div>
+
+        {/* Controles */}
+        {spotifyId && !tocando && (
+          <div style={{ display:'flex', justifyContent:'center', gap:32, alignItems:'center' }}>
+            <span style={{ color:'rgba(255,255,255,0.4)', fontSize:20 }}>⇄</span>
+            <span style={{ color:'rgba(255,255,255,0.6)', fontSize:24 }}>⏮</span>
+            <button onClick={() => setTocando(true)} className="pb"
+              style={{ width:64, height:64, borderRadius:'50%', background:'#fff', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 20px rgba(255,45,122,0.4)' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="#0D0D0D"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <span style={{ color:'rgba(255,255,255,0.6)', fontSize:24 }}>⏭</span>
+            <span style={{ color:'rgba(255,255,255,0.4)', fontSize:20 }}>↻</span>
+          </div>
+        )}
+
+        {spotifyId && tocando && (
+          <iframe src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
+            width="100%" height="80" frameBorder={0}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            style={{ borderRadius:12, display:'block' }} />
+        )}
+
+        {!spotifyId && carta.musica_link && (
+          <a href={carta.musica_link} target="_blank" rel="noopener noreferrer"
+            style={{ display:'block', textAlign:'center', padding:'14px', borderRadius:100, background:'linear-gradient(135deg,#FF2D7A,#7928FF)', color:'#fff', fontWeight:600, textDecoration:'none', fontSize:15 }}>
+            Abrir no Spotify
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── CONTADOR ─────────────────────────────────────────────────────────────────
+function ContadorSection({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null }) {
   const [tempo, setTempo] = useState(calcularTempo(carta.data_importante))
-  const [vis, setVis] = useState(false)
-  const total = tempo.anos * 365 + tempo.meses * 30 + tempo.dias
+  const ano = carta.data_importante ? new Date(carta.data_importante).getUTCFullYear() : ''
 
   useEffect(() => {
-    setTimeout(() => setVis(true), 200)
     const t = setInterval(() => setTempo(calcularTempo(carta.data_importante)), 1000)
     return () => clearInterval(t)
   }, [carta.data_importante])
 
   return (
-    <Tela>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 30%, rgba(0,240,255,0.08) 0%, transparent 60%)', pointerEvents: 'none' }} />
-      {vis && (
-        <div className="fade-in-up" style={{ textAlign: 'center', position: 'relative', zIndex: 1, width: '100%', maxWidth: 400 }}>
-          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 20 }}>O peso do tempo</p>
-          <p style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 'clamp(64px, 18vw, 110px)', fontWeight: 900, color: '#fff', lineHeight: 1, marginBottom: 8 }}>
-            {total}
-          </p>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16, marginBottom: 40, fontFamily: 'Inter, sans-serif', fontWeight: 300, lineHeight: 1.6 }}>
-            dias. E cada um deles ficou melhor porque você existia.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-            {[{ v: tempo.anos, l: 'Anos' }, { v: tempo.meses, l: 'Meses' }, { v: tempo.dias, l: 'Dias' }].map(i => (
-              <div key={i.l} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px 8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <p style={{ color: '#fff', fontSize: 28, fontWeight: 800, fontFamily: 'Montserrat, sans-serif' }}>{i.v}</p>
-                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 4 }}>{i.l}</p>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            {[{ v: String(tempo.horas).padStart(2,'0'), l: 'Horas' }, { v: String(tempo.minutos).padStart(2,'0'), l: 'Min' }, { v: String(tempo.segundos).padStart(2,'0'), l: 'Seg' }].map(i => (
-              <div key={i.l} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px 8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <p style={{ color: '#fff', fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontFamily: 'Montserrat, sans-serif' }}>{i.v}</p>
-                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 4 }}>{i.l}</p>
-              </div>
-            ))}
-          </div>
+    <div className="section-card" style={{ background:'#1A1A1A' }}>
+      <p style={{ color:'rgba(255,255,255,0.5)', fontSize:13, fontWeight:600, padding:'20px 20px 12px' }}>Sobre o casal</p>
+      {fotoUrl && (
+        <div style={{ height:200, overflow:'hidden', margin:'0 12px', borderRadius:14 }}>
+          <img src={fotoUrl} alt="Casal" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
         </div>
       )}
-    </Tela>
+      <div style={{ padding:'16px 20px 20px' }}>
+        <h2 style={{ color:'#fff', fontSize:22, fontWeight:800, fontFamily:'Poppins, sans-serif', marginBottom:4 }}>
+          {carta.nome_remetente} e {carta.nome_destinatario}
+        </h2>
+        <p style={{ color:'rgba(255,255,255,0.4)', fontSize:13, marginBottom:20 }}>Juntos desde {ano}</p>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:8 }}>
+          {[{ v:tempo.anos, l:'Anos' }, { v:tempo.meses, l:'Meses' }, { v:tempo.dias, l:'Dias' }].map(i => (
+            <div key={i.l} style={{ background:'#262626', borderRadius:12, padding:'14px 8px', textAlign:'center' }}>
+              <p style={{ color:'#fff', fontSize:30, fontWeight:800, fontFamily:'Poppins, sans-serif', lineHeight:1 }}>{i.v}</p>
+              <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12, marginTop:4 }}>{i.l}</p>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
+          {[
+            { v:String(tempo.horas).padStart(2,'0'), l:'Horas' },
+            { v:String(tempo.minutos).padStart(2,'0'), l:'Minutos' },
+            { v:String(tempo.segundos).padStart(2,'0'), l:'Segundos' },
+          ].map(i => (
+            <div key={i.l} style={{ background:'#262626', borderRadius:12, padding:'14px 8px', textAlign:'center' }}>
+              <p style={{ color:'#fff', fontSize:24, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'Poppins, sans-serif', lineHeight:1 }}>{i.v}</p>
+              <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12, marginTop:4 }}>{i.l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
-// ─── CARD 4 — Mapa das estrelas ───────────────────────────────────────────────
-function Card4({ carta }: CP) {
+// ─── MAPA DAS ESTRELAS ────────────────────────────────────────────────────────
+function MapaSection({ carta }: { carta: Carta }) {
   const [mapaUrl, setMapaUrl] = useState(carta.mapa_estrelas_url || '')
-  const [loading, setLoading] = useState(!carta.mapa_estrelas_url && carta.recursos.includes('mapa_estrelas'))
+  const [loading, setLoading] = useState(!carta.mapa_estrelas_url)
   const estacao = carta.data_importante ? getEstacao(carta.data_importante) : null
 
   useEffect(() => {
-    if (!carta.recursos.includes('mapa_estrelas') || carta.mapa_estrelas_url) return
+    if (carta.mapa_estrelas_url) return
     fetch('/api/mapa-estrelas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: carta.data_importante, carta_id: carta.id }),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ data:carta.data_importante, carta_id:carta.id }),
     })
       .then(r => r.json())
       .then(d => { if (d.imageUrl) setMapaUrl(d.imageUrl) })
@@ -289,95 +253,50 @@ function Card4({ carta }: CP) {
   }, [])
 
   return (
-    <Tela>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 50%, rgba(121,40,255,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div className="fade-in-up" style={{ textAlign: 'center', position: 'relative', zIndex: 1, width: '100%', maxWidth: 380 }}>
-        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 20 }}>Momento cósmico</p>
-
-        {carta.recursos.includes('mapa_estrelas') ? (
-          <>
-            {loading && <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14, marginBottom: 24 }}>Gerando mapa das estrelas…</p>}
-            {mapaUrl && (
-              <div style={{ width: 220, height: 220, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 24px', border: '2px solid rgba(121,40,255,0.4)', boxShadow: '0 0 60px rgba(121,40,255,0.3)' }}>
-                <img src={mapaUrl} alt="Mapa das estrelas" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-            )}
-            <p style={{ color: '#fff', fontSize: 'clamp(18px, 4vw, 24px)', fontWeight: 600, fontFamily: 'Montserrat, sans-serif', lineHeight: 1.4, marginBottom: 12 }}>
-              Na noite de {formatarData(carta.data_importante)},<br />as estrelas desenharam isto.
-            </p>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontStyle: 'italic' }}>
-              Talvez fosse um sinal. {estacao?.emoji}
-            </p>
-          </>
-        ) : (
-          <>
-            <p style={{ fontSize: 64, marginBottom: 20 }}>✨</p>
-            <p style={{ color: '#fff', fontSize: 22, fontWeight: 700, fontFamily: 'Montserrat, sans-serif', lineHeight: 1.4, marginBottom: 12 }}>
-              Na noite de {formatarData(carta.data_importante)},<br />as estrelas já sabiam.
-            </p>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontStyle: 'italic' }}>
-              Talvez o acaso nunca tenha sido ingênuo. {estacao?.emoji}
-            </p>
-          </>
-        )}
-      </div>
-    </Tela>
-  )
-}
-
-// ─── CARD 5 — Galeria de memórias ─────────────────────────────────────────────
-function Card5({ carta, fotos, avancar }: CP) {
-  const [ativa, setAtiva] = useState(0)
-
-  return (
-    <div style={{ height: '100vh', background: '#0B0A1A', display: 'flex', flexDirection: 'column', paddingTop: 48, overflow: 'hidden' }}
-      onClick={fotos.length === 0 ? avancar : undefined}>
-      <div className="fade-in" style={{ padding: '0 28px', marginBottom: 20 }}>
-        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10 }}>Galeria de memórias</p>
-        <p style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 24, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
-          Os momentos que não envelhecem.
-        </p>
-      </div>
-
-      {fotos.length > 0 ? (
-        <>
-          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingLeft: 28, paddingRight: 28, paddingBottom: 8, scrollSnapType: 'x mandatory', flex: 1, scrollbarWidth: 'none' }}
-            onClick={e => e.stopPropagation()}>
-            {fotos.map((foto, idx) => (
-              <div key={foto.id} onClick={() => setAtiva(idx)}
-                style={{ flexShrink: 0, width: '72vw', maxWidth: 280, aspectRatio: '3/4', borderRadius: 20, overflow: 'hidden', scrollSnapAlign: 'start', position: 'relative', border: idx === ativa ? '2px solid #FF2D7A' : '2px solid transparent', transition: 'border 0.2s' }}>
-                <img src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px 14px 14px', background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent)' }}>
-                  <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, fontStyle: 'italic', fontFamily: 'Inter, sans-serif' }}>
-                    {['esse dia ainda mora em mim','a gente sendo a gente','aqui eu já sabia','impossível esquecer','um dos meus favoritos'][idx] || ''}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '12px 28px' }}>
-            {fotos.map((_, idx) => (
-              <div key={idx} style={{ width: idx === ativa ? 18 : 5, height: 5, borderRadius: 3, background: idx === ativa ? '#FF2D7A' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s' }} />
-            ))}
-          </div>
-          <div style={{ padding: '0 28px 32px', textAlign: 'right' }}>
-            <button onClick={e => { e.stopPropagation(); avancar() }}
-              style={{ background: 'linear-gradient(135deg, #FF2D7A, #7928FF)', color: '#fff', border: 'none', borderRadius: 100, padding: '14px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-              Continuar →
-            </button>
-          </div>
-        </>
-      ) : (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14 }}>toque para continuar</p>
+    <div className="section-card" style={{ background:'#0D0D1F', padding:'24px 20px', textAlign:'center' }}>
+      <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, letterSpacing:2, textTransform:'uppercase', marginBottom:16 }}>O céu no dia de vocês</p>
+      {loading && <p style={{ color:'rgba(255,255,255,0.3)', fontSize:14, marginBottom:16 }}>Gerando mapa das estrelas…</p>}
+      {mapaUrl && (
+        <div style={{ width:200, height:200, borderRadius:'50%', overflow:'hidden', margin:'0 auto 16px', border:'2px solid rgba(121,40,255,0.5)', boxShadow:'0 0 40px rgba(121,40,255,0.3)' }}>
+          <img src={mapaUrl} alt="Mapa das estrelas" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+        </div>
+      )}
+      {estacao && (
+        <div>
+          <p style={{ color:'#fff', fontSize:15, fontWeight:600 }}>{estacao.emoji} {estacao.nome}</p>
+          <p style={{ color:'rgba(255,255,255,0.35)', fontSize:13, marginTop:4 }}>{formatarData(carta.data_importante)}</p>
         </div>
       )}
     </div>
   )
 }
 
-// ─── CARD 6 — Jogo de palavras ────────────────────────────────────────────────
-function Card6({ carta, avancar }: CP) {
+// ─── GALERIA ──────────────────────────────────────────────────────────────────
+const FOTO_LABELS = ['Nossos Dates','Fotos aleatórias','Primeira viagem','Momentos','Favoritas']
+
+function GaleriaSection({ carta, fotos }: { carta: Carta; fotos: Carta['fotos'] }) {
+  return (
+    <div className="section-card" style={{ background:'#1A1A1A', padding:'20px 0 20px' }}>
+      <p style={{ color:'#fff', fontSize:18, fontWeight:700, fontFamily:'Poppins, sans-serif', padding:'0 20px', marginBottom:16 }}>
+        Conheça {carta.nome_remetente} e {carta.nome_destinatario}
+      </p>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:3, padding:'0 12px' }}>
+        {fotos.map((foto, idx) => (
+          <div key={foto.id} style={{ position:'relative', aspectRatio:'1', borderRadius:10, overflow:'hidden' }}>
+            <img src={`${supabaseUrl}/storage/v1/object/public/fotos/${foto.storage_path}`} alt="Foto"
+              style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+            <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'16px 8px 8px', background:'linear-gradient(to top,rgba(0,0,0,0.75),transparent)' }}>
+              <p style={{ color:'#fff', fontSize:10, fontWeight:600, lineHeight:1.2 }}>{FOTO_LABELS[idx] || ''}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── JOGO DE PALAVRAS ─────────────────────────────────────────────────────────
+function JogoSection({ carta }: { carta: Carta }) {
   const palavras = [carta.jogo_palavra1?.trim(), carta.jogo_palavra2?.trim(), carta.jogo_palavra3?.trim()].filter(Boolean) as string[]
   if (palavras.length === 0) palavras.push(carta.nome_remetente, carta.nome_destinatario, 'amor')
 
@@ -392,175 +311,167 @@ function Card6({ carta, avancar }: CP) {
     if (palavras.map(x => x.toLowerCase()).includes(p) && !acertos.includes(p)) {
       const novos = [...acertos, p]
       setAcertos(novos)
-      setMsg('✓')
+      setMsg('Acertou! 🎉')
       if (novos.length === palavras.length) setFinalizado(true)
     } else if (acertos.includes(p)) {
-      setMsg('já descobriu!')
+      setMsg('Já descobriu essa!')
     } else {
-      setMsg('tente outra vez')
+      setMsg('Tente novamente!')
     }
     setTentativa('')
-    setTimeout(() => setMsg(''), 1200)
+    setTimeout(() => setMsg(''), 1500)
   }
 
   return (
-    <Tela>
-      <div className="fade-in-up" style={{ textAlign: 'center', width: '100%', maxWidth: 380, position: 'relative', zIndex: 1 }}
-        onClick={e => e.stopPropagation()}>
-        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 16 }}>Segredo íntimo</p>
-        <p style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 28, lineHeight: 1.3 }}>
-          Só você consegue desembaralhar o que a gente criou.
-        </p>
-
-        {finalizado ? (
-          <div className="scale-in" style={{ padding: '24px 0' }}>
-            <p style={{ fontSize: 40, marginBottom: 12 }}>🎊</p>
-            <p className="grad-text" style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Só você saberia isso.</p>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 24 }}>Nossa conexão é única.</p>
-            <button onClick={avancar} style={{ background: 'linear-gradient(135deg, #FF2D7A, #7928FF)', color: '#fff', border: 'none', borderRadius: 100, padding: '14px 32px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-              Continuar →
-            </button>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {palavras.map(p => (
-                <div key={p} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: `1px solid ${acertos.includes(p.toLowerCase()) ? 'rgba(255,45,122,0.4)' : 'rgba(255,255,255,0.06)'}` }}>
-                  <div>
-                    <p style={{ color: acertos.includes(p.toLowerCase()) ? '#FF2D7A' : 'rgba(255,255,255,0.2)', fontSize: 18, fontWeight: 700, letterSpacing: acertos.includes(p.toLowerCase()) ? 0 : 5, fontFamily: 'Montserrat, sans-serif' }}>
-                      {acertos.includes(p.toLowerCase()) ? p : '•'.repeat(p.length)}
-                    </p>
-                    {!acertos.includes(p.toLowerCase()) && <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, marginTop: 2 }}>{p.length} letras</p>}
-                  </div>
-                  {acertos.includes(p.toLowerCase()) && <span style={{ color: '#FF2D7A', fontSize: 16 }}>✓</span>}
+    <div className="section-card" style={{ background:'#1A1A1A', padding:'20px' }}>
+      <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, letterSpacing:2, textTransform:'uppercase', marginBottom:16 }}>Jogo de palavras</p>
+      {finalizado ? (
+        <div style={{ textAlign:'center', padding:'16px 0' }}>
+          <div style={{ fontSize:36, marginBottom:8 }}>🎊</div>
+          <p style={{ color:'#FF2D7A', fontWeight:700, fontSize:16 }}>Você descobriu tudo!</p>
+          <p style={{ color:'rgba(255,255,255,0.3)', fontSize:13, marginTop:4 }}>Só você saberia isso.</p>
+        </div>
+      ) : (
+        <>
+          <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
+            {palavras.map(p => (
+              <div key={p} style={{ background:'#262626', borderRadius:12, padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', border:`1px solid ${acertos.includes(p.toLowerCase()) ? 'rgba(255,45,122,0.4)' : 'rgba(255,255,255,0.06)'}` }}>
+                <div>
+                  <p style={{ color:acertos.includes(p.toLowerCase()) ? '#FF2D7A' : 'rgba(255,255,255,0.2)', fontSize:16, fontWeight:700, letterSpacing:acertos.includes(p.toLowerCase()) ? 0 : 5, fontFamily:'Poppins, sans-serif' }}>
+                    {acertos.includes(p.toLowerCase()) ? p : '•'.repeat(p.length)}
+                  </p>
+                  {!acertos.includes(p.toLowerCase()) && (
+                    <p style={{ color:'rgba(255,255,255,0.2)', fontSize:11, marginTop:2 }}>Dica: {p.length} letras</p>
+                  )}
                 </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input type="text" value={tentativa} onChange={e => setTentativa(e.target.value)} onKeyDown={e => e.key === 'Enter' && tentar()}
-                placeholder="Digite uma palavra…"
-                style={{ flex: 1, background: 'rgba(255,255,255,0.06)', color: '#fff', borderRadius: 12, padding: '12px 16px', outline: 'none', border: '1px solid rgba(255,255,255,0.1)', fontSize: 14, fontFamily: 'Inter, sans-serif' }} />
-              <button onClick={tentar} style={{ background: 'linear-gradient(135deg, #FF2D7A, #7928FF)', color: '#fff', padding: '12px 18px', borderRadius: 12, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 16 }}>→</button>
-            </div>
-            {msg && <p style={{ color: msg === '✓' ? '#FF2D7A' : 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 8 }}>{msg}</p>}
-            <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, marginTop: 8 }}>{acertos.length}/{palavras.length} descobertas</p>
-          </>
-        )}
-      </div>
-    </Tela>
+                {acertos.includes(p.toLowerCase()) && <span style={{ color:'#FF2D7A', fontSize:16 }}>✓</span>}
+              </div>
+            ))}
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <input type="text" value={tentativa} onChange={e => setTentativa(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && tentar()}
+              placeholder="Digite uma palavra…"
+              style={{ flex:1, background:'#262626', color:'#fff', borderRadius:12, padding:'12px 16px', outline:'none', border:'1px solid rgba(255,255,255,0.08)', fontSize:14, fontFamily:'Inter, sans-serif' }} />
+            <button onClick={tentar}
+              style={{ background:'linear-gradient(135deg,#FF2D7A,#7928FF)', color:'#fff', padding:'12px 18px', borderRadius:12, border:'none', cursor:'pointer', fontWeight:700, fontSize:16 }}>→</button>
+          </div>
+          {msg && <p style={{ color:msg.includes('Acertou') ? '#FF2D7A' : 'rgba(255,255,255,0.4)', fontSize:13, marginTop:8, textAlign:'center' }}>{msg}</p>}
+          <p style={{ color:'rgba(255,255,255,0.2)', fontSize:12, marginTop:8, textAlign:'center' }}>{acertos.length}/{palavras.length} descobertas</p>
+        </>
+      )}
+    </div>
   )
 }
 
-// ─── CARD 7 — Mensagem com typing ─────────────────────────────────────────────
-function Card7({ carta }: CP) {
-  const mensagem = carta.mensagem_principal || ''
-  const [typed, setTyped] = useState('')
-  const [done, setDone] = useState(false)
-
-  useEffect(() => {
-    let i = 0
-    const interval = setInterval(() => {
-      if (i < mensagem.length) { setTyped(mensagem.slice(0, i + 1)); i++ }
-      else { setDone(true); clearInterval(interval) }
-    }, 30)
-    return () => clearInterval(interval)
-  }, [mensagem])
+// ─── MENSAGEM ─────────────────────────────────────────────────────────────────
+function MensagemSection({ carta }: { carta: Carta }) {
+  const [mostrar, setMostrar] = useState(false)
+  const preview = carta.mensagem_principal?.slice(0, 100) || ''
+  const temMais = (carta.mensagem_principal?.length || 0) > 100
 
   return (
-    <Tela>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 50%, rgba(255,45,122,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 400 }}>
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 24 }}>
-          {carta.nome_remetente} escreveu
+    <div className="section-card" style={{ background:'linear-gradient(135deg,#1A2744,#1A1A1A)', padding:'20px' }}>
+      <p style={{ color:'rgba(255,255,255,0.5)', fontSize:13, fontWeight:600, marginBottom:16 }}>Mensagem especial</p>
+      <div style={{ position:'relative', marginBottom:mostrar ? 0 : 20 }}>
+        <p style={{ color:'#fff', fontSize:20, fontWeight:700, lineHeight:1.5, fontFamily:'Poppins, sans-serif' }}>
+          {mostrar ? carta.mensagem_principal : preview + (temMais && !mostrar ? '...' : '')}
         </p>
-        <p style={{ color: '#fff', fontSize: 'clamp(18px, 4.5vw, 26px)', fontFamily: 'Inter, sans-serif', fontWeight: 400, lineHeight: 1.8, fontStyle: 'italic' }}>
-          &ldquo;{typed}{!done && <span className="cursor" />}&rdquo;
-        </p>
+        {!mostrar && temMais && (
+          <div style={{ position:'absolute', bottom:0, left:0, right:0, height:60, background:'linear-gradient(to bottom,transparent,#1A2744)' }} />
+        )}
       </div>
-    </Tela>
+      {!mostrar && temMais && (
+        <button onClick={() => setMostrar(true)}
+          style={{ background:'rgba(255,255,255,0.1)', color:'#fff', border:'none', padding:'12px 24px', borderRadius:100, fontWeight:600, fontSize:14, cursor:'pointer', fontFamily:'Inter, sans-serif' }}>
+          Mostrar Mensagem
+        </button>
+      )}
+    </div>
   )
 }
 
-// ─── CARD 8 — Encerramento cinematográfico ────────────────────────────────────
-function Card8({ carta }: CP) {
-  const [clicou, setClicou] = useState(false)
+// ─── CTA FINAL ────────────────────────────────────────────────────────────────
+function CTASection({ carta }: { carta: Carta }) {
   const [copiado, setCopiado] = useState(false)
-  const [particulas, setParticulas] = useState<{ id: number; x: number; cor: string }[]>([])
+  const [clicou, setClicou] = useState(false)
+  const [particulas, setParticulas] = useState<{ id:number; x:number; cor:string }[]>([])
   const url = `https://www.lovefy.app.br/c/${carta.slug}`
-  const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const hoje = new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })
 
-  function handleBotao(e: React.MouseEvent) {
-    e.stopPropagation()
+  function handleBotao() {
     if (clicou) return
     setClicou(true)
-    const ps = Array.from({ length: 20 }, (_, i) => ({
-      id: i, x: Math.random() * 100,
-      cor: ['#FFD700','#00F0FF','#FF2D7A','#7928FF'][Math.floor(Math.random() * 4)],
+    const ps = Array.from({ length:16 }, (_, i) => ({
+      id:i, x:Math.random() * 100,
+      cor:['#FF2D7A','#7928FF','#FFD700','#00F0FF'][Math.floor(Math.random() * 4)],
     }))
     setParticulas(ps)
     setTimeout(() => setParticulas([]), 1800)
   }
 
-  function compartilharWpp(e: React.MouseEvent) {
-    e.stopPropagation()
+  function compartilharWpp() {
     const texto = `${carta.nome_remetente} criou algo especial para ${carta.nome_destinatario}! Ver aqui: ${url}`
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
   }
 
-  function copiar(e: React.MouseEvent) {
-    e.stopPropagation()
+  function copiar() {
     navigator.clipboard.writeText(url)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 2500)
   }
 
   return (
-    <div style={{ height: '100vh', background: '#0B0A1A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 28px 48px', position: 'relative', overflow: 'hidden' }}
-      onClick={e => e.stopPropagation()}>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 40%, rgba(255,45,122,0.1) 0%, transparent 60%), radial-gradient(ellipse at 50% 70%, rgba(121,40,255,0.08) 0%, transparent 60%)', pointerEvents: 'none' }} />
-
+    <div className="section-card" style={{ background:'#1A1A1A', padding:'28px 20px', position:'relative', overflow:'hidden', textAlign:'center' }}>
       {particulas.map(p => (
-        <div key={p.id} style={{ position: 'absolute', bottom: '40%', left: `${p.x}%`, width: 8, height: 8, borderRadius: '50%', background: p.cor, animation: 'starBurst 1.5s ease forwards', pointerEvents: 'none' }} />
+        <div key={p.id} style={{ position:'absolute', bottom:'50%', left:`${p.x}%`, width:7, height:7, borderRadius:'50%', background:p.cor, animation:'burst 1.5s ease forwards', pointerEvents:'none' }} />
       ))}
 
-      <div className="fade-in-up" style={{ textAlign: 'center', position: 'relative', zIndex: 1, width: '100%', maxWidth: 400 }}>
-        {!clicou ? (
-          <>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 20 }}>Encerramento</p>
-            <p style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 'clamp(24px, 6vw, 36px)', fontWeight: 800, color: '#fff', lineHeight: 1.3, marginBottom: 40 }}>
-              E se essa história<br />nunca acabar?
-            </p>
-            <button onClick={handleBotao} className="pulse-btn neon-border"
-              style={{ background: 'linear-gradient(135deg, #FF2D7A, #7928FF)', color: '#fff', border: 'none', borderRadius: 100, padding: '20px 48px', fontSize: 17, fontWeight: 700, cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', width: '100%' }}>
-              Eu guardo isso para sempre.
-            </button>
-          </>
-        ) : (
-          <div className="scale-in">
-            <div style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 20, padding: '16px 24px', marginBottom: 28, animation: 'sealIn 0.6s ease forwards' }}>
-              <p style={{ color: '#FFD700', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>✦ Carta entregue</p>
-              <p style={{ color: 'rgba(255,215,0,0.7)', fontSize: 12 }}>Estrela registrada · {hoje}</p>
-            </div>
-            <p style={{ color: '#fff', fontSize: 18, fontWeight: 600, fontFamily: 'Montserrat, sans-serif', marginBottom: 8 }}>
-              {carta.nome_remetente} & {carta.nome_destinatario}
-            </p>
-            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14, marginBottom: 28, fontStyle: 'italic' }}>Compartilhe este Wrapped</p>
+      {!clicou ? (
+        <>
+          <p style={{ color:'rgba(255,255,255,0.3)', fontSize:12, letterSpacing:2, textTransform:'uppercase', marginBottom:16 }}>Quer criar uma carta?</p>
+          <p style={{ color:'#fff', fontSize:20, fontWeight:700, fontFamily:'Poppins, sans-serif', lineHeight:1.3, marginBottom:28 }}>
+            Como {carta.nome_remetente} fez<br/>por {carta.nome_destinatario}.
+          </p>
+          <button onClick={handleBotao} className="pb"
+            style={{ width:'100%', padding:'18px', borderRadius:100, background:'linear-gradient(135deg,#FF2D7A,#7928FF)', color:'#fff', border:'none', cursor:'pointer', fontWeight:700, fontSize:16, marginBottom:12, fontFamily:'Poppins, sans-serif', boxShadow:'0 4px 24px rgba(255,45,122,0.4)' }}>
+            Criar minha carta
+          </button>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
             <button onClick={compartilharWpp}
-              style={{ width: '100%', padding: '16px', borderRadius: 100, background: '#25D366', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 15, marginBottom: 10, fontFamily: 'Inter, sans-serif' }}>
+              style={{ padding:'14px', borderRadius:100, background:'#25D366', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:14, fontFamily:'Inter, sans-serif' }}>
               WhatsApp
             </button>
             <button onClick={copiar}
-              style={{ width: '100%', padding: '14px', borderRadius: 100, background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
-              {copiado ? '✓ Link copiado!' : 'Copiar link'}
+              style={{ padding:'14px', borderRadius:100, background:'rgba(255,255,255,0.06)', color:'#fff', border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer', fontWeight:600, fontSize:14, fontFamily:'Inter, sans-serif' }}>
+              {copiado ? 'Copiado!' : 'Copiar link'}
             </button>
-            <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13, marginBottom: 12 }}>Como {carta.nome_remetente} fez por você.</p>
-            <a href="https://www.lovefy.app.br/criar"
-              style={{ display: 'inline-block', padding: '12px 28px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', fontSize: 14, textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>
-              Criar minha carta
-            </a>
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="si">
+          <div style={{ background:'rgba(255,215,0,0.08)', border:'1px solid rgba(255,215,0,0.3)', borderRadius:16, padding:'14px 20px', marginBottom:20, display:'inline-block', animation:'sealPop 0.6s ease forwards' }}>
+            <p style={{ color:'#FFD700', fontSize:11, letterSpacing:2, textTransform:'uppercase', marginBottom:2 }}>✦ Carta entregue</p>
+            <p style={{ color:'rgba(255,215,0,0.6)', fontSize:12 }}>Estrela registrada · {hoje}</p>
+          </div>
+          <p style={{ color:'#fff', fontSize:18, fontWeight:700, fontFamily:'Poppins, sans-serif', marginBottom:6 }}>
+            {carta.nome_remetente} & {carta.nome_destinatario}
+          </p>
+          <p style={{ color:'rgba(255,255,255,0.35)', fontSize:14, marginBottom:24 }}>Compartilhe este Wrapped</p>
+          <button onClick={compartilharWpp}
+            style={{ width:'100%', padding:'16px', borderRadius:100, background:'#25D366', color:'#fff', border:'none', cursor:'pointer', fontWeight:700, fontSize:15, marginBottom:10, fontFamily:'Inter, sans-serif' }}>
+            WhatsApp
+          </button>
+          <button onClick={copiar}
+            style={{ width:'100%', padding:'14px', borderRadius:100, background:'rgba(255,255,255,0.06)', color:'#fff', border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer', fontWeight:600, fontSize:14, marginBottom:24, fontFamily:'Inter, sans-serif' }}>
+            {copiado ? '✓ Link copiado!' : 'Copiar link'}
+          </button>
+          <a href="https://www.lovefy.app.br/criar"
+            style={{ display:'inline-block', padding:'12px 28px', borderRadius:100, border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.5)', fontSize:14, textDecoration:'none', fontFamily:'Inter, sans-serif' }}>
+            Criar minha carta
+          </a>
+        </div>
+      )}
     </div>
   )
 }
