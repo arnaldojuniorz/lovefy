@@ -162,7 +162,7 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
             <p style={{ color: '#fff', fontWeight: 800, fontSize: 22, fontFamily: 'Poppins, sans-serif', lineHeight: 1.2, marginBottom: 4 }}>
-              {carta.musica_nome || 'Nossa música'}
+              {'Nossa música'}
             </p>
             <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>
               {carta.nome_remetente} & {carta.nome_destinatario}
