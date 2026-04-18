@@ -7,7 +7,6 @@ export default function Etapa5() {
   const { data, update } = useCarta()
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
-  const [plano, setPlano] = useState<'24h' | 'forever'>('forever')
 
   async function handleContinuar() {
     if (!data.nome_pagador || !data.email_pagador) {
@@ -68,7 +67,8 @@ export default function Etapa5() {
         update({ carta_id })
       }
 
-      window.location.href = `/checkout?carta_id=${carta_id}&plano=${plano}&tipo=digital&nome=${encodeURIComponent(data.nome_pagador)}&email=${encodeURIComponent(data.email_pagador)}`
+      // ✅ plano fixo: forever (R$12,90)
+      window.location.href = `/checkout?carta_id=${carta_id}&plano=forever&tipo=digital&nome=${encodeURIComponent(data.nome_pagador)}&email=${encodeURIComponent(data.email_pagador)}`
 
     } catch {
       setErro('Erro de conexão. Tente novamente.')
@@ -80,7 +80,7 @@ export default function Etapa5() {
   return (
     <div className="bg-[#16213e] rounded-3xl p-8">
       <h1 className="text-2xl font-bold text-white mb-2">Quase lá! 💳</h1>
-      <p className="text-white/50 text-sm mb-6">Preencha seus dados e escolha seu plano</p>
+      <p className="text-white/50 text-sm mb-6">Preencha seus dados para finalizar</p>
 
       <div className="space-y-4">
         <div>
@@ -97,22 +97,16 @@ export default function Etapa5() {
             className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
         </div>
 
-        <div>
-          <label className="text-white/70 text-sm block mb-3">Escolha seu plano *</label>
-          <div className="grid grid-cols-2 gap-3">
-            <div onClick={() => setPlano('24h')}
-              className={`p-4 rounded-xl border cursor-pointer transition-all ${plano === '24h' ? 'border-pink-500 bg-pink-500/10' : 'border-white/10 bg-[#0f3460] hover:border-white/30'}`}>
-              <p className="text-white font-bold text-lg">R$ 6,90</p>
-              <p className="text-white/70 text-sm font-medium">24 Horas</p>
-              <p className="text-white/40 text-xs mt-1">Expira em 24h</p>
+        {/* Card do plano único */}
+        <div className="p-5 rounded-xl border border-pink-500 bg-pink-500/10 relative">
+          <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs px-2 py-0.5 rounded-full">Único plano</span>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-white font-bold text-2xl">R$ 12,90</p>
+              <p className="text-white/70 text-sm font-medium">Carta Para Sempre</p>
+              <p className="text-white/40 text-xs mt-1">Link vitalício · Nunca expira</p>
             </div>
-            <div onClick={() => setPlano('forever')}
-              className={`p-4 rounded-xl border cursor-pointer transition-all relative ${plano === 'forever' ? 'border-pink-500 bg-pink-500/10' : 'border-white/10 bg-[#0f3460] hover:border-white/30'}`}>
-              <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs px-2 py-0.5 rounded-full">Popular</span>
-              <p className="text-white font-bold text-lg">R$ 12,90</p>
-              <p className="text-white/70 text-sm font-medium">Para Sempre</p>
-              <p className="text-white/40 text-xs mt-1">Link vitalício</p>
-            </div>
+            <div className="text-3xl">💌</div>
           </div>
         </div>
 
@@ -126,7 +120,7 @@ export default function Etapa5() {
         </button>
         <button onClick={handleContinuar} disabled={loading}
           className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50">
-          {loading ? 'Aguarde...' : 'Continuar →'}
+          {loading ? 'Aguarde...' : 'Finalizar →'}
         </button>
       </div>
     </div>
