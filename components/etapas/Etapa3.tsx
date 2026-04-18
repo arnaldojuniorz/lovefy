@@ -20,6 +20,7 @@ const RECURSOS = [
 export default function Etapa3() {
   const { data, update } = useCarta()
   const [uploadandoDestaque, setUploadandoDestaque] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   function toggleRecurso(id: string) {
     const novos = data.recursos.includes(id)
@@ -50,22 +51,76 @@ export default function Etapa3() {
   }
 
   async function avancar() {
-    if (data.carta_id) {
-      await fetch('/api/cartas', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          carta_id: data.carta_id,
-          recursos: data.recursos,
-          musica_link: data.musica_link,
-          foto_destaque: data.foto_destaque,
-          jogo_palavra1: data.jogo_palavra1,
-          jogo_palavra2: data.jogo_palavra2,
-          jogo_palavra3: data.jogo_palavra3,
-        }),
-      })
+    setLoading(true)
+    try {
+      if (data.carta_id) {
+        const res = await fetch('/api/cartas', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            carta_id:      data.carta_id,
+            recursos:      data.recursos,
+            musica_link:   data.musica_link,
+            foto_destaque: data.foto_destaque,
+            jogo_palavra1: data.jogo_palavra1,
+            jogo_palavra2: data.jogo_palavra2,
+            jogo_palavra3: data.jogo_palavra3,
+          }),
+        })
+
+        // ✅ Se carta não existe mais, recria silenciosamente
+        if (!res.ok) {
+          await recriarCarta()
+          return
+        }
+      } else {
+        await recriarCarta()
+        return
+      }
+
+      update({ etapa_atual: 4 })
+    } catch {
+      alert('Erro de conexão. Tente novamente.')
+    } finally {
+      setLoading(false)
     }
-    update({ etapa_atual: 4 })
+  }
+
+  async function recriarCarta() {
+    const res = await fetch('/api/cartas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome_destinatario:  data.nome_destinatario,
+        nome_remetente:     data.nome_remetente,
+        data_importante:    data.data_importante,
+        mensagem_principal: data.mensagem_principal,
+      }),
+    })
+
+    const result = await res.json()
+
+    if (!res.ok) {
+      alert(result.error || 'Erro ao salvar. Tente novamente.')
+      return
+    }
+
+    // Salva os extras na carta recriada
+    await fetch('/api/cartas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        carta_id:      result.carta_id,
+        recursos:      data.recursos,
+        musica_link:   data.musica_link,
+        foto_destaque: data.foto_destaque,
+        jogo_palavra1: data.jogo_palavra1,
+        jogo_palavra2: data.jogo_palavra2,
+        jogo_palavra3: data.jogo_palavra3,
+      }),
+    })
+
+    update({ carta_id: result.carta_id, etapa_atual: 4 })
   }
 
   return (
@@ -126,7 +181,6 @@ export default function Etapa3() {
               </div>
             </div>
 
-            {/* Galeria */}
             {r.id === 'galeria' && data.recursos.includes('galeria') && (
               <div className="mt-3 ml-2">
                 <GaleriaUpload
@@ -136,7 +190,6 @@ export default function Etapa3() {
               </div>
             )}
 
-            {/* Mapa das Estrelas */}
             {r.id === 'mapa_estrelas' && data.recursos.includes('mapa_estrelas') && (
               <div className="mt-3 ml-2 bg-[#0f3460] rounded-xl p-4 border border-white/10">
                 <p className="text-white/70 text-sm">O mapa será gerado automaticamente com base na data que você informou.</p>
@@ -148,7 +201,6 @@ export default function Etapa3() {
               </div>
             )}
 
-            {/* Jogo de Palavras */}
             {r.id === 'jogo_palavras' && data.recursos.includes('jogo_palavras') && (
               <div className="mt-3 ml-2 bg-[#0f3460] rounded-xl p-4 border border-white/10">
                 <p className="text-white/70 text-sm mb-1">3 palavras para o jogo:</p>
@@ -167,7 +219,6 @@ export default function Etapa3() {
               </div>
             )}
 
-            {/* Música */}
             {r.id === 'musica' && data.recursos.includes('musica') && (
               <div className="mt-3 ml-2">
                 <input type="text" value={data.musica_link} onChange={e => update({ musica_link: e.target.value })}
@@ -180,13 +231,13 @@ export default function Etapa3() {
       </div>
 
       <div className="flex gap-3 mt-8">
-        <button onClick={() => update({ etapa_atual: 2 })}
-          className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all">
+        <button onClick={() => update({ etapa_atual: 2 })} disabled={loading}
+          className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50">
           ← Voltar
         </button>
-        <button onClick={avancar}
-          className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all">
-          Continuar →
+        <button onClick={avancar} disabled={loading}
+          className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50">
+          {loading ? 'Salvando...' : 'Continuar →'}
         </button>
       </div>
     </div>

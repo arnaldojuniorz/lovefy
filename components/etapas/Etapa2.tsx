@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { useCarta } from '@/lib/carta-context'
 
 export default function Etapa2() {
   const { data, update } = useCarta()
+  const [loading, setLoading] = useState(false)
 
   async function avancar() {
     if (!data.data_importante || !data.mensagem_principal) {
@@ -11,19 +13,58 @@ export default function Etapa2() {
       return
     }
 
-    if (data.carta_id) {
-      await fetch('/api/cartas', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          carta_id: data.carta_id,
-          data_importante: data.data_importante,
-          mensagem_principal: data.mensagem_principal,
-        }),
-      })
+    setLoading(true)
+
+    try {
+      if (data.carta_id) {
+        const res = await fetch('/api/cartas', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            carta_id: data.carta_id,
+            data_importante: data.data_importante,
+            mensagem_principal: data.mensagem_principal,
+          }),
+        })
+
+        // ✅ Se carta não existe mais, recria silenciosamente
+        if (!res.ok) {
+          await recriarCarta()
+          return
+        }
+      } else {
+        await recriarCarta()
+        return
+      }
+
+      update({ etapa_atual: 3 })
+    } catch {
+      alert('Erro de conexão. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function recriarCarta() {
+    const res = await fetch('/api/cartas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome_destinatario:  data.nome_destinatario,
+        nome_remetente:     data.nome_remetente,
+        data_importante:    data.data_importante,
+        mensagem_principal: data.mensagem_principal,
+      }),
+    })
+
+    const result = await res.json()
+
+    if (!res.ok) {
+      alert(result.error || 'Erro ao salvar. Tente novamente.')
+      return
     }
 
-    update({ etapa_atual: 3 })
+    update({ carta_id: result.carta_id, etapa_atual: 3 })
   }
 
   return (
@@ -57,15 +98,17 @@ export default function Etapa2() {
       <div className="flex gap-3 mt-8">
         <button
           onClick={() => update({ etapa_atual: 1 })}
-          className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all"
+          disabled={loading}
+          className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50"
         >
           ← Voltar
         </button>
         <button
           onClick={avancar}
-          className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all"
+          disabled={loading}
+          className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
         >
-          Continuar →
+          {loading ? 'Salvando...' : 'Continuar →'}
         </button>
       </div>
     </div>
