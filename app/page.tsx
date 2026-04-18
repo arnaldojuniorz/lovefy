@@ -58,9 +58,6 @@ export default function Home() {
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col lg:flex-row items-center gap-12">
               <div className="flex-1 text-center lg:text-left">
-                <span className="inline-block px-4 py-2 rounded-full mb-6 text-sm font-medium" style={{background:'rgba(255,107,157,0.2)',color:'#ff6b9d'}}>
-                  +10.000 cartas enviadas
-                </span>
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight mb-6">
                   Transforme seu <span className="gradient-text">amor</span> em uma experiência <span className="gradient-text">inesquecível</span>
                 </h1>
@@ -149,67 +146,45 @@ export default function Home() {
 
         {/* Pricing */}
         <section id="pricing" className="py-20 px-4">
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-3xl mx-auto">
             <div className="text-center mb-16">
               <span className="inline-block px-4 py-2 rounded-full text-sm font-medium mb-4" style={{background:'rgba(255,107,157,0.2)',color:'#ff6b9d'}}>Preços Acessíveis</span>
-              <h2 className="text-3xl md:text-4xl font-black mb-4">Escolha seu <span className="gradient-text">plano</span></h2>
+              <h2 className="text-3xl md:text-4xl font-black mb-4">Simples e <span className="gradient-text">acessível</span></h2>
               <p className="text-muted text-lg">Amor não tem preço, mas cabe no seu bolso</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-              {/* Plano 24h */}
-              <div className="card rounded-3xl p-8 flex flex-col">
-                <div className="mb-6">
-                  <h3 className="text-xl font-bold mb-2">Carta Digital 24h</h3>
-                  <p className="text-muted text-sm">Perfeito para surpresas rápidas</p>
-                </div>
-                <div className="mb-6">
-                  <span className="text-5xl font-black gradient-text">R$ 6,90</span>
-                </div>
-                <ul className="space-y-3 mb-8 flex-grow">
-                  {['Carta digital completa', 'Todos os recursos', 'Link e QR Code', 'Galeria com até 5 fotos'].map(item => (
-                    <li key={item} className="flex items-center gap-3 text-sm">
-                      <span style={{color:'#4ecdc4'}}>✓</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                  <li className="flex items-center gap-3 text-sm text-muted">
-                    <span style={{color:'#c44569'}}>✗</span>
-                    <span>Expira em 24h</span>
-                  </li>
-                </ul>
-                <a href="/criar" className="w-full py-4 rounded-full font-semibold text-center block transition-all hover:bg-pink-500/10" style={{border:'2px solid #ff6b9d', color:'#ff6b9d'}}>
-                  Criar agora
-                </a>
-              </div>
-
-              {/* Plano Para Sempre */}
+              {/* Carta Digital */}
               <div className="card rounded-3xl p-8 flex flex-col pricing-popular">
                 <div className="mb-6">
-                  <h3 className="text-xl font-bold mb-2">Carta Digital Vitalícia</h3>
+                  <h3 className="text-xl font-bold mb-2">Carta Digital</h3>
                   <p className="text-muted text-sm">Guarde essa memória eternamente</p>
                 </div>
                 <div className="mb-6">
                   <span className="text-5xl font-black gradient-text">R$ 12,90</span>
                 </div>
                 <ul className="space-y-3 mb-8 flex-grow">
-                  {['Carta digital completa', 'Todos os recursos', 'Link e QR Code', 'Galeria com até 5 fotos'].map(item => (
+                  {[
+                    'Carta digital completa',
+                    'Todos os recursos',
+                    'Link e QR Code',
+                    'Galeria com até 5 fotos',
+                    'Mapa das estrelas',
+                    'Jogo de palavras',
+                    'Link ativo para sempre!',
+                  ].map(item => (
                     <li key={item} className="flex items-center gap-3 text-sm">
                       <span style={{color:'#4ecdc4'}}>✓</span>
                       <span>{item}</span>
                     </li>
                   ))}
-                  <li className="flex items-center gap-3 text-sm font-semibold" style={{color:'#4ecdc4'}}>
-                    <span>✓</span>
-                    <span>Link ativo para sempre!</span>
-                  </li>
                 </ul>
                 <a href="/criar" className="btn-primary w-full py-4 rounded-full font-semibold pulse-glow text-center text-white block">
                   Criar agora
                 </a>
               </div>
 
-              {/* Plano Impressão */}
+              {/* Carta Impressão */}
               <div className="card rounded-3xl p-8 flex flex-col">
                 <div className="mb-6">
                   <h3 className="text-xl font-bold mb-2">Carta para Impressão</h3>
@@ -219,16 +194,18 @@ export default function Home() {
                   <span className="text-5xl font-black gradient-text">R$ 9,90</span>
                 </div>
                 <ul className="space-y-3 mb-8 flex-grow">
-                  {['PDF em alta qualidade', 'Formato A4 profissional', 'Estilos personalizados', 'QR Code com música'].map(item => (
+                  {[
+                    'PDF em alta qualidade',
+                    'Formato A4 profissional',
+                    'Layout elegante',
+                    'QR Code com música',
+                    'Pronto para imprimir!',
+                  ].map(item => (
                     <li key={item} className="flex items-center gap-3 text-sm">
                       <span style={{color:'#4ecdc4'}}>✓</span>
                       <span>{item}</span>
                     </li>
                   ))}
-                  <li className="flex items-center gap-3 text-sm font-semibold" style={{color:'#4ecdc4'}}>
-                    <span>✓</span>
-                    <span>Pronto para imprimir!</span>
-                  </li>
                 </ul>
                 <a href="/imprimir" className="w-full py-4 rounded-full font-semibold text-center block transition-all hover:bg-pink-500/10" style={{border:'2px solid #ff6b9d', color:'#ff6b9d'}}>
                   Criar agora
@@ -237,37 +214,6 @@ export default function Home() {
 
             </div>
             <p className="text-center text-muted text-sm mt-8">A carta não pode ser editada após a criação</p>
-          </div>
-        </section>
-
-        {/* Depoimentos */}
-        <section className="py-20 px-4" style={{background:'rgba(22,33,62,0.3)'}}>
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <span className="inline-block px-4 py-2 rounded-full text-sm font-medium mb-4" style={{background:'rgba(255,107,157,0.2)',color:'#ff6b9d'}}>Depoimentos</span>
-              <h2 className="text-3xl md:text-4xl font-black mb-4">O que nossos <span className="gradient-text">clientes</span> dizem</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                { inicial: 'R', nome: 'Rafael S.', cidade: 'São Paulo, SP', texto: 'Minha namorada chorou de emoção quando viu a carta! O mapa das estrelas do dia que nos conhecemos foi o toque especial.' },
-                { inicial: 'M', nome: 'Marcos P.', cidade: 'Rio de Janeiro, RJ', texto: 'Usei para pedir minha esposa em casamento de um jeito diferente. Foi perfeito e ela ficou emocionada!' },
-                { inicial: 'J', nome: 'Julia M.', cidade: 'Curitiba, PR', texto: 'Imprimi a carta e coloquei dentro de um buquê de flores. Minha mãe ficou sem palavras!' },
-              ].map(item => (
-                <div key={item.nome} className="card rounded-2xl p-6">
-                  <div className="mb-4" style={{color:'#fbbf24'}}>★★★★★</div>
-                  <p className="text-muted font-light mb-4">"{item.texto}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{background:'linear-gradient(135deg, #ff6b9d, #ff8a5c)'}}>
-                      {item.inicial}
-                    </div>
-                    <div>
-                      <div className="font-semibold">{item.nome}</div>
-                      <div className="text-xs text-muted">{item.cidade}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </section>
 
@@ -317,7 +263,7 @@ export default function Home() {
                   Criar carta para impressão
                 </a>
               </div>
-              <p className="text-sm text-muted mt-6">Pagamento 100% seguro • Entrega instantânea • +10.000 cartas criadas</p>
+              <p className="text-sm text-muted mt-6">Pagamento 100% seguro • Entrega instantânea</p>
             </div>
           </div>
         </section>
@@ -331,7 +277,7 @@ export default function Home() {
               <a href="/privacidade" className="hover:text-white transition-colors">Privacidade</a>
               <a href="/contato" className="hover:text-white transition-colors">Contato</a>
             </div>
-            <div className="text-sm text-muted">© 2025 Lovefy. Feito com amor</div>
+            <div className="text-sm text-muted">© 2026 Lovefy. Feito com amor</div>
           </div>
         </footer>
 
