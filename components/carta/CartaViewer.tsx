@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Carta, getEstacao, getSpotifyId, formatarData, calcularTempo } from './CartaTypes'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -19,16 +19,17 @@ const STYLES = `
   body { background: #0D0D0D; font-family: 'Inter', sans-serif; }
 
   @keyframes fadeUp   { from { opacity:0; transform:translateY(28px) } to { opacity:1; transform:translateY(0) } }
-  @keyframes scaleIn  { from { opacity:0; transform:scale(0.9) }       to { opacity:1; transform:scale(1) } }
   @keyframes pulse    { 0%,100% { transform:scale(1) } 50% { transform:scale(1.05) } }
   @keyframes gradAnim { 0%,100% { background-position:0% 50% } 50% { background-position:100% 50% } }
   @keyframes zoomSlow { from { transform:scale(1.06) } to { transform:scale(1) } }
   @keyframes shimmer  { 0% { opacity:0.5 } 50% { opacity:1 } 100% { opacity:0.5 } }
+  @keyframes starGlow { 0%,100% { box-shadow: 0 0 40px rgba(121,40,255,0.4), 0 0 80px rgba(121,40,255,0.2) } 50% { box-shadow: 0 0 60px rgba(121,40,255,0.7), 0 0 120px rgba(255,45,122,0.3) } }
   @keyframes lightboxIn { from { opacity:0; transform:scale(0.92) } to { opacity:1; transform:scale(1) } }
 
   .fu   { animation: fadeUp 0.7s ease both; }
   .pb   { animation: pulse 2s ease-in-out infinite; }
   .shim { animation: shimmer 2s ease-in-out infinite; }
+  .star-glow { animation: starGlow 3s ease-in-out infinite; }
 
   .grad-pill {
     background: linear-gradient(135deg,#FF2D7A,#7928FF);
@@ -115,7 +116,7 @@ function HeroSection({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null 
   )
 }
 
-// ─── PLAYER — embed direto ao clicar play ────────────────────────────────────
+// ─── PLAYER — foto mantida, mini player aparece embaixo ──────────────────────
 function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: string | null; spotifyId: string | null }) {
   const [tocando, setTocando] = useState(false)
 
@@ -128,48 +129,42 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>···</span>
       </div>
 
-      {/* ✅ Foto quadrada — some ao tocar */}
-      {!tocando && (
-        <div style={{ margin: '0 16px 0', borderRadius: 12, overflow: 'hidden', aspectRatio: '1', background: '#0d2d45', position: 'relative' }}>
-          {fotoUrl ? (
-            <img src={fotoUrl} alt="Foto"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-          ) : (
-            <div className="grad-pill" style={{ width: '100%', height: '100%' }} />
-          )}
-          {/* Botão play sobre a foto */}
-          {(spotifyId || carta.musica_link) && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
-              <button
-                onClick={() => {
-                  if (spotifyId) setTocando(true)
-                  else window.open(carta.musica_link, '_blank')
-                }}
-                className="pb"
-                style={{ width: 72, height: 72, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="#0d2d45"><path d="M8 5v14l11-7z" /></svg>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {/* ✅ Foto SEMPRE visível — não some ao tocar */}
+      <div style={{ margin: '0 16px', borderRadius: 12, overflow: 'hidden', aspectRatio: '1', background: '#0d2d45', position: 'relative' }}>
+        {fotoUrl ? (
+          <img src={fotoUrl} alt="Foto"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        ) : (
+          <div className="grad-pill" style={{ width: '100%', height: '100%' }} />
+        )}
 
-      {/* ✅ Embed Spotify aparece direto no lugar da foto */}
-      {spotifyId && tocando && (
-        <div style={{ margin: '0 16px' }}>
-          <iframe
-            src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
-            width="100%" height="352" frameBorder={0}
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
-            style={{ borderRadius: 12, display: 'block' }}
-          />
-        </div>
-      )}
+        {/* Botão play sobre a foto — some ao tocar */}
+        {!tocando && (spotifyId || carta.musica_link) && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.15)' }}>
+            <button
+              onClick={() => {
+                if (spotifyId) setTocando(true)
+                else window.open(carta.musica_link, '_blank')
+              }}
+              className="pb"
+              style={{ width: 72, height: 72, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 28px rgba(0,0,0,0.5)' }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="#0d2d45"><path d="M8 5v14l11-7z" /></svg>
+            </button>
+          </div>
+        )}
+
+        {/* Indicador de tocando */}
+        {tocando && (
+          <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.6)', borderRadius: 100, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12 }}>🎵</span>
+            <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Tocando</span>
+          </div>
+        )}
+      </div>
 
       {/* Info */}
-      <div style={{ padding: '16px 20px 24px' }}>
+      <div style={{ padding: '16px 20px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <p style={{ color: '#fff', fontWeight: 800, fontSize: 20, fontFamily: 'Poppins, sans-serif', lineHeight: 1.2, marginBottom: 4 }}>
@@ -179,14 +174,35 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
               {carta.nome_remetente} & {carta.nome_destinatario}
             </p>
           </div>
-          {tocando && (
-            <button onClick={() => setTocando(false)}
-              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: 100, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}>
-              ← Voltar
-            </button>
-          )}
+          <div style={{ width: 34, height: 34, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ color: '#fff', fontSize: 14 }}>✓</span>
+          </div>
         </div>
       </div>
+
+      {/* ✅ Embed Spotify aparece EMBAIXO da foto, não no lugar dela */}
+      {spotifyId && tocando && (
+        <div style={{ padding: '12px 16px 20px' }}>
+          <iframe
+            src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
+            width="100%" height="80" frameBorder={0}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            style={{ borderRadius: 12, display: 'block' }}
+          />
+        </div>
+      )}
+
+      {!tocando && <div style={{ height: 20 }} />}
+
+      {!spotifyId && carta.musica_link && (
+        <div style={{ padding: '0 16px 20px' }}>
+          <a href={carta.musica_link} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'block', textAlign: 'center', padding: '12px', borderRadius: 100, background: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 600, textDecoration: 'none', fontSize: 14 }}>
+            Abrir no Spotify
+          </a>
+        </div>
+      )}
     </div>
   )
 }
@@ -235,7 +251,7 @@ function ContadorSection({ carta }: { carta: Carta }) {
   )
 }
 
-// ─── MAPA DAS ESTRELAS ────────────────────────────────────────────────────────
+// ─── MAPA DAS ESTRELAS — maior e mais chamativo ───────────────────────────────
 function MapaSection({ carta }: { carta: Carta }) {
   const [mapaUrl, setMapaUrl] = useState(carta.mapa_estrelas_url || '')
   const [loading, setLoading] = useState(!carta.mapa_estrelas_url)
@@ -254,44 +270,68 @@ function MapaSection({ carta }: { carta: Carta }) {
   }, [])
 
   return (
-    <div className="section-card" style={{ background: '#0D0D1F', padding: '24px 20px', textAlign: 'center' }}>
-      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>O céu no dia de vocês</p>
-      {loading && <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14, marginBottom: 16 }} className="shim">Gerando mapa das estrelas…</p>}
+    <div className="section-card" style={{ background: 'linear-gradient(180deg, #05051A 0%, #0D0D2F 100%)', padding: '32px 20px 36px', textAlign: 'center' }}>
+      {/* Header */}
+      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 8 }}>✦ Momento cósmico ✦</p>
+      <p style={{ color: '#fff', fontSize: 20, fontWeight: 700, fontFamily: 'Poppins, sans-serif', marginBottom: 28, lineHeight: 1.3 }}>
+        O céu na noite<br />de vocês
+      </p>
+
+      {loading && <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14, marginBottom: 24 }} className="shim">Gerando mapa das estrelas…</p>}
+
+      {/* ✅ Mapa grande com glow pulsante */}
       {mapaUrl && (
-        <div style={{ width: 200, height: 200, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 16px', border: '2px solid rgba(121,40,255,0.5)', boxShadow: '0 0 40px rgba(121,40,255,0.3)' }}>
-          <img src={mapaUrl} alt="Mapa das estrelas" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 24 }}>
+          {/* Glow externo */}
+          <div style={{
+            position: 'absolute', inset: -12,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(121,40,255,0.4) 0%, rgba(255,45,122,0.15) 50%, transparent 70%)',
+            filter: 'blur(12px)',
+          }} />
+          <div
+            className="star-glow"
+            style={{ width: 280, height: 280, borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(121,40,255,0.6)', position: 'relative' }}>
+            <img src={mapaUrl} alt="Mapa das estrelas" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
         </div>
       )}
+
       {estacao && (
-        <>
-          <p style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{estacao.emoji} {estacao.nome}</p>
-          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginTop: 4 }}>{formatarData(carta.data_importante)}</p>
-        </>
+        <div style={{ marginTop: 8 }}>
+          <p style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            {estacao.emoji} {estacao.nome}
+          </p>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>{formatarData(carta.data_importante)}</p>
+        </div>
       )}
+
+      {/* Estrelinhas decorativas */}
+      <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center', gap: 8 }}>
+        {['✦','✧','✦','✧','✦'].map((s, i) => (
+          <span key={i} style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>{s}</span>
+        ))}
+      </div>
     </div>
   )
 }
 
-// ─── GALERIA 3D FAN — sem legendas, com setas e lightbox ─────────────────────
+// ─── GALERIA HORIZONTAL COM SCROLL (formato original) ────────────────────────
 function GaleriaSection({ carta, fotos }: { carta: Carta; fotos: Carta['fotos'] }) {
-  const [ativa, setAtiva] = useState(1)
+  const [ativa, setAtiva] = useState(0)
   const [lightbox, setLightbox] = useState<string | null>(null)
   const tresfotos = fotos.slice(0, 3)
 
-  function anterior() { setAtiva(a => Math.max(0, a - 1)) }
-  function proximo()  { setAtiva(a => Math.min(tresfotos.length - 1, a + 1)) }
-
   return (
-    <div className="section-card" style={{ background: '#1A1A1A', padding: '20px 0 28px' }}>
-      <p style={{ color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: 'Poppins, sans-serif', padding: '0 20px', marginBottom: 32 }}>
+    <div className="section-card" style={{ background: '#1A1A1A', paddingTop: 20, paddingBottom: 20 }}>
+      <p style={{ color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: 'Poppins, sans-serif', padding: '0 20px', marginBottom: 16 }}>
         Conheça {carta.nome_remetente} e {carta.nome_destinatario}
       </p>
 
       {/* ✅ Lightbox */}
       {lightbox && (
-        <div
-          onClick={() => setLightbox(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.96)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <img src={lightbox} alt="Foto"
             style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 16, objectFit: 'contain', animation: 'lightboxIn 0.3s ease' }} />
           <button onClick={() => setLightbox(null)}
@@ -301,62 +341,29 @@ function GaleriaSection({ carta, fotos }: { carta: Carta; fotos: Carta['fotos'] 
         </div>
       )}
 
-      {/* ✅ Fan 3D */}
-      <div style={{ position: 'relative', height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {/* ✅ Scroll horizontal — formato original com cards grandes */}
+      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingLeft: 20, paddingRight: 20, paddingBottom: 8, scrollSnapType: 'x mandatory', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
         {tresfotos.map((foto, idx) => {
-          const isCenter = idx === 1
-          const isLeft   = idx === 0
-          const url      = fotoStorageUrl(foto.storage_path)!
-
+          const url = fotoStorageUrl(foto.storage_path)!
           return (
             <div key={foto.id}
-              onClick={() => setLightbox(url)}
-              style={{
-                position: 'absolute',
-                width: isCenter ? 220 : 170,
-                height: isCenter ? 290 : 240,
-                borderRadius: 20,
-                overflow: 'hidden',
-                cursor: 'pointer',
-                transition: 'all 0.4s cubic-bezier(.34,1.56,.64,1)',
-                transform: isLeft
-                  ? 'translateX(-140px) rotate(-8deg) scale(0.92)'
-                  : idx === 2
-                    ? 'translateX(140px) rotate(8deg) scale(0.92)'
-                    : 'translateX(0) rotate(0deg) scale(1)',
-                zIndex: isCenter ? 3 : 1,
-                boxShadow: isCenter ? '0 24px 60px rgba(0,0,0,0.7)' : '0 12px 32px rgba(0,0,0,0.5)',
-                border: ativa === idx ? '2px solid #FF2D7A' : '2px solid transparent',
-              }}>
-              <img src={url} alt="Foto"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
-              {!isCenter && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
-              )}
+              onClick={() => { setAtiva(idx); setLightbox(url) }}
+              style={{ flexShrink: 0, width: '72vw', maxWidth: 300, aspectRatio: '3/4', borderRadius: 20, overflow: 'hidden', scrollSnapAlign: 'start', position: 'relative', border: idx === ativa ? '2px solid #FF2D7A' : '2px solid transparent', transition: 'border 0.2s', cursor: 'pointer' }}>
+              <img src={url} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {/* Ícone de expandir */}
+              <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.5)', borderRadius: 8, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ color: '#fff', fontSize: 13 }}>⤢</span>
+              </div>
             </div>
           )
         })}
-
-        {/* ✅ Setas de navegação */}
-        {ativa > 0 && (
-          <button onClick={e => { e.stopPropagation(); anterior() }}
-            style={{ position: 'absolute', left: 12, zIndex: 10, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-            ‹
-          </button>
-        )}
-        {ativa < tresfotos.length - 1 && (
-          <button onClick={e => { e.stopPropagation(); proximo() }}
-            style={{ position: 'absolute', right: 12, zIndex: 10, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-            ›
-          </button>
-        )}
       </div>
 
       {/* Indicadores */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 14 }}>
         {tresfotos.map((_, idx) => (
           <div key={idx} onClick={() => setAtiva(idx)}
-            style={{ width: ativa === idx ? 18 : 5, height: 5, borderRadius: 3, background: ativa === idx ? '#FF2D7A' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s', cursor: 'pointer' }} />
+            style={{ width: idx === ativa ? 18 : 5, height: 5, borderRadius: 3, background: idx === ativa ? '#FF2D7A' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s', cursor: 'pointer' }} />
         ))}
       </div>
     </div>
@@ -459,7 +466,7 @@ function JogoSection({ carta }: { carta: Carta }) {
   )
 }
 
-// ─── WRAPPED CARD — com foto no canvas ───────────────────────────────────────
+// ─── WRAPPED CARD ─────────────────────────────────────────────────────────────
 function WrappedCard({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null }) {
   const [copiado, setCopiado] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -493,102 +500,56 @@ function WrappedCard({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null 
       canvas.height = 1920
       const ctx = canvas.getContext('2d')!
 
-      // ✅ Tenta carregar foto de fundo
       if (fotoUrl) {
         try {
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const i = new Image()
-            i.crossOrigin = 'anonymous'
-            i.onload = () => resolve(i)
-            i.onerror = reject
-            i.src = fotoUrl
+            const i = new Image(); i.crossOrigin = 'anonymous'
+            i.onload = () => resolve(i); i.onerror = reject; i.src = fotoUrl
           })
-          // Foto de fundo com cover
           const scale = Math.max(1080 / img.width, 1920 / img.height)
-          const w = img.width * scale
-          const h = img.height * scale
-          const x = (1080 - w) / 2
-          const y = (1920 - h) / 2
-          ctx.drawImage(img, x, y, w, h)
+          ctx.drawImage(img, (1080 - img.width * scale) / 2, (1920 - img.height * scale) / 2, img.width * scale, img.height * scale)
         } catch {
-          // fallback gradiente
           const grad = ctx.createLinearGradient(0, 0, 1080, 1920)
-          grad.addColorStop(0, '#FF2D7A')
-          grad.addColorStop(0.5, '#7928FF')
-          grad.addColorStop(1, '#0D0D0D')
-          ctx.fillStyle = grad
-          ctx.fillRect(0, 0, 1080, 1920)
+          grad.addColorStop(0, '#FF2D7A'); grad.addColorStop(0.5, '#7928FF'); grad.addColorStop(1, '#0D0D0D')
+          ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920)
         }
       } else {
         const grad = ctx.createLinearGradient(0, 0, 1080, 1920)
-        grad.addColorStop(0, '#FF2D7A')
-        grad.addColorStop(0.5, '#7928FF')
-        grad.addColorStop(1, '#0D0D0D')
-        ctx.fillStyle = grad
-        ctx.fillRect(0, 0, 1080, 1920)
+        grad.addColorStop(0, '#FF2D7A'); grad.addColorStop(0.5, '#7928FF'); grad.addColorStop(1, '#0D0D0D')
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1920)
       }
 
-      // Overlay escuro sobre a foto
-      ctx.fillStyle = 'rgba(0,0,0,0.6)'
-      ctx.fillRect(0, 0, 1080, 1920)
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, 1080, 1920)
+      const ov = ctx.createLinearGradient(0, 0, 1080, 1920)
+      ov.addColorStop(0, 'rgba(255,45,122,0.5)'); ov.addColorStop(1, 'rgba(121,40,255,0.5)')
+      ctx.fillStyle = ov; ctx.fillRect(0, 0, 1080, 1920)
 
-      // Overlay gradiente para identidade
-      const overlay = ctx.createLinearGradient(0, 0, 1080, 1920)
-      overlay.addColorStop(0, 'rgba(255,45,122,0.5)')
-      overlay.addColorStop(1, 'rgba(121,40,255,0.5)')
-      ctx.fillStyle = overlay
-      ctx.fillRect(0, 0, 1080, 1920)
-
-      // ✅ Foto circular no centro (se tiver)
+      // Foto circular
       if (fotoUrl) {
         try {
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const i = new Image()
-            i.crossOrigin = 'anonymous'
-            i.onload = () => resolve(i)
-            i.onerror = reject
-            i.src = fotoUrl
+            const i = new Image(); i.crossOrigin = 'anonymous'
+            i.onload = () => resolve(i); i.onerror = reject; i.src = fotoUrl
           })
           const cx = 540, cy = 680, r = 200
-          ctx.save()
-          ctx.beginPath()
-          ctx.arc(cx, cy, r, 0, Math.PI * 2)
-          ctx.clip()
+          ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip()
           const scale = Math.max((r * 2) / img.width, (r * 2) / img.height)
-          const w = img.width * scale
-          const h = img.height * scale
-          ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h)
+          ctx.drawImage(img, cx - img.width * scale / 2, cy - img.height * scale / 2, img.width * scale, img.height * scale)
           ctx.restore()
-
-          // Borda circular
-          ctx.beginPath()
-          ctx.arc(cx, cy, r + 6, 0, Math.PI * 2)
-          ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-          ctx.lineWidth = 6
-          ctx.stroke()
+          ctx.beginPath(); ctx.arc(cx, cy, r + 6, 0, Math.PI * 2)
+          ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 6; ctx.stroke()
         } catch { }
       }
 
-      // Textos
       ctx.textAlign = 'center'
-
-      ctx.fillStyle = 'rgba(255,255,255,0.5)'
-      ctx.font = '400 40px Inter, sans-serif'
+      ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '400 40px Inter, sans-serif'
       ctx.fillText('Wrapped Lovefy', 540, 340)
-
-      ctx.fillStyle = '#fff'
-      ctx.font = '800 64px Poppins, sans-serif'
+      ctx.fillStyle = '#fff'; ctx.font = '800 60px Poppins, sans-serif'
       ctx.fillText(`${carta.nome_remetente} & ${carta.nome_destinatario}`, 540, 980)
-
-      ctx.font = '900 200px Poppins, sans-serif'
-      ctx.fillText(String(total), 540, 1240)
-
-      ctx.font = '400 48px Inter, sans-serif'
-      ctx.fillStyle = 'rgba(255,255,255,0.65)'
+      ctx.font = '900 200px Poppins, sans-serif'; ctx.fillText(String(total), 540, 1240)
+      ctx.font = '400 48px Inter, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.65)'
       ctx.fillText(tempoLabel, 540, 1340)
-
-      ctx.font = '400 32px Inter, sans-serif'
-      ctx.fillStyle = 'rgba(255,255,255,0.3)'
+      ctx.font = '400 32px Inter, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.3)'
       ctx.fillText('lovefy.app.br/c/' + carta.slug, 540, 1750)
 
       canvas.toBlob(async blob => {
@@ -598,9 +559,7 @@ function WrappedCard({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null 
           await navigator.share({ files: [file], title: 'Wrapped Lovefy', text: `Ver aqui: ${url}` })
         } else {
           const a = document.createElement('a')
-          a.href = URL.createObjectURL(blob)
-          a.download = 'lovefy-wrapped.png'
-          a.click()
+          a.href = URL.createObjectURL(blob); a.download = 'lovefy-wrapped.png'; a.click()
         }
       }, 'image/png')
     } catch { }
