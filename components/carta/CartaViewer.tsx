@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Carta, getEstacao, getSpotifyId, formatarData, calcularTempo } from './CartaTypes'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -21,14 +21,12 @@ const STYLES = `
   @keyframes fadeUp   { from { opacity:0; transform:translateY(28px) } to { opacity:1; transform:translateY(0) } }
   @keyframes scaleIn  { from { opacity:0; transform:scale(0.9) }       to { opacity:1; transform:scale(1) } }
   @keyframes pulse    { 0%,100% { transform:scale(1) } 50% { transform:scale(1.05) } }
-  @keyframes blink    { 0%,49% { opacity:1 } 50%,100% { opacity:0 } }
   @keyframes gradAnim { 0%,100% { background-position:0% 50% } 50% { background-position:100% 50% } }
   @keyframes zoomSlow { from { transform:scale(1.06) } to { transform:scale(1) } }
-  @keyframes burst    { 0% { transform:scale(0) translateY(0); opacity:1 } 100% { transform:scale(2) translateY(-60px); opacity:0 } }
   @keyframes shimmer  { 0% { opacity:0.5 } 50% { opacity:1 } 100% { opacity:0.5 } }
+  @keyframes lightboxIn { from { opacity:0; transform:scale(0.92) } to { opacity:1; transform:scale(1) } }
 
   .fu   { animation: fadeUp 0.7s ease both; }
-  .si   { animation: scaleIn 0.6s cubic-bezier(.34,1.56,.64,1) both; }
   .pb   { animation: pulse 2s ease-in-out infinite; }
   .shim { animation: shimmer 2s ease-in-out infinite; }
 
@@ -65,12 +63,9 @@ export default function CartaViewer({ carta }: { carta: Carta }) {
       <HeroSection carta={carta} fotoUrl={fotoDestaqueUrl} />
       <div style={{ padding: '0 12px' }}>
         <PlayerSection carta={carta} fotoUrl={fotoDestaqueUrl} spotifyId={spotifyId} />
-        {/* ✅ Contador sem foto */}
         <ContadorSection carta={carta} />
         {carta.recursos.includes('mapa_estrelas') && <MapaSection carta={carta} />}
-        {/* ✅ Galeria com 3 fotos e efeito 3D fan */}
         {fotos.length > 0 && carta.recursos.includes('galeria') && <GaleriaSection carta={carta} fotos={fotos} />}
-        {/* ✅ Mensagem após galeria */}
         <MensagemSection carta={carta} />
         {carta.recursos.includes('jogo_palavras') && <JogoSection carta={carta} />}
         <WrappedCard carta={carta} fotoUrl={fotoDestaqueUrl} />
@@ -120,104 +115,83 @@ function HeroSection({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null 
   )
 }
 
-// ─── PLAYER ───────────────────────────────────────────────────────────────────
+// ─── PLAYER — embed direto ao clicar play ────────────────────────────────────
 function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: string | null; spotifyId: string | null }) {
   const [tocando, setTocando] = useState(false)
-  const [progresso, setProgresso] = useState(8)
-
-  useEffect(() => {
-    if (!tocando) return
-    const t = setInterval(() => setProgresso(p => p < 95 ? p + 0.05 : p), 1000)
-    return () => clearInterval(t)
-  }, [tocando])
 
   return (
     <div className="section-card" style={{ background: 'linear-gradient(180deg, #1a4a6e 0%, #0d2d45 100%)' }}>
+      {/* Top bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px' }}>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 22 }}>↓</span>
         <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Juntos para sempre ❤️</span>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>···</span>
       </div>
 
-      <div style={{ margin: '0 16px 20px', borderRadius: 12, overflow: 'hidden', aspectRatio: '1', background: '#0d2d45' }}>
-        {fotoUrl ? (
-          <img src={fotoUrl} alt="Foto"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        ) : (
-          <div className="grad-pill" style={{ width: '100%', height: '100%' }} />
-        )}
-      </div>
+      {/* ✅ Foto quadrada — some ao tocar */}
+      {!tocando && (
+        <div style={{ margin: '0 16px 0', borderRadius: 12, overflow: 'hidden', aspectRatio: '1', background: '#0d2d45', position: 'relative' }}>
+          {fotoUrl ? (
+            <img src={fotoUrl} alt="Foto"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          ) : (
+            <div className="grad-pill" style={{ width: '100%', height: '100%' }} />
+          )}
+          {/* Botão play sobre a foto */}
+          {(spotifyId || carta.musica_link) && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
+              <button
+                onClick={() => {
+                  if (spotifyId) setTocando(true)
+                  else window.open(carta.musica_link, '_blank')
+                }}
+                className="pb"
+                style={{ width: 72, height: 72, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="#0d2d45"><path d="M8 5v14l11-7z" /></svg>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
-      <div style={{ padding: '0 20px 28px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      {/* ✅ Embed Spotify aparece direto no lugar da foto */}
+      {spotifyId && tocando && (
+        <div style={{ margin: '0 16px' }}>
+          <iframe
+            src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
+            width="100%" height="352" frameBorder={0}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            style={{ borderRadius: 12, display: 'block' }}
+          />
+        </div>
+      )}
+
+      {/* Info */}
+      <div style={{ padding: '16px 20px 24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p style={{ color: '#fff', fontWeight: 800, fontSize: 22, fontFamily: 'Poppins, sans-serif', lineHeight: 1.2, marginBottom: 4 }}>
+            <p style={{ color: '#fff', fontWeight: 800, fontSize: 20, fontFamily: 'Poppins, sans-serif', lineHeight: 1.2, marginBottom: 4 }}>
               Nossa música
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14 }}>
               {carta.nome_remetente} & {carta.nome_destinatario}
             </p>
           </div>
-          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: 16 }}>✓</span>
-          </div>
+          {tocando && (
+            <button onClick={() => setTocando(false)}
+              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: 100, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}>
+              ← Voltar
+            </button>
+          )}
         </div>
-
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, position: 'relative' }}>
-            <div style={{ height: '100%', width: `${progresso}%`, background: '#fff', borderRadius: 2, position: 'relative' }}>
-              <div style={{ position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>0:05</span>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>-4:26</span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 20, padding: 8 }}>⇄</button>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 28, padding: 8 }}>⏮</button>
-          <button
-            onClick={() => {
-              if (spotifyId) setTocando(t => !t)
-              else if (carta.musica_link) window.open(carta.musica_link, '_blank')
-            }}
-            style={{ width: 68, height: 68, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.4)', flexShrink: 0 }}>
-            {tocando
-              ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#0d2d45"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-              : <svg width="22" height="22" viewBox="0 0 24 24" fill="#0d2d45"><path d="M8 5v14l11-7z" /></svg>
-            }
-          </button>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 28, padding: 8 }}>⏭</button>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 20, padding: 8 }}>↻</button>
-        </div>
-
-        {spotifyId && tocando && (
-          <div style={{ marginTop: 16 }}>
-            <iframe
-              src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
-              width="100%" height="80" frameBorder={0}
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-              style={{ borderRadius: 12, display: 'block' }}
-            />
-          </div>
-        )}
-
-        {!spotifyId && carta.musica_link && (
-          <a href={carta.musica_link} target="_blank" rel="noopener noreferrer"
-            style={{ display: 'block', textAlign: 'center', marginTop: 16, padding: '12px', borderRadius: 100, background: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 600, textDecoration: 'none', fontSize: 14 }}>
-            Abrir no Spotify
-          </a>
-        )}
       </div>
     </div>
   )
 }
 
-// ─── CONTADOR (sem foto, novo título) ────────────────────────────────────────
+// ─── CONTADOR ─────────────────────────────────────────────────────────────────
 function ContadorSection({ carta }: { carta: Carta }) {
   const [tempo, setTempo] = useState(calcularTempo(carta.data_importante))
   const ano = carta.data_importante ? new Date(carta.data_importante).getUTCFullYear() : ''
@@ -229,7 +203,6 @@ function ContadorSection({ carta }: { carta: Carta }) {
 
   return (
     <div className="section-card" style={{ background: '#1A1A1A', padding: '20px' }}>
-      {/* ✅ Novo título */}
       <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 }}>
         Tempos que fazem parte da vida um do outro
       </p>
@@ -299,13 +272,14 @@ function MapaSection({ carta }: { carta: Carta }) {
   )
 }
 
-// ─── GALERIA 3D FAN (3 fotos) ─────────────────────────────────────────────────
-const FOTO_LABELS = ['Nossos Dates', 'Fotos aleatórias', 'Primeira viagem']
-
+// ─── GALERIA 3D FAN — sem legendas, com setas e lightbox ─────────────────────
 function GaleriaSection({ carta, fotos }: { carta: Carta; fotos: Carta['fotos'] }) {
   const [ativa, setAtiva] = useState(1)
-  // ✅ Apenas 3 fotos
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const tresfotos = fotos.slice(0, 3)
+
+  function anterior() { setAtiva(a => Math.max(0, a - 1)) }
+  function proximo()  { setAtiva(a => Math.min(tresfotos.length - 1, a + 1)) }
 
   return (
     <div className="section-card" style={{ background: '#1A1A1A', padding: '20px 0 28px' }}>
@@ -313,20 +287,30 @@ function GaleriaSection({ carta, fotos }: { carta: Carta; fotos: Carta['fotos'] 
         Conheça {carta.nome_remetente} e {carta.nome_destinatario}
       </p>
 
-      {/* ✅ Efeito 3D fan */}
-      <div
-        style={{ position: 'relative', height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        onClick={e => e.stopPropagation()}
-      >
+      {/* ✅ Lightbox */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <img src={lightbox} alt="Foto"
+            style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 16, objectFit: 'contain', animation: 'lightboxIn 0.3s ease' }} />
+          <button onClick={() => setLightbox(null)}
+            style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 40, height: 40, borderRadius: '50%', fontSize: 18, cursor: 'pointer' }}>
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* ✅ Fan 3D */}
+      <div style={{ position: 'relative', height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {tresfotos.map((foto, idx) => {
           const isCenter = idx === 1
           const isLeft   = idx === 0
-          const isRight  = idx === 2
+          const url      = fotoStorageUrl(foto.storage_path)!
 
           return (
-            <div
-              key={foto.id}
-              onClick={() => setAtiva(idx)}
+            <div key={foto.id}
+              onClick={() => setLightbox(url)}
               style={{
                 position: 'absolute',
                 width: isCenter ? 220 : 170,
@@ -337,32 +321,35 @@ function GaleriaSection({ carta, fotos }: { carta: Carta; fotos: Carta['fotos'] 
                 transition: 'all 0.4s cubic-bezier(.34,1.56,.64,1)',
                 transform: isLeft
                   ? 'translateX(-140px) rotate(-8deg) scale(0.92)'
-                  : isRight
+                  : idx === 2
                     ? 'translateX(140px) rotate(8deg) scale(0.92)'
                     : 'translateX(0) rotate(0deg) scale(1)',
                 zIndex: isCenter ? 3 : 1,
-                boxShadow: isCenter
-                  ? '0 24px 60px rgba(0,0,0,0.7)'
-                  : '0 12px 32px rgba(0,0,0,0.5)',
+                boxShadow: isCenter ? '0 24px 60px rgba(0,0,0,0.7)' : '0 12px 32px rgba(0,0,0,0.5)',
                 border: ativa === idx ? '2px solid #FF2D7A' : '2px solid transparent',
-              }}
-            >
-              <img
-                src={fotoStorageUrl(foto.storage_path)!}
-                alt={FOTO_LABELS[idx] || 'Foto'}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
-              />
-              {/* Overlay escuro nas laterais */}
+              }}>
+              <img src={url} alt="Foto"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
               {!isCenter && (
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
               )}
-              {/* Label */}
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 12px 12px', background: 'linear-gradient(to top,rgba(0,0,0,0.8),transparent)' }}>
-                <p style={{ color: '#fff', fontSize: 11, fontWeight: 600 }}>{FOTO_LABELS[idx] || ''}</p>
-              </div>
             </div>
           )
         })}
+
+        {/* ✅ Setas de navegação */}
+        {ativa > 0 && (
+          <button onClick={e => { e.stopPropagation(); anterior() }}
+            style={{ position: 'absolute', left: 12, zIndex: 10, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+            ‹
+          </button>
+        )}
+        {ativa < tresfotos.length - 1 && (
+          <button onClick={e => { e.stopPropagation(); proximo() }}
+            style={{ position: 'absolute', right: 12, zIndex: 10, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+            ›
+          </button>
+        )}
       </div>
 
       {/* Indicadores */}
@@ -376,7 +363,7 @@ function GaleriaSection({ carta, fotos }: { carta: Carta; fotos: Carta['fotos'] 
   )
 }
 
-// ─── MENSAGEM (após galeria) ──────────────────────────────────────────────────
+// ─── MENSAGEM ─────────────────────────────────────────────────────────────────
 function MensagemSection({ carta }: { carta: Carta }) {
   const [mostrar, setMostrar] = useState(false)
   const preview = carta.mensagem_principal?.slice(0, 100) || ''
@@ -472,7 +459,7 @@ function JogoSection({ carta }: { carta: Carta }) {
   )
 }
 
-// ─── WRAPPED CARD INSTAGRAMÁVEL ───────────────────────────────────────────────
+// ─── WRAPPED CARD — com foto no canvas ───────────────────────────────────────
 function WrappedCard({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null }) {
   const [copiado, setCopiado] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -506,35 +493,103 @@ function WrappedCard({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null 
       canvas.height = 1920
       const ctx = canvas.getContext('2d')!
 
-      const grad = ctx.createLinearGradient(0, 0, 1080, 1920)
-      grad.addColorStop(0, '#FF2D7A')
-      grad.addColorStop(0.5, '#7928FF')
-      grad.addColorStop(1, '#0D0D0D')
-      ctx.fillStyle = grad
+      // ✅ Tenta carregar foto de fundo
+      if (fotoUrl) {
+        try {
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const i = new Image()
+            i.crossOrigin = 'anonymous'
+            i.onload = () => resolve(i)
+            i.onerror = reject
+            i.src = fotoUrl
+          })
+          // Foto de fundo com cover
+          const scale = Math.max(1080 / img.width, 1920 / img.height)
+          const w = img.width * scale
+          const h = img.height * scale
+          const x = (1080 - w) / 2
+          const y = (1920 - h) / 2
+          ctx.drawImage(img, x, y, w, h)
+        } catch {
+          // fallback gradiente
+          const grad = ctx.createLinearGradient(0, 0, 1080, 1920)
+          grad.addColorStop(0, '#FF2D7A')
+          grad.addColorStop(0.5, '#7928FF')
+          grad.addColorStop(1, '#0D0D0D')
+          ctx.fillStyle = grad
+          ctx.fillRect(0, 0, 1080, 1920)
+        }
+      } else {
+        const grad = ctx.createLinearGradient(0, 0, 1080, 1920)
+        grad.addColorStop(0, '#FF2D7A')
+        grad.addColorStop(0.5, '#7928FF')
+        grad.addColorStop(1, '#0D0D0D')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, 1080, 1920)
+      }
+
+      // Overlay escuro sobre a foto
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'
       ctx.fillRect(0, 0, 1080, 1920)
 
-      ctx.fillStyle = 'rgba(0,0,0,0.4)'
+      // Overlay gradiente para identidade
+      const overlay = ctx.createLinearGradient(0, 0, 1080, 1920)
+      overlay.addColorStop(0, 'rgba(255,45,122,0.5)')
+      overlay.addColorStop(1, 'rgba(121,40,255,0.5)')
+      ctx.fillStyle = overlay
       ctx.fillRect(0, 0, 1080, 1920)
 
-      ctx.fillStyle = 'rgba(255,255,255,0.45)'
-      ctx.font = '500 44px Inter, sans-serif'
+      // ✅ Foto circular no centro (se tiver)
+      if (fotoUrl) {
+        try {
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const i = new Image()
+            i.crossOrigin = 'anonymous'
+            i.onload = () => resolve(i)
+            i.onerror = reject
+            i.src = fotoUrl
+          })
+          const cx = 540, cy = 680, r = 200
+          ctx.save()
+          ctx.beginPath()
+          ctx.arc(cx, cy, r, 0, Math.PI * 2)
+          ctx.clip()
+          const scale = Math.max((r * 2) / img.width, (r * 2) / img.height)
+          const w = img.width * scale
+          const h = img.height * scale
+          ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h)
+          ctx.restore()
+
+          // Borda circular
+          ctx.beginPath()
+          ctx.arc(cx, cy, r + 6, 0, Math.PI * 2)
+          ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+          ctx.lineWidth = 6
+          ctx.stroke()
+        } catch { }
+      }
+
+      // Textos
       ctx.textAlign = 'center'
-      ctx.fillText('Wrapped Lovefy', 540, 380)
+
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'
+      ctx.font = '400 40px Inter, sans-serif'
+      ctx.fillText('Wrapped Lovefy', 540, 340)
 
       ctx.fillStyle = '#fff'
-      ctx.font = '800 72px Poppins, sans-serif'
-      ctx.fillText(`${carta.nome_remetente} & ${carta.nome_destinatario}`, 540, 520)
+      ctx.font = '800 64px Poppins, sans-serif'
+      ctx.fillText(`${carta.nome_remetente} & ${carta.nome_destinatario}`, 540, 980)
 
-      ctx.font = '900 220px Poppins, sans-serif'
-      ctx.fillText(String(total), 540, 850)
+      ctx.font = '900 200px Poppins, sans-serif'
+      ctx.fillText(String(total), 540, 1240)
 
-      ctx.font = '400 52px Inter, sans-serif'
-      ctx.fillStyle = 'rgba(255,255,255,0.6)'
-      ctx.fillText(tempoLabel, 540, 960)
+      ctx.font = '400 48px Inter, sans-serif'
+      ctx.fillStyle = 'rgba(255,255,255,0.65)'
+      ctx.fillText(tempoLabel, 540, 1340)
 
-      ctx.font = '400 36px Inter, sans-serif'
+      ctx.font = '400 32px Inter, sans-serif'
       ctx.fillStyle = 'rgba(255,255,255,0.3)'
-      ctx.fillText('lovefy.app.br/c/' + carta.slug, 540, 1700)
+      ctx.fillText('lovefy.app.br/c/' + carta.slug, 540, 1750)
 
       canvas.toBlob(async blob => {
         if (!blob) return
