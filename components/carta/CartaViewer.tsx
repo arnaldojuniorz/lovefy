@@ -25,13 +25,11 @@ const STYLES = `
   @keyframes gradAnim { 0%,100% { background-position:0% 50% } 50% { background-position:100% 50% } }
   @keyframes zoomSlow { from { transform:scale(1.06) } to { transform:scale(1) } }
   @keyframes burst    { 0% { transform:scale(0) translateY(0); opacity:1 } 100% { transform:scale(2) translateY(-60px); opacity:0 } }
-  @keyframes sealPop  { from { opacity:0; transform:scale(0.5) rotate(-12deg) } to { opacity:1; transform:scale(1) rotate(0deg) } }
   @keyframes shimmer  { 0% { opacity:0.5 } 50% { opacity:1 } 100% { opacity:0.5 } }
 
   .fu   { animation: fadeUp 0.7s ease both; }
   .si   { animation: scaleIn 0.6s cubic-bezier(.34,1.56,.64,1) both; }
   .pb   { animation: pulse 2s ease-in-out infinite; }
-  .cur  { display:inline-block; width:2px; height:1em; background:#fff; margin-left:2px; animation:blink .8s infinite; vertical-align:text-bottom; }
   .shim { animation: shimmer 2s ease-in-out infinite; }
 
   .grad-pill {
@@ -59,10 +57,6 @@ export default function CartaViewer({ carta }: { carta: Carta }) {
       ? fotoStorageUrl(fotos[0].storage_path)
       : null
 
-  const fotoCasalUrl = fotos.length > 0
-    ? fotoStorageUrl(fotos[0].storage_path)
-    : fotoDestaqueUrl
-
   const spotifyId = getSpotifyId(carta.musica_link)
 
   return (
@@ -71,11 +65,14 @@ export default function CartaViewer({ carta }: { carta: Carta }) {
       <HeroSection carta={carta} fotoUrl={fotoDestaqueUrl} />
       <div style={{ padding: '0 12px' }}>
         <PlayerSection carta={carta} fotoUrl={fotoDestaqueUrl} spotifyId={spotifyId} />
-        <ContadorSection carta={carta} fotoUrl={fotoCasalUrl} />
+        {/* ✅ Contador sem foto */}
+        <ContadorSection carta={carta} />
         {carta.recursos.includes('mapa_estrelas') && <MapaSection carta={carta} />}
+        {/* ✅ Galeria com 3 fotos e efeito 3D fan */}
         {fotos.length > 0 && carta.recursos.includes('galeria') && <GaleriaSection carta={carta} fotos={fotos} />}
-        {carta.recursos.includes('jogo_palavras') && <JogoSection carta={carta} />}
+        {/* ✅ Mensagem após galeria */}
         <MensagemSection carta={carta} />
+        {carta.recursos.includes('jogo_palavras') && <JogoSection carta={carta} />}
         <WrappedCard carta={carta} fotoUrl={fotoDestaqueUrl} />
         <CTASection carta={carta} />
       </div>
@@ -136,33 +133,27 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
 
   return (
     <div className="section-card" style={{ background: 'linear-gradient(180deg, #1a4a6e 0%, #0d2d45 100%)' }}>
-      {/* Top bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 12px' }}>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 22 }}>↓</span>
         <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Juntos para sempre ❤️</span>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>···</span>
       </div>
 
-      {/* Foto quadrada */}
       <div style={{ margin: '0 16px 20px', borderRadius: 12, overflow: 'hidden', aspectRatio: '1', background: '#0d2d45' }}>
         {fotoUrl ? (
-          <img
-            src={fotoUrl}
-            alt="Foto"
+          <img src={fotoUrl} alt="Foto"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-          />
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
         ) : (
           <div className="grad-pill" style={{ width: '100%', height: '100%' }} />
         )}
       </div>
 
-      {/* Info + controles */}
       <div style={{ padding: '0 20px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
             <p style={{ color: '#fff', fontWeight: 800, fontSize: 22, fontFamily: 'Poppins, sans-serif', lineHeight: 1.2, marginBottom: 4 }}>
-              {'Nossa música'}
+              Nossa música
             </p>
             <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>
               {carta.nome_remetente} & {carta.nome_destinatario}
@@ -173,7 +164,6 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
           </div>
         </div>
 
-        {/* Barra de progresso */}
         <div style={{ marginBottom: 6 }}>
           <div style={{ height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, position: 'relative' }}>
             <div style={{ height: '100%', width: `${progresso}%`, background: '#fff', borderRadius: 2, position: 'relative' }}>
@@ -186,7 +176,6 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
           </div>
         </div>
 
-        {/* Controles */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
           <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 20, padding: 8 }}>⇄</button>
           <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 28, padding: 8 }}>⏮</button>
@@ -205,7 +194,6 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
           <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 20, padding: 8 }}>↻</button>
         </div>
 
-        {/* Embed Spotify */}
         {spotifyId && tocando && (
           <div style={{ marginTop: 16 }}>
             <iframe
@@ -229,8 +217,8 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
   )
 }
 
-// ─── CONTADOR ─────────────────────────────────────────────────────────────────
-function ContadorSection({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null }) {
+// ─── CONTADOR (sem foto, novo título) ────────────────────────────────────────
+function ContadorSection({ carta }: { carta: Carta }) {
   const [tempo, setTempo] = useState(calcularTempo(carta.data_importante))
   const ano = carta.data_importante ? new Date(carta.data_importante).getUTCFullYear() : ''
 
@@ -240,41 +228,35 @@ function ContadorSection({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | n
   }, [carta.data_importante])
 
   return (
-    <div className="section-card" style={{ background: '#1A1A1A' }}>
-      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, padding: '20px 20px 12px' }}>Sobre o casal</p>
-      {fotoUrl && (
-        <div style={{ height: 220, overflow: 'hidden', margin: '0 12px', borderRadius: 14 }}>
-          <img src={fotoUrl} alt="Casal"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-          />
-        </div>
-      )}
-      <div style={{ padding: '16px 20px 20px' }}>
-        <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, fontFamily: 'Poppins, sans-serif', marginBottom: 4 }}>
-          {carta.nome_remetente} e {carta.nome_destinatario}
-        </h2>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 20 }}>Juntos desde {ano}</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-          {[{ v: tempo.anos, l: 'Anos' }, { v: tempo.meses, l: 'Meses' }, { v: tempo.dias, l: 'Dias' }].map(i => (
-            <div key={i.l} style={{ background: '#262626', borderRadius: 12, padding: '14px 8px', textAlign: 'center' }}>
-              <p style={{ color: '#fff', fontSize: 30, fontWeight: 800, fontFamily: 'Poppins, sans-serif', lineHeight: 1 }}>{i.v}</p>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>{i.l}</p>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          {[
-            { v: String(tempo.horas).padStart(2, '0'), l: 'Horas' },
-            { v: String(tempo.minutos).padStart(2, '0'), l: 'Minutos' },
-            { v: String(tempo.segundos).padStart(2, '0'), l: 'Segundos' },
-          ].map(i => (
-            <div key={i.l} style={{ background: '#262626', borderRadius: 12, padding: '14px 8px', textAlign: 'center' }}>
-              <p style={{ color: '#fff', fontSize: 24, fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontFamily: 'Poppins, sans-serif', lineHeight: 1 }}>{i.v}</p>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>{i.l}</p>
-            </div>
-          ))}
-        </div>
+    <div className="section-card" style={{ background: '#1A1A1A', padding: '20px' }}>
+      {/* ✅ Novo título */}
+      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 }}>
+        Tempos que fazem parte da vida um do outro
+      </p>
+      <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, fontFamily: 'Poppins, sans-serif', marginBottom: 4 }}>
+        {carta.nome_remetente} e {carta.nome_destinatario}
+      </h2>
+      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 20 }}>Juntos desde {ano}</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+        {[{ v: tempo.anos, l: 'Anos' }, { v: tempo.meses, l: 'Meses' }, { v: tempo.dias, l: 'Dias' }].map(i => (
+          <div key={i.l} style={{ background: '#262626', borderRadius: 12, padding: '14px 8px', textAlign: 'center' }}>
+            <p style={{ color: '#fff', fontSize: 30, fontWeight: 800, fontFamily: 'Poppins, sans-serif', lineHeight: 1 }}>{i.v}</p>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>{i.l}</p>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+        {[
+          { v: String(tempo.horas).padStart(2, '0'), l: 'Horas' },
+          { v: String(tempo.minutos).padStart(2, '0'), l: 'Minutos' },
+          { v: String(tempo.segundos).padStart(2, '0'), l: 'Segundos' },
+        ].map(i => (
+          <div key={i.l} style={{ background: '#262626', borderRadius: 12, padding: '14px 8px', textAlign: 'center' }}>
+            <p style={{ color: '#fff', fontSize: 24, fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontFamily: 'Poppins, sans-serif', lineHeight: 1 }}>{i.v}</p>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>{i.l}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -317,35 +299,106 @@ function MapaSection({ carta }: { carta: Carta }) {
   )
 }
 
-// ─── GALERIA HORIZONTAL ───────────────────────────────────────────────────────
-const FOTO_LABELS = ['Nossos Dates', 'Fotos aleatórias', 'Primeira viagem', 'Momentos', 'Favoritas']
+// ─── GALERIA 3D FAN (3 fotos) ─────────────────────────────────────────────────
+const FOTO_LABELS = ['Nossos Dates', 'Fotos aleatórias', 'Primeira viagem']
 
 function GaleriaSection({ carta, fotos }: { carta: Carta; fotos: Carta['fotos'] }) {
-  const [ativa, setAtiva] = useState(0)
+  const [ativa, setAtiva] = useState(1)
+  // ✅ Apenas 3 fotos
+  const tresfotos = fotos.slice(0, 3)
 
   return (
-    <div className="section-card" style={{ background: '#1A1A1A', paddingTop: 20, paddingBottom: 20 }}>
-      <p style={{ color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: 'Poppins, sans-serif', padding: '0 20px', marginBottom: 16 }}>
+    <div className="section-card" style={{ background: '#1A1A1A', padding: '20px 0 28px' }}>
+      <p style={{ color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: 'Poppins, sans-serif', padding: '0 20px', marginBottom: 32 }}>
         Conheça {carta.nome_remetente} e {carta.nome_destinatario}
       </p>
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingLeft: 20, paddingRight: 20, paddingBottom: 4, scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-        {fotos.map((foto, idx) => (
-          <div key={foto.id} onClick={() => setAtiva(idx)}
-            style={{ flexShrink: 0, width: '64vw', maxWidth: 260, aspectRatio: '4/5', borderRadius: 16, overflow: 'hidden', scrollSnapAlign: 'start', position: 'relative', border: idx === ativa ? '2px solid #FF2D7A' : '2px solid transparent', transition: 'border 0.2s' }}>
-            <img src={fotoStorageUrl(foto.storage_path)!} alt="Foto"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '28px 12px 12px', background: 'linear-gradient(to top,rgba(0,0,0,0.8),transparent)' }}>
-              <p style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{FOTO_LABELS[idx] || ''}</p>
+
+      {/* ✅ Efeito 3D fan */}
+      <div
+        style={{ position: 'relative', height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {tresfotos.map((foto, idx) => {
+          const isCenter = idx === 1
+          const isLeft   = idx === 0
+          const isRight  = idx === 2
+
+          return (
+            <div
+              key={foto.id}
+              onClick={() => setAtiva(idx)}
+              style={{
+                position: 'absolute',
+                width: isCenter ? 220 : 170,
+                height: isCenter ? 290 : 240,
+                borderRadius: 20,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'all 0.4s cubic-bezier(.34,1.56,.64,1)',
+                transform: isLeft
+                  ? 'translateX(-140px) rotate(-8deg) scale(0.92)'
+                  : isRight
+                    ? 'translateX(140px) rotate(8deg) scale(0.92)'
+                    : 'translateX(0) rotate(0deg) scale(1)',
+                zIndex: isCenter ? 3 : 1,
+                boxShadow: isCenter
+                  ? '0 24px 60px rgba(0,0,0,0.7)'
+                  : '0 12px 32px rgba(0,0,0,0.5)',
+                border: ativa === idx ? '2px solid #FF2D7A' : '2px solid transparent',
+              }}
+            >
+              <img
+                src={fotoStorageUrl(foto.storage_path)!}
+                alt={FOTO_LABELS[idx] || 'Foto'}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+              />
+              {/* Overlay escuro nas laterais */}
+              {!isCenter && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
+              )}
+              {/* Label */}
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 12px 12px', background: 'linear-gradient(to top,rgba(0,0,0,0.8),transparent)' }}>
+                <p style={{ color: '#fff', fontSize: 11, fontWeight: 600 }}>{FOTO_LABELS[idx] || ''}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 14 }}>
-        {fotos.map((_, idx) => (
+
+      {/* Indicadores */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 20 }}>
+        {tresfotos.map((_, idx) => (
           <div key={idx} onClick={() => setAtiva(idx)}
-            style={{ width: idx === ativa ? 18 : 5, height: 5, borderRadius: 3, background: idx === ativa ? '#FF2D7A' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s', cursor: 'pointer' }} />
+            style={{ width: ativa === idx ? 18 : 5, height: 5, borderRadius: 3, background: ativa === idx ? '#FF2D7A' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s', cursor: 'pointer' }} />
         ))}
       </div>
+    </div>
+  )
+}
+
+// ─── MENSAGEM (após galeria) ──────────────────────────────────────────────────
+function MensagemSection({ carta }: { carta: Carta }) {
+  const [mostrar, setMostrar] = useState(false)
+  const preview = carta.mensagem_principal?.slice(0, 100) || ''
+  const temMais = (carta.mensagem_principal?.length || 0) > 100
+
+  return (
+    <div className="section-card" style={{ background: 'linear-gradient(135deg,#1A2744,#1A1A1A)', padding: '20px' }}>
+      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>Mensagem especial</p>
+      <div style={{ position: 'relative', marginBottom: mostrar ? 0 : 20 }}>
+        <p style={{ color: '#fff', fontSize: 20, fontWeight: 700, lineHeight: 1.5, fontFamily: 'Poppins, sans-serif' }}>
+          {mostrar ? carta.mensagem_principal : preview + (temMais && !mostrar ? '...' : '')}
+        </p>
+        {!mostrar && temMais && (
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(to bottom,transparent,#1A2744)' }} />
+        )}
+      </div>
+      {!mostrar && temMais && (
+        <button onClick={() => setMostrar(true)}
+          style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 100, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+          Mostrar Mensagem
+        </button>
+      )}
     </div>
   )
 }
@@ -414,33 +467,6 @@ function JogoSection({ carta }: { carta: Carta }) {
           {msg && <p style={{ color: msg.includes('Acertou') ? '#FF2D7A' : 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 8, textAlign: 'center' }}>{msg}</p>}
           <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, marginTop: 8, textAlign: 'center' }}>{acertos.length}/{palavras.length} descobertas</p>
         </>
-      )}
-    </div>
-  )
-}
-
-// ─── MENSAGEM ─────────────────────────────────────────────────────────────────
-function MensagemSection({ carta }: { carta: Carta }) {
-  const [mostrar, setMostrar] = useState(false)
-  const preview = carta.mensagem_principal?.slice(0, 100) || ''
-  const temMais = (carta.mensagem_principal?.length || 0) > 100
-
-  return (
-    <div className="section-card" style={{ background: 'linear-gradient(135deg,#1A2744,#1A1A1A)', padding: '20px' }}>
-      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>Mensagem especial</p>
-      <div style={{ position: 'relative', marginBottom: mostrar ? 0 : 20 }}>
-        <p style={{ color: '#fff', fontSize: 20, fontWeight: 700, lineHeight: 1.5, fontFamily: 'Poppins, sans-serif' }}>
-          {mostrar ? carta.mensagem_principal : preview + (temMais && !mostrar ? '...' : '')}
-        </p>
-        {!mostrar && temMais && (
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(to bottom,transparent,#1A2744)' }} />
-        )}
-      </div>
-      {!mostrar && temMais && (
-        <button onClick={() => setMostrar(true)}
-          style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 100, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-          Mostrar Mensagem
-        </button>
       )}
     </div>
   )
@@ -528,7 +554,6 @@ function WrappedCard({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null 
 
   return (
     <div className="section-card" style={{ marginBottom: 12, overflow: 'hidden' }}>
-      {/* Card visual */}
       <div style={{ position: 'relative', background: 'linear-gradient(135deg, #FF2D7A 0%, #7928FF 60%, #0D0D0D 100%)', padding: '40px 28px 32px', textAlign: 'center', overflow: 'hidden' }}>
         {fotoUrl && (
           <img src={fotoUrl} alt=""
@@ -557,7 +582,6 @@ function WrappedCard({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null 
         </div>
       </div>
 
-      {/* Botões */}
       <div style={{ background: '#1A1A1A', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', marginBottom: 4 }}>Compartilhe seu Wrapped</p>
         <button onClick={salvarImagem} disabled={salvando}

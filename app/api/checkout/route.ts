@@ -7,7 +7,6 @@ const client = new MercadoPagoConfig({
 })
 
 const PLANOS = {
-  '24h':       { preco: 6.90,  titulo: 'Carta Digital 24h',        categoria: 'services' },
   'forever':   { preco: 12.90, titulo: 'Carta Digital Para Sempre', categoria: 'services' },
   'impressao': { preco: 9.90,  titulo: 'Carta para Impressão',      categoria: 'services' },
 }

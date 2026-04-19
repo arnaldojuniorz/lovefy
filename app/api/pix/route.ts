@@ -6,7 +6,6 @@ const client = new MercadoPagoConfig({
 })
 
 const PLANOS: Record<string, { preco: number; titulo: string }> = {
-  '24h': { preco: 6.90, titulo: 'Lovefy - Carta Digital 24h' },
   'forever': { preco: 12.90, titulo: 'Lovefy - Carta Digital Para Sempre' },
   'impressao': { preco: 9.90, titulo: 'Lovefy - Carta para Impressao' },
 }
