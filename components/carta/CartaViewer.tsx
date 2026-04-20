@@ -19,19 +19,15 @@ const STYLES = `
   body { background: #0D0D0D; font-family: 'Inter', sans-serif; }
 
   @keyframes fadeUp   { from { opacity:0; transform:translateY(28px) } to { opacity:1; transform:translateY(0) } }
-  @keyframes pulse    { 0%,100% { transform:scale(1) } 50% { transform:scale(1.05) } }
   @keyframes gradAnim { 0%,100% { background-position:0% 50% } 50% { background-position:100% 50% } }
   @keyframes zoomSlow { from { transform:scale(1.06) } to { transform:scale(1) } }
   @keyframes shimmer  { 0% { opacity:0.5 } 50% { opacity:1 } 100% { opacity:0.5 } }
   @keyframes starGlow { 0%,100% { box-shadow: 0 0 40px rgba(121,40,255,0.4), 0 0 80px rgba(121,40,255,0.2) } 50% { box-shadow: 0 0 60px rgba(121,40,255,0.7), 0 0 120px rgba(255,45,122,0.3) } }
   @keyframes lightboxIn { from { opacity:0; transform:scale(0.92) } to { opacity:1; transform:scale(1) } }
-  @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
 
   .fu        { animation: fadeUp 0.7s ease both; }
-  .pb        { animation: pulse 2s ease-in-out infinite; }
   .shim      { animation: shimmer 2s ease-in-out infinite; }
   .star-glow { animation: starGlow 3s ease-in-out infinite; }
-  .spin      { animation: spin 8s linear infinite; }
 
   .grad-pill {
     background: linear-gradient(135deg,#FF2D7A,#7928FF);
@@ -118,38 +114,41 @@ function HeroSection({ carta, fotoUrl }: { carta: Carta; fotoUrl: string | null 
   )
 }
 
-// ─── PLAYER CUSTOMIZADO ───────────────────────────────────────────────────────
+// ─── PLAYER ───────────────────────────────────────────────────────────────────
 function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: string | null; spotifyId: string | null }) {
   const [tocando, setTocando] = useState(false)
-  const [progresso, setProgresso] = useState(5)
+  const [segundos, setSegundos] = useState(0)
 
   useEffect(() => {
     if (!tocando) return
-    const t = setInterval(() => setProgresso(p => p < 95 ? p + 0.04 : p), 1000)
+    const t = setInterval(() => setSegundos(s => s + 1), 1000)
     return () => clearInterval(t)
   }, [tocando])
 
+  function formatTime(s: number) {
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  }
+
+  const duracao = 277
+  const progresso = Math.min((segundos / duracao) * 100, 99)
+
   function togglePlay() {
-    if (spotifyId) {
-      setTocando(t => !t)
-    } else if (carta.musica_link) {
-      window.open(carta.musica_link, '_blank')
-    }
+    if (spotifyId) setTocando(t => !t)
+    else if (carta.musica_link) window.open(carta.musica_link, '_blank')
   }
 
   return (
     <div className="section-card" style={{ background: 'linear-gradient(180deg, #1a4a6e 0%, #0d2d45 100%)', position: 'relative' }}>
 
       {/* Top bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 16px' }}>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 22 }}>↓</span>
         <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Juntos para sempre ❤️</span>
         <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18 }}>···</span>
       </div>
 
-      {/* ✅ Foto do casal como capa — gira ao tocar */}
-      <div style={{ margin: '0 16px 24px', borderRadius: 16, overflow: 'hidden', aspectRatio: '1', background: '#0d2d45', transition: 'border-radius 0.4s' }}
-        className={tocando ? 'spin' : ''}>
+      {/* ✅ Foto fixa sem animação */}
+      <div style={{ margin: '0 16px 20px', borderRadius: 12, overflow: 'hidden', aspectRatio: '1', background: '#0d2d45' }}>
         {fotoUrl ? (
           <img src={fotoUrl} alt="Foto"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -159,38 +158,38 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
         )}
       </div>
 
-      {/* Nome + artista */}
+      {/* Nome + check */}
       <div style={{ padding: '0 20px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <p style={{ color: '#fff', fontWeight: 800, fontSize: 22, fontFamily: 'Poppins, sans-serif', lineHeight: 1.2, marginBottom: 4 }}>
+          <p style={{ color: '#fff', fontWeight: 800, fontSize: 22, fontFamily: 'Poppins, sans-serif', lineHeight: 1.2, marginBottom: 2 }}>
             Nossa música
           </p>
           <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>
             {carta.nome_remetente} & {carta.nome_destinatario}
           </p>
         </div>
-        <div style={{ width: 34, height: 34, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 34, height: 34, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <span style={{ color: '#fff', fontSize: 14 }}>✓</span>
         </div>
       </div>
 
       {/* Barra de progresso */}
       <div style={{ padding: '0 20px', marginBottom: 20 }}>
-        <div style={{ height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, position: 'relative' }}>
-          <div style={{ height: '100%', width: `${tocando ? progresso : 5}%`, background: '#fff', borderRadius: 2, position: 'relative', transition: 'width 1s linear' }}>
-            <div style={{ position: 'absolute', right: -5, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />
+        <div style={{ height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, position: 'relative' }}>
+          <div style={{ height: '100%', width: `${tocando ? progresso : 2}%`, background: '#fff', borderRadius: 2, position: 'relative', transition: 'width 1s linear' }}>
+            <div style={{ position: 'absolute', right: -5, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{tocando ? '0:21' : '0:00'}</span>
-          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>-4:26</span>
+          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{tocando ? formatTime(segundos) : '0:00'}</span>
+          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>-{formatTime(Math.max(duracao - segundos, 0))}</span>
         </div>
       </div>
 
       {/* Controles */}
       <div style={{ padding: '0 20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: tocando ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: 20, padding: 8 }}>⇄</button>
-        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', fontSize: 28, padding: 8 }}>⏮</button>
+        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 20, padding: 8 }}>⇄</button>
+        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 26, padding: 8 }}>⏮</button>
 
         <button onClick={togglePlay}
           style={{ width: 68, height: 68, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.5)', flexShrink: 0 }}>
@@ -200,17 +199,17 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
           }
         </button>
 
-        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', fontSize: 28, padding: 8 }}>⏭</button>
-        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: tocando ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: 20, padding: 8 }}>↻</button>
+        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 26, padding: 8 }}>⏭</button>
+        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 20, padding: 8 }}>↻</button>
       </div>
 
-      {/* ✅ Iframe Spotify invisível — só toca o áudio, não aparece na tela */}
+      {/* ✅ Iframe fora da tela com dimensões reais — browser permite autoplay */}
       {spotifyId && tocando && (
         <iframe
           src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
-          width="1" height="1" frameBorder={0}
+          width="300" height="80" frameBorder={0}
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', bottom: 0, left: 0 }}
+          style={{ position: 'fixed', left: '-9999px', top: '-9999px' }}
         />
       )}
     </div>
