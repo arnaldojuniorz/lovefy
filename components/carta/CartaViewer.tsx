@@ -205,12 +205,13 @@ function PlayerSection({ carta, fotoUrl, spotifyId }: { carta: Carta; fotoUrl: s
 
       {/* ✅ Iframe fora da tela com dimensões reais — browser permite autoplay */}
       {spotifyId && tocando && (
-        <iframe
-          src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
-          width="300" height="80" frameBorder={0}
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          style={{ position: 'fixed', left: '-9999px', top: '-9999px' }}
-        />
+        <div style={{ height: 1, overflow: 'hidden', visibility: 'hidden' }}>
+          <iframe
+            src={`https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0&autoplay=1`}
+            width="100%" height="80" frameBorder={0}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          />
+        </div>
       )}
     </div>
   )
