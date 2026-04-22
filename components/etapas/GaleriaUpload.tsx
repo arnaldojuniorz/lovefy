@@ -13,6 +13,8 @@ type Props = {
   onFotosChange: (fotos: Foto[]) => void
 }
 
+const MAX_FOTOS = 3
+
 export default function GaleriaUpload({ carta_id, onFotosChange }: Props) {
   const [fotos, setFotos] = useState<Foto[]>([])
   const [progresso, setProgresso] = useState<Record<string, 'enviando' | 'ok' | 'erro'>>({})
@@ -22,18 +24,16 @@ export default function GaleriaUpload({ carta_id, onFotosChange }: Props) {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
 
-    const disponiveis = 5 - fotos.length
-    if (disponiveis <= 0) { setErro('Máximo de 5 fotos atingido!'); return }
+    const disponiveis = MAX_FOTOS - fotos.length
+    if (disponiveis <= 0) { setErro(`Máximo de ${MAX_FOTOS} fotos atingido!`); return }
 
     const selecionadas = files.slice(0, disponiveis)
     setErro('')
 
-    // Marca todas como enviando
     const novoProgresso: Record<string, 'enviando' | 'ok' | 'erro'> = {}
     selecionadas.forEach((f, i) => { novoProgresso[`${i}-${f.name}`] = 'enviando' })
     setProgresso(prev => ({ ...prev, ...novoProgresso }))
 
-    // Upload em paralelo
     const resultados = await Promise.allSettled(
       selecionadas.map(async (file, i) => {
         const key = `${i}-${file.name}`
@@ -69,7 +69,6 @@ export default function GaleriaUpload({ carta_id, onFotosChange }: Props) {
       setErro(`${selecionadas.length - novasFotos.length} foto(s) não foram enviadas.`)
     }
 
-    // Limpa input para permitir reselecionar
     e.target.value = ''
   }
 
@@ -80,13 +79,12 @@ export default function GaleriaUpload({ carta_id, onFotosChange }: Props) {
   }
 
   const enviando = Object.values(progresso).some(v => v === 'enviando')
-  const restantes = 5 - fotos.length
+  const restantes = MAX_FOTOS - fotos.length
 
   return (
     <div>
-      {/* Preview das fotos */}
       {fotos.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 10 }}>
           {fotos.map((foto, idx) => (
             <div key={foto.foto_id} style={{ position: 'relative', aspectRatio: '1' }}>
               <img src={foto.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
@@ -100,7 +98,6 @@ export default function GaleriaUpload({ carta_id, onFotosChange }: Props) {
         </div>
       )}
 
-      {/* Botão de upload */}
       {restantes > 0 && (
         <label className="flex flex-col items-center justify-center w-full h-24 bg-[#16213e] border border-dashed border-white/20 rounded-xl cursor-pointer hover:border-pink-500 transition-colors">
           {enviando ? (
@@ -114,7 +111,7 @@ export default function GaleriaUpload({ carta_id, onFotosChange }: Props) {
             <>
               <span className="text-2xl mb-1">📸</span>
               <p className="text-white/50 text-xs">
-                {fotos.length === 0 ? `Adicionar até 5 fotos de uma vez` : `Adicionar mais ${restantes} foto${restantes > 1 ? 's' : ''}`}
+                {fotos.length === 0 ? `Adicionar até ${MAX_FOTOS} fotos` : `Adicionar mais ${restantes} foto${restantes > 1 ? 's' : ''}`}
               </p>
               <p className="text-white/20 text-xs mt-1">Selecione várias de uma vez</p>
             </>
@@ -131,7 +128,7 @@ export default function GaleriaUpload({ carta_id, onFotosChange }: Props) {
       )}
 
       {erro && <p className="text-red-400 text-xs mt-2">{erro}</p>}
-      <p className="text-white/30 text-xs mt-2">{fotos.length}/5 fotos adicionadas</p>
+      <p className="text-white/30 text-xs mt-2">{fotos.length}/{MAX_FOTOS} fotos adicionadas</p>
 
       <style>{`
         @keyframes progress {
