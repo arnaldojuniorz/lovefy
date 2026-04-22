@@ -11,7 +11,7 @@ type Foto = {
 }
 
 const RECURSOS = [
-  { id: 'galeria',       nome: 'Galeria de Fotos',   desc: 'Adicione até 5 fotos' },
+  { id: 'galeria',       nome: 'Galeria de Fotos',   desc: 'Adicione até 3 fotos' },
   { id: 'mapa_estrelas', nome: 'Mapa das Estrelas',   desc: 'O céu do dia especial' },
   { id: 'jogo_palavras', nome: 'Jogo de Palavras',    desc: 'Um quiz com 3 palavras' },
   { id: 'musica',        nome: 'Música',              desc: 'Link do Spotify' },
