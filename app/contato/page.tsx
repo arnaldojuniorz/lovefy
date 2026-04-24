@@ -86,7 +86,7 @@ export default function ContatoPage() {
 
         <footer style={{textAlign:'center', marginTop:'48px'}}>
           <p style={{color:'rgba(255,255,255,0.5)', fontSize:'14px', margin:'0 0 8px'}}>Feito com 💕 pela equipe Lovefy</p>
-          <p style={{color:'rgba(255,255,255,0.3)', fontSize:'12px', margin:'0'}}>© 2025 Lovefy. Todos os direitos reservados.</p>
+          <p style={{color:'rgba(255,255,255,0.3)', fontSize:'12px', margin:'0'}}>© 2026 Lovefy. Todos os direitos reservados.</p>
         </footer>
 
       </div>
