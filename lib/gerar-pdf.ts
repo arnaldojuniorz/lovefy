@@ -18,12 +18,12 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
     const ACENTO     = '#C44569'
     const DIVISOR    = '#EAEAEA'
 
-    // ─── Layout base ────────────────────────────────────
+    // ─── Layout ─────────────────────────────────────────
     const ML = 18
     const MR = 18
     const PW = 210 - ML - MR
     const CX = 105
-    const maxY = 260 // limite real de conteúdo
+    const maxY = 260
 
     function setSerif(style: 'normal' | 'italic' | 'bold' = 'normal') {
       doc.setFont('times', style)
@@ -39,7 +39,20 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
       doc.line(ML + 20, y, 210 - MR - 20, y)
     }
 
+    // ─── SANITIZAÇÃO (remove &a e similares) ────────────
+    function limparTexto(texto: string): string {
+      if (!texto) return ''
+      return texto
+        .replace(/&[a-z]/gi, '')   // remove &a, &b, etc
+        .replace(/\s+/g, ' ')      // remove espaços duplicados
+        .trim()
+    }
+
     // ─── Dados ──────────────────────────────────────────
+    const destinatario = limparTexto(carta.nome_destinatario || carta.destinatario || '')
+    const remetente    = limparTexto(carta.nome_remetente || carta.remetente || '')
+    const mensagem     = limparTexto(carta.mensagem_principal || carta.mensagem || '')
+
     const dataImp = carta.data_importante
     let diasNum = 0
     let dataFormatada = ''
@@ -54,10 +67,6 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
         timeZone: 'UTC',
       })
     }
-
-    const destinatario = carta.nome_destinatario || carta.destinatario || ''
-    const remetente    = carta.nome_remetente || carta.remetente || ''
-    const mensagem     = carta.mensagem_principal || carta.mensagem || ''
 
     // ─── Fundo ──────────────────────────────────────────
     doc.setFillColor(BG)
@@ -98,7 +107,7 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
     divisor(y)
     y += 12
 
-    // ─── Mensagem (layout corrigido) ────────────────────
+    // ─── Mensagem (corrigido) ───────────────────────────
     setSans()
     doc.setFontSize(12)
     doc.setTextColor(TEXTO)
@@ -107,20 +116,11 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
 
     for (const linha of linhas) {
       if (y > maxY) break
-      doc.text(linha, ML, y) // alinhamento à esquerda evita bug visual
+      doc.text(linha, ML, y) // alinhado à esquerda evita sobreposição
       y += 7
     }
 
     y += 10
-
-    // "te amo"
-    if (y < maxY) {
-      setSerif('italic')
-      doc.setFontSize(20)
-      doc.setTextColor(ACENTO)
-      doc.text('te amo', CX, y, { align: 'center' })
-      y += 12
-    }
 
     divisor(y)
     y += 12
@@ -138,7 +138,7 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
     doc.text(remetente, CX, y, { align: 'center' })
     y += 14
 
-    // ─── QR Code (corrigido) ────────────────────────────
+    // ─── QR Code (menor) ────────────────────────────────
     if (carta.musica_link && y < maxY - 40) {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(carta.musica_link)}`
 
@@ -148,7 +148,7 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
         const b64 = Buffer.from(ab).toString('base64')
         const dataUrl = `data:image/png;base64,${b64}`
 
-        const size = 28 // menor que antes
+        const size = 28
         const x = CX - size / 2
 
         doc.addImage(dataUrl, 'PNG', x, y, size, size)
@@ -162,7 +162,7 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
       } catch {}
     }
 
-    // ─── Rodapé corrigido ───────────────────────────────
+    // ─── Rodapé (sem paginação) ─────────────────────────
     doc.setDrawColor(DIVISOR)
     doc.setLineWidth(0.3)
     doc.line(ML, 280, 210 - MR, 280)
@@ -171,9 +171,6 @@ export async function gerarPDF(carta_id: string, carta: any): Promise<string | n
     doc.setFontSize(8)
     doc.setTextColor(CINZA_LEVE)
     doc.text('Lovefy · feito com carinho', CX, 285, { align: 'center' })
-
-    // paginação correta
-    doc.text('Página 1 de 1', CX, 290, { align: 'center' })
 
     // ─── Upload ─────────────────────────────────────────
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
