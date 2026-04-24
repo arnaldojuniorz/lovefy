@@ -36,12 +36,27 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        {/* ✅ MercadoPago.JS V2 — Device ID obrigatório */}
+        {/* Mercado Pago */}
         <Script
           src="https://sdk.mercadopago.com/js/v2"
           strategy="afterInteractive"
         />
+
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-RP7YS3Z6FW"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-RP7YS3Z6FW');
+          `}
+        </Script>
       </head>
+
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
