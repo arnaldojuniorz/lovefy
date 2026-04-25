@@ -5,27 +5,37 @@ import CartaViewer from '@/components/carta/CartaViewer'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+type Params = { slug: string }
 type Props = {
-  params: { slug: string }
+  params: Params | Promise<Params>
 }
 
 export default async function CartaPage({ params }: Props) {
-  const slug = decodeURIComponent((params.slug ?? '').trim())
+  const resolvedParams = await Promise.resolve(params)
+  const slug = decodeURIComponent((resolvedParams.slug ?? '').trim())
 
-  if (!slug) {
-    notFound()
-  }
+  if (!slug) notFound()
 
-  const { data: carta, error } = await supabaseAdmin
+  let { data: carta, error } = await supabaseAdmin
     .from('cartas')
     .select('*, fotos(*)')
     .eq('slug', slug)
     .eq('status', 'ativo')
     .maybeSingle()
 
-  if (error || !carta) {
-    notFound()
+  if (!carta && !error) {
+    const fallback = await supabaseAdmin
+      .from('cartas')
+      .select('*, fotos(*)')
+      .ilike('slug', slug)
+      .eq('status', 'ativo')
+      .maybeSingle()
+
+    carta = fallback.data
+    error = fallback.error
   }
+
+  if (error || !carta) notFound()
 
   return <CartaViewer carta={carta} />
 }
