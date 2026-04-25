@@ -58,11 +58,13 @@ async function parseBody(request: NextRequest): Promise<Body> {
   return body as Body
 }
 
-function getBlockedField(body: Body): string | null {
-  for (const key of Object.keys(body)) {
-    if (CAMPOS_BLOQUEADOS.has(key)) return key
+function stripBlockedFields(body: Body): Body {
+  const out: Body = {}
+  for (const [key, value] of Object.entries(body)) {
+    if (CAMPOS_BLOQUEADOS.has(key)) continue
+    out[key] = value
   }
-  return null
+  return out
 }
 
 function sanitizeName(value: unknown, label: string): string {
@@ -243,13 +245,7 @@ async function slugInUse(slug: string, cartaId?: string): Promise<boolean> {
 export async function POST(request: NextRequest) {
   try {
     const body = await parseBody(request)
-
-    const blocked = getBlockedField(body)
-    if (blocked) {
-      return errorJson(`Campo "${blocked}" não pode ser enviado pelo frontend`, 400)
-    }
-
-    const campos = sanitizeAllowedFields(body)
+    const campos = sanitizeAllowedFields(stripBlockedFields(body))
 
     if (typeof campos.nome_destinatario !== 'string' || typeof campos.nome_remetente !== 'string') {
       return errorJson('Nome do destinatário e remetente são obrigatórios', 400)
@@ -305,12 +301,7 @@ export async function PATCH(request: NextRequest) {
       return errorJson('carta_id inválido', 400)
     }
 
-    const blocked = getBlockedField(rest as Body)
-    if (blocked) {
-      return errorJson(`Campo "${blocked}" não pode ser enviado pelo frontend`, 400)
-    }
-
-    const campos = sanitizeAllowedFields(rest as Body)
+    const campos = sanitizeAllowedFields(stripBlockedFields(rest as Body))
     if (Object.keys(campos).length === 0) {
       return errorJson('Nenhum campo válido para atualizar', 400)
     }
