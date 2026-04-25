@@ -24,11 +24,7 @@ const RATE_LIMIT_WINDOW_MS = 60_000
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
 
 function getBaseUrl(): string {
-  const raw =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.APP_URL ??
-    'https://www.lovefy.app.br'
-
+  const raw = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://www.lovefy.app.br'
   const clean = String(raw).replace(/[\r\n\t ]+/g, '').trim()
 
   try {
@@ -46,10 +42,8 @@ function getClientIp(request: NextRequest): string {
     const first = forwarded.split(',')[0]?.trim()
     if (first) return first
   }
-
   const realIp = request.headers.get('x-real-ip')
   if (realIp) return realIp.trim()
-
   return 'unknown'
 }
 
@@ -76,12 +70,6 @@ function applyRateLimit(key: string) {
   const allowed = existing.count <= RATE_LIMIT_MAX
   const retryAfterSec = Math.max(1, Math.ceil((existing.resetAt - now) / 1000))
 
-  if (rateLimitStore.size > 5000) {
-    for (const [k, v] of rateLimitStore.entries()) {
-      if (v.resetAt <= now) rateLimitStore.delete(k)
-    }
-  }
-
   return {
     allowed,
     limit: RATE_LIMIT_MAX,
@@ -99,28 +87,23 @@ function rateLimitHeaders(info: { limit: number; remaining: number; resetAt: num
   }
 }
 
+function jsonError(message: string, status: number, headers?: Record<string, string>) {
+  return NextResponse.json({ error: message }, { status, headers })
+}
+
 function normalizePlano(value: unknown): Plano | null {
   if (typeof value !== 'string') return null
-  const plano = value.trim().toLowerCase()
-  if (plano === 'forever' || plano === 'impressao') return plano
+  const p = value.trim().toLowerCase()
+  if (p === 'forever' || p === 'impressao') return p
   return null
 }
 
 function normalizeTipo(value: unknown, plano: Plano): Tipo | null {
-  if (value === undefined || value === null) {
-    return plano === 'impressao' ? 'impressao' : 'digital'
-  }
-
+  if (value === undefined || value === null) return plano === 'impressao' ? 'impressao' : 'digital'
   if (typeof value !== 'string') return null
-  const tipo = value.trim().toLowerCase()
-  if (tipo !== 'digital' && tipo !== 'impressao') return null
-  return tipo
-}
-
-function sanitizeName(value: unknown, fallback = 'Cliente') {
-  if (typeof value !== 'string') return fallback
-  const clean = value.trim().replace(/\s+/g, ' ').slice(0, 120)
-  return clean || fallback
+  const t = value.trim().toLowerCase()
+  if (t !== 'digital' && t !== 'impressao') return null
+  return t
 }
 
 function sanitizeEmail(value: unknown): string | null {
@@ -131,12 +114,18 @@ function sanitizeEmail(value: unknown): string | null {
   return clean
 }
 
-function jsonError(
-  message: string,
-  status: number,
-  headers?: Record<string, string>
-) {
-  return NextResponse.json({ error: message }, { status, headers })
+function sanitizeName(value: unknown, fallback = 'Cliente') {
+  if (typeof value !== 'string') return fallback
+  const clean = value.trim().replace(/\s+/g, ' ').slice(0, 120)
+  return clean || fallback
+}
+
+function pickString(record: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
 }
 
 export async function POST(request: NextRequest) {
@@ -153,7 +142,6 @@ export async function POST(request: NextRequest) {
 
   try {
     if (!MERCADOPAGO_ACCESS_TOKEN) {
-      console.error('[pix] MERCADOPAGO_ACCESS_TOKEN ausente')
       return jsonError('Serviço temporariamente indisponível', 500, baseHeaders)
     }
 
@@ -195,35 +183,39 @@ export async function POST(request: NextRequest) {
 
     const tabela: Tabela = tipo === 'impressao' ? 'cartas_impressao' : 'cartas'
 
-    const { data: carta, error: cartaError } = await supabaseAdmin
+    const { data: cartaRaw, error: cartaError } = await supabaseAdmin
       .from(tabela)
-      .select('id, status, nome_pagador, remetente, nome_remetente, email_pagador')
+      .select('*')
       .eq('id', cartaId)
       .maybeSingle()
 
     if (cartaError) {
-      console.error('[pix] erro ao buscar carta')
+      console.error('[pix] erro ao buscar carta', cartaError)
       return jsonError('Erro ao iniciar pagamento Pix', 500, baseHeaders)
     }
 
-    if (!carta) {
+    if (!cartaRaw) {
       return jsonError('Carta não encontrada', 404, baseHeaders)
     }
 
-    if (carta.status === 'ativo') {
+    const carta = cartaRaw as Record<string, unknown>
+
+    if (String(carta.status ?? '') === 'ativo') {
       return jsonError('Essa carta já foi paga/ativada', 409, baseHeaders)
     }
 
-    const emailFromDb = sanitizeEmail(carta.email_pagador)
-    const emailFromBody = sanitizeEmail(body.email_pagador)
-    const emailPagador = emailFromDb ?? emailFromBody
+    const email =
+      sanitizeEmail(pickString(carta, ['email_pagador', 'email', 'seu_email', 'email_cliente'])) ??
+      sanitizeEmail(body.email_pagador)
 
-    if (!emailPagador) {
-      return jsonError('Email do pagador inválido ou ausente', 400, baseHeaders)
+    if (!email) {
+      return jsonError('Complete um e-mail válido antes de pagar', 400, baseHeaders)
     }
 
     const nomePagador = sanitizeName(
-      carta.nome_pagador ?? carta.remetente ?? carta.nome_remetente ?? body.nome_pagador ?? 'Cliente'
+      pickString(carta, ['nome_pagador', 'nome_remetente', 'remetente', 'seu_nome', 'nome']) ??
+        body.nome_pagador ??
+        'Cliente'
     )
 
     const planoData = PLANOS[plano]
@@ -240,7 +232,7 @@ export async function POST(request: NextRequest) {
         description: planoData.titulo,
         payment_method_id: 'pix',
         payer: {
-          email: emailPagador,
+          email,
           first_name: nomePagador,
         },
         external_reference: externalReference,
@@ -252,11 +244,11 @@ export async function POST(request: NextRequest) {
     const paymentId = response.id ? String(response.id) : null
 
     if (!pixData?.qr_code || !pixData?.qr_code_base64 || !paymentId) {
-      console.error('[pix] Mercado Pago não retornou dados completos de QR code')
+      console.error('[pix] MP não retornou QR code completo')
       return jsonError('QR Code não gerado', 502, baseHeaders)
     }
 
-    const { error: updateError } = await supabaseAdmin
+    await supabaseAdmin
       .from(tabela)
       .update({
         mercadopago_payment_id: paymentId,
@@ -264,10 +256,6 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', cartaId)
       .in('status', ['rascunho', 'pendente_pagamento'])
-
-    if (updateError) {
-      console.error('[pix] erro ao salvar mercadopago_payment_id')
-    }
 
     return NextResponse.json(
       {
@@ -280,6 +268,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error('[pix] erro interno', error)
-    return jsonError('Erro ao criar cobrança Pix', 500, baseHeaders)
+    return jsonError('Erro ao iniciar pagamento Pix', 500, baseHeaders)
   }
 }
