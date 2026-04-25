@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-// ✅ Apenas campos que o FRONTEND pode enviar
-// Campos como status, plano, paid_at, mercadopago_* só o webhook (service_role) atualiza
-const CAMPOS_FRONTEND = new Set([
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const SLUG_REGEX = /^[a-z0-9-]{3,60}$/
+const TOKEN_REGEX = /^[a-z0-9_-]{1,40}$/i
+
+const CAMPOS_FRONTEND = new Set<string>([
   'nome_destinatario',
   'nome_remetente',
   'data_importante',
@@ -21,125 +23,335 @@ const CAMPOS_FRONTEND = new Set([
   'jogo_palavra3',
 ])
 
+const CAMPOS_BLOQUEADOS = new Set<string>([
+  'status',
+  'plano',
+  'paid_at',
+  'mercadopago_payment_id',
+  'mercadopago_preference_id',
+  'payment_id',
+  'payment_status',
+  'valor_pago',
+  'qr_code_url',
+])
+
+type Body = Record<string, unknown>
+
+class ValidationError extends Error {}
+
+function errorJson(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status })
+}
+
+async function parseBody(request: NextRequest): Promise<Body> {
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    throw new ValidationError('JSON inválido')
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new ValidationError('Payload inválido')
+  }
+
+  return body as Body
+}
+
+function getBlockedField(body: Body): string | null {
+  for (const key of Object.keys(body)) {
+    if (CAMPOS_BLOQUEADOS.has(key)) return key
+  }
+  return null
+}
+
+function sanitizeName(value: unknown, label: string): string {
+  if (typeof value !== 'string') throw new ValidationError(`${label} é obrigatório`)
+  const clean = value.trim().replace(/\s+/g, ' ')
+  if (!clean) throw new ValidationError(`${label} é obrigatório`)
+  return clean.slice(0, 100)
+}
+
+function sanitizeOptionalString(value: unknown, max: number): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string') throw new ValidationError('Campo de texto inválido')
+  const clean = value.trim()
+  if (!clean) return null
+  return clean.slice(0, max)
+}
+
+function sanitizeMessage(value: unknown): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string') throw new ValidationError('mensagem_principal inválida')
+  const clean = value.replace(/\u0000/g, '').trim()
+  if (!clean) return null
+  return clean.slice(0, 2000)
+}
+
+function sanitizeEmail(value: unknown): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string') throw new ValidationError('email_pagador inválido')
+
+  const clean = value.trim().toLowerCase()
+  if (!clean) return null
+  if (clean.length > 200) throw new ValidationError('email_pagador muito longo')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new ValidationError('email_pagador inválido')
+
+  return clean
+}
+
+function sanitizeDate(value: unknown): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string') throw new ValidationError('data_importante inválida')
+
+  const clean = value.trim()
+  if (!clean) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+    throw new ValidationError('data_importante deve estar no formato YYYY-MM-DD')
+  }
+
+  return clean
+}
+
+function sanitizeUrl(value: unknown, spotifyOnly = false): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string') throw new ValidationError('URL inválida')
+
+  const clean = value.trim()
+  if (!clean) return null
+  if (clean.length > 700) throw new ValidationError('URL muito longa')
+
+  let url: URL
+  try {
+    url = new URL(clean)
+  } catch {
+    throw new ValidationError('URL inválida')
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new ValidationError('URL deve usar http ou https')
+  }
+
+  if (spotifyOnly) {
+    const host = url.hostname.toLowerCase()
+    if (!host.endsWith('spotify.com')) {
+      throw new ValidationError('musica_link deve ser do Spotify')
+    }
+  }
+
+  url.hash = ''
+  return url.toString()
+}
+
+function sanitizeSlug(value: unknown): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string') throw new ValidationError('slug inválido')
+
+  const slug = value.trim().toLowerCase()
+  if (!slug) return null
+
+  if (!SLUG_REGEX.test(slug)) {
+    throw new ValidationError('O link só pode ter letras, números e hífens (3 a 60 caracteres)')
+  }
+
+  return slug
+}
+
+function sanitizeToken(value: unknown, field: string): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string') throw new ValidationError(`${field} inválido`)
+
+  const clean = value.trim().toLowerCase()
+  if (!clean) return null
+  if (!TOKEN_REGEX.test(clean)) throw new ValidationError(`${field} inválido`)
+
+  return clean
+}
+
+function sanitizeResources(value: unknown): string[] {
+  if (value === null) return []
+  if (!Array.isArray(value)) throw new ValidationError('recursos deve ser um array')
+
+  const out = new Set<string>()
+  for (const item of value) {
+    if (typeof item !== 'string') continue
+    const clean = item.trim().toLowerCase()
+    if (!clean) continue
+    if (!TOKEN_REGEX.test(clean)) continue
+    out.add(clean)
+    if (out.size >= 10) break
+  }
+
+  return Array.from(out)
+}
+
+function sanitizeField(key: string, value: unknown): unknown {
+  switch (key) {
+    case 'nome_destinatario':
+      return sanitizeName(value, 'Nome do destinatário')
+    case 'nome_remetente':
+      return sanitizeName(value, 'Nome do remetente')
+    case 'nome_pagador':
+      return sanitizeOptionalString(value, 100)
+    case 'jogo_palavra1':
+    case 'jogo_palavra2':
+    case 'jogo_palavra3':
+      return sanitizeOptionalString(value, 60)
+    case 'mensagem_principal':
+      return sanitizeMessage(value)
+    case 'email_pagador':
+      return sanitizeEmail(value)
+    case 'data_importante':
+      return sanitizeDate(value)
+    case 'musica_link':
+      return sanitizeUrl(value, true)
+    case 'foto_destaque':
+      return sanitizeUrl(value, false)
+    case 'slug':
+      return sanitizeSlug(value)
+    case 'estilo_fundo':
+      return sanitizeToken(value, 'estilo_fundo')
+    case 'estilo_animacao':
+      return sanitizeToken(value, 'estilo_animacao')
+    case 'recursos':
+      return sanitizeResources(value)
+    default:
+      return value
+  }
+}
+
+function sanitizeAllowedFields(input: Body): Body {
+  const out: Body = {}
+
+  for (const key of CAMPOS_FRONTEND) {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) continue
+    out[key] = sanitizeField(key, input[key])
+  }
+
+  return out
+}
+
+async function slugInUse(slug: string, cartaId?: string): Promise<boolean> {
+  let query = supabaseAdmin.from('cartas').select('id').eq('slug', slug).limit(1)
+  if (cartaId) query = query.neq('id', cartaId)
+
+  const { data, error } = await query.maybeSingle()
+  if (error) throw error
+  return Boolean(data)
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { nome_destinatario, nome_remetente } = body
+    const body = await parseBody(request)
 
-    if (!nome_destinatario?.trim() || !nome_remetente?.trim()) {
-      return NextResponse.json(
-        { error: 'Nome do destinatário e remetente são obrigatórios' },
-        { status: 400 }
-      )
+    const blocked = getBlockedField(body)
+    if (blocked) {
+      return errorJson(`Campo "${blocked}" não pode ser enviado pelo frontend`, 400)
     }
 
-    // Sanitiza entradas
+    const campos = sanitizeAllowedFields(body)
+
+    if (typeof campos.nome_destinatario !== 'string' || typeof campos.nome_remetente !== 'string') {
+      return errorJson('Nome do destinatário e remetente são obrigatórios', 400)
+    }
+
+    if (typeof campos.slug === 'string') {
+      const exists = await slugInUse(campos.slug)
+      if (exists) return errorJson('Esse link já está em uso. Escolha outro!', 409)
+    }
+
+    const payload: Body = {
+      nome_destinatario: campos.nome_destinatario,
+      nome_remetente: campos.nome_remetente,
+      status: 'rascunho',
+      estilo_fundo: 'stars',
+      estilo_animacao: 'float',
+      recursos: [],
+    }
+
+    for (const [key, value] of Object.entries(campos)) {
+      if (key === 'nome_destinatario' || key === 'nome_remetente') continue
+      payload[key] = value
+    }
+
     const { data: carta, error } = await supabaseAdmin
       .from('cartas')
-      .insert({
-        nome_destinatario: String(nome_destinatario).slice(0, 100).trim(),
-        nome_remetente:    String(nome_remetente).slice(0, 100).trim(),
-        estilo_fundo:      'stars',
-        estilo_animacao:   'float',
-        recursos:          [],
-        status:            'rascunho',
-      })
+      .insert(payload)
       .select('id')
       .single()
 
     if (error) {
+      if (error.code === '23505') return errorJson('Esse link já está em uso. Escolha outro!', 409)
       console.error('[cartas POST] erro ao inserir')
-      return NextResponse.json({ error: 'Erro ao salvar carta' }, { status: 500 })
+      return errorJson('Erro ao salvar carta', 500)
     }
 
-    return NextResponse.json({ carta_id: carta.id })
-
-  } catch {
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+    return NextResponse.json({ carta_id: carta.id }, { status: 201 })
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return errorJson(error.message, 400)
+    }
+    console.error('[cartas POST] erro interno')
+    return errorJson('Erro interno do servidor', 500)
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { carta_id, ...campos } = body
+    const body = await parseBody(request)
+    const { carta_id, ...rest } = body
 
-    if (!carta_id || typeof carta_id !== 'string') {
-      return NextResponse.json({ error: 'carta_id é obrigatório' }, { status: 400 })
+    if (typeof carta_id !== 'string' || !UUID_REGEX.test(carta_id.trim())) {
+      return errorJson('carta_id inválido', 400)
     }
 
-    // ✅ Filtra apenas campos que o frontend pode alterar
-    const camposLimpos: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(campos)) {
-      if (CAMPOS_FRONTEND.has(key)) {
-        camposLimpos[key] = value
-      }
+    const blocked = getBlockedField(rest as Body)
+    if (blocked) {
+      return errorJson(`Campo "${blocked}" não pode ser enviado pelo frontend`, 400)
     }
 
-    if (Object.keys(camposLimpos).length === 0) {
-      return NextResponse.json({ error: 'Nenhum campo válido para atualizar' }, { status: 400 })
+    const campos = sanitizeAllowedFields(rest as Body)
+    if (Object.keys(campos).length === 0) {
+      return errorJson('Nenhum campo válido para atualizar', 400)
     }
 
-    // Sanitiza strings
-    for (const key of ['nome_destinatario', 'nome_remetente', 'nome_pagador']) {
-      if (typeof camposLimpos[key] === 'string') {
-        camposLimpos[key] = (camposLimpos[key] as string).slice(0, 100).trim()
-      }
-    }
-    if (typeof camposLimpos.mensagem_principal === 'string') {
-      camposLimpos.mensagem_principal = (camposLimpos.mensagem_principal as string).slice(0, 2000)
-    }
-    if (typeof camposLimpos.email_pagador === 'string') {
-      camposLimpos.email_pagador = (camposLimpos.email_pagador as string).slice(0, 200).toLowerCase().trim()
-    }
-
-    // Valida slug
-    if (camposLimpos.slug !== undefined) {
-      const slug = String(camposLimpos.slug).trim()
-      if (slug.length < 3) {
-        return NextResponse.json({ error: 'O link deve ter pelo menos 3 caracteres' }, { status: 400 })
-      }
-      // Só permite letras, números e hífens
-      if (!/^[a-z0-9-]+$/i.test(slug)) {
-        return NextResponse.json({ error: 'O link só pode ter letras, números e hífens' }, { status: 400 })
-      }
-      const { data: slugExistente } = await supabaseAdmin
-        .from('cartas')
-        .select('id')
-        .eq('slug', slug)
-        .neq('id', carta_id)
-        .maybeSingle()
-
-      if (slugExistente) {
-        return NextResponse.json({ error: 'Esse link já está em uso. Escolha outro!' }, { status: 409 })
-      }
-      camposLimpos.slug = slug.toLowerCase()
+    if (typeof campos.slug === 'string') {
+      const exists = await slugInUse(campos.slug, carta_id.trim())
+      if (exists) return errorJson('Esse link já está em uso. Escolha outro!', 409)
     }
 
     const { data: carta, error } = await supabaseAdmin
       .from('cartas')
-      .update(camposLimpos)
-      .eq('id', carta_id)
+      .update(campos)
+      .eq('id', carta_id.trim())
+      .in('status', ['rascunho', 'pendente_pagamento'])
       .select('id')
-      .single()
+      .maybeSingle()
 
     if (error) {
-      // Não vaza detalhes do erro de DB para o cliente
+      if (error.code === '23505') return errorJson('Esse link já está em uso. Escolha outro!', 409)
       console.error('[cartas PATCH] erro ao atualizar')
-      return NextResponse.json({ error: 'Erro ao atualizar carta' }, { status: 500 })
+      return errorJson('Erro ao atualizar carta', 500)
+    }
+
+    if (!carta) {
+      return errorJson('Carta não encontrada ou bloqueada para edição', 404)
     }
 
     return NextResponse.json({ carta_id: carta.id })
-
-  } catch {
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return errorJson(error.message, 400)
+    }
+    console.error('[cartas PATCH] erro interno')
+    return errorJson('Erro interno do servidor', 500)
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const url  = new URL(request.url)
-    const id   = url.searchParams.get('id')
+    const url = new URL(request.url)
+    const id = url.searchParams.get('id')
     const slug = url.searchParams.get('slug')
 
     if (!id && !slug) {
@@ -147,26 +359,47 @@ export async function GET(request: NextRequest) {
     }
 
     if (id) {
-      // ✅ Retorna apenas campos não-sensíveis — sem email, sem payment_id
-      const { data } = await supabaseAdmin
+      const cleanId = id.trim()
+      if (!UUID_REGEX.test(cleanId)) {
+        return errorJson('id inválido', 400)
+      }
+
+      const { data, error } = await supabaseAdmin
         .from('cartas')
         .select('id, slug, status, nome_destinatario, nome_remetente, qr_code_url')
-        .eq('id', id)
-        .single()
+        .eq('id', cleanId)
+        .maybeSingle()
+
+      if (error) {
+        console.error('[cartas GET:id] erro ao buscar')
+        return errorJson('Erro ao consultar carta', 500)
+      }
+
       return NextResponse.json(data ?? {})
     }
 
-    // Verifica disponibilidade de slug
-    const { data } = await supabaseAdmin
+    const cleanSlug = sanitizeSlug(slug)
+    if (!cleanSlug) {
+      return NextResponse.json({ disponivel: false })
+    }
+
+    const { data, error } = await supabaseAdmin
       .from('cartas')
       .select('id')
-      .eq('slug', slug!)
-      .neq('status', 'rascunho')
+      .eq('slug', cleanSlug)
+      .limit(1)
       .maybeSingle()
 
-    return NextResponse.json({ disponivel: !data })
+    if (error) {
+      console.error('[cartas GET:slug] erro ao consultar')
+      return errorJson('Erro ao consultar disponibilidade', 500)
+    }
 
-  } catch {
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+    return NextResponse.json({ disponivel: !data })
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return errorJson(error.message, 400)
+    }
+    return errorJson('Erro interno', 500)
   }
 }
