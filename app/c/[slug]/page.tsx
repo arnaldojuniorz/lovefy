@@ -19,7 +19,7 @@ export default async function CartaPage({ params }: Props) {
   const { data: carta, error } = await supabaseAdmin
     .from('cartas')
     .select('*, fotos(*)')
-    .ilike('slug', slug)
+    .eq('slug', slug)
     .eq('status', 'ativo')
     .maybeSingle()
 
@@ -27,10 +27,5 @@ export default async function CartaPage({ params }: Props) {
     notFound()
   }
 
-  const cartaSafe = { ...(carta as Record<string, unknown>) }
-  delete (cartaSafe as any).email_pagador
-  delete (cartaSafe as any).mercadopago_payment_id
-  delete (cartaSafe as any).mercadopago_preference_id
-
-  return <CartaViewer carta={cartaSafe as any} />
+  return <CartaViewer carta={carta} />
 }
