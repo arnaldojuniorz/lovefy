@@ -101,6 +101,14 @@ function mapMpStatus(status: string | null | undefined): string {
   return 'pending'
 }
 
+function pickString(record: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request)
   const limiter = applyRateLimit(`pix-status:${ip}`)
@@ -143,9 +151,9 @@ export async function GET(request: NextRequest) {
 
     const tabela: Tabela = tipo === 'impressao' ? 'cartas_impressao' : 'cartas'
 
-    const { data: carta, error: cartaError } = await supabaseAdmin
+    const { data: cartaRaw, error: cartaError } = await supabaseAdmin
       .from(tabela)
-      .select('id, status, slug, mercadopago_payment_id')
+      .select('*')
       .eq('id', cartaId)
       .maybeSingle()
 
@@ -154,23 +162,27 @@ export async function GET(request: NextRequest) {
       return jsonError('Erro ao verificar status', 500, baseHeaders)
     }
 
-    if (!carta) {
+    if (!cartaRaw) {
       return jsonError('Carta não encontrada', 404, baseHeaders)
     }
 
-    if (
-      carta.mercadopago_payment_id &&
-      String(carta.mercadopago_payment_id) !== String(paymentId)
-    ) {
+    const carta = cartaRaw as Record<string, unknown>
+
+    const paymentIdDaCarta =
+      carta.mercadopago_payment_id !== undefined && carta.mercadopago_payment_id !== null
+        ? String(carta.mercadopago_payment_id)
+        : null
+
+    if (paymentIdDaCarta && paymentIdDaCarta !== paymentId) {
       return jsonError('payment_id não corresponde à carta', 409, baseHeaders)
     }
 
-    if (carta.status === 'ativo') {
+    if (String(carta.status ?? '') === 'ativo') {
       return NextResponse.json(
         {
           status: 'approved',
           carta_status: 'ativo',
-          slug: tipo === 'digital' ? carta.slug ?? null : null,
+          slug: tipo === 'digital' ? pickString(carta, ['slug']) ?? null : null,
           pdf_url: null,
         },
         { headers: baseHeaders }
@@ -185,12 +197,36 @@ export async function GET(request: NextRequest) {
     const normalized = mapMpStatus(mpResponse.status)
 
     if (normalized === 'approved') {
-      // Não ativa aqui; ativação oficial só no webhook.
+      const extRef = String(mpResponse.external_reference ?? '')
+      if (!extRef.startsWith(`${cartaId}|`) && extRef !== cartaId) {
+        return jsonError('payment_id não corresponde à carta', 409, baseHeaders)
+      }
+
+      if (String(carta.status ?? '') !== 'ativo') {
+        await supabaseAdmin
+          .from(tabela)
+          .update({
+            status: 'ativo',
+            paid_at: new Date().toISOString(),
+            mercadopago_payment_id: paymentId,
+          })
+          .eq('id', cartaId)
+          .in('status', ['rascunho', 'pendente_pagamento'])
+      }
+
+      const { data: atualizadaRaw } = await supabaseAdmin
+        .from(tabela)
+        .select('*')
+        .eq('id', cartaId)
+        .maybeSingle()
+
+      const atualizada = (atualizadaRaw ?? carta) as Record<string, unknown>
+
       return NextResponse.json(
         {
           status: 'approved',
-          carta_status: carta.status ?? 'pendente_pagamento',
-          slug: null,
+          carta_status: String(atualizada.status ?? 'ativo'),
+          slug: tipo === 'digital' ? pickString(atualizada, ['slug']) ?? null : null,
           pdf_url: null,
         },
         { headers: baseHeaders }
@@ -200,7 +236,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         status: normalized,
-        carta_status: carta.status ?? 'pendente_pagamento',
+        carta_status: String(carta.status ?? 'pendente_pagamento'),
         slug: null,
         pdf_url: null,
       },
