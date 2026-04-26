@@ -50,8 +50,11 @@ function CheckoutContent() {
   }, [carta_id, plano, tipo])
 
   async function handleSubmit(brickData: any) {
-    // ✅ O Brick envia { formData, selectedPaymentMethod }
-    // PIX/transferência bancária
+    // ✅ Log temporário para diagnóstico — remove após confirmar funcionamento
+    console.log('[checkout] brickData keys:', Object.keys(brickData ?? {}))
+    console.log('[checkout] selectedPaymentMethod:', brickData?.selectedPaymentMethod)
+    console.log('[checkout] formData keys:', Object.keys(brickData?.formData ?? {}))
+
     const isPix =
       brickData?.selectedPaymentMethod === 'bank_transfer' ||
       brickData?.formData?.payment_method_id === 'pix'
@@ -78,9 +81,15 @@ function CheckoutContent() {
       return
     }
 
-    // ✅ Cartão de crédito — envia formData (dados do cartão) separado
+    // Cartão de crédito
     setProcessando(true)
     try {
+      // ✅ O Brick pode enviar os dados direto em brickData ou dentro de brickData.formData
+      // Testa os dois formatos
+      const dadosCartao = brickData?.formData ?? brickData
+
+      console.log('[checkout] enviando para processar:', JSON.stringify(dadosCartao))
+
       const res = await fetch('/api/checkout/processar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,11 +97,12 @@ function CheckoutContent() {
           carta_id,
           plano,
           tipo,
-          formData: brickData.formData, // ✅ só os dados do cartão
+          formData: dadosCartao,
         }),
       })
 
       const result = await res.json()
+      console.log('[checkout] resultado processar:', result.status)
 
       if (result.status === 'approved') {
         window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&plano=${plano}`
@@ -123,13 +133,12 @@ function CheckoutContent() {
           <p style={{ background: 'linear-gradient(135deg, #ff6b9d, #c44569)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '40px', fontWeight: '900', margin: '0' }}>
             R$ {valor.toFixed(2).replace('.', ',')}
           </p>
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px', margin: '8px 0 0' }}>à vista — sem parcelamento</p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px', margin: '8px 0 0' }}>à vista · sem parcelamento</p>
         </div>
 
         <div style={{ background: '#16213e', borderRadius: '24px', padding: '24px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '16px', position: 'relative' }}>
-          {/* Overlay de processando */}
           {processando && (
-            <div style={{ position: 'absolute', inset: 0, borderRadius: '24px', background: 'rgba(22,33,62,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: '24px', background: 'rgba(22,33,62,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
               <p style={{ color: '#fff', fontSize: '16px' }}>Processando pagamento...</p>
             </div>
           )}
@@ -155,17 +164,17 @@ function CheckoutContent() {
                   mercadoPago:     [] as const,
                   debitCard:       [] as const,
                   ticket:          [] as const,
-                  maxInstallments: 1,  // ✅ sem parcelamento
+                  maxInstallments: 1,
                 },
                 visual: {
                   style: { theme: 'dark' },
-                  hideFormTitle:   true,
+                  hideFormTitle:     true,
                   hidePaymentButton: false,
                 },
               }}
               onSubmit={handleSubmit}
               onReady={() => setLoading(false)}
-              onError={() => setErro('Erro ao carregar formulário de pagamento. Recarregue a página.')}
+              onError={() => setErro('Erro ao carregar formulário. Recarregue a página.')}
             />
           )}
         </div>
