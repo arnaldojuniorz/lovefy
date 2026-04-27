@@ -161,7 +161,7 @@ export default function Home() {
                   <p className="text-muted text-sm">Guarde essa memória eternamente</p>
                 </div>
                 <div className="mb-6">
-                  <span className="text-5xl font-black gradient-text">R$ 12,90</span>
+                  <span className="text-5xl font-black gradient-text">R$ 9,90</span>
                 </div>
                 <ul className="space-y-3 mb-8 flex-grow">
                   {[
@@ -191,7 +191,7 @@ export default function Home() {
                   <p className="text-muted text-sm">Presente físico inesquecível</p>
                 </div>
                 <div className="mb-6">
-                  <span className="text-5xl font-black gradient-text">R$ 9,90</span>
+                  <span className="text-5xl font-black gradient-text">R$ 6,90</span>
                 </div>
                 <ul className="space-y-3 mb-8 flex-grow">
                   {[

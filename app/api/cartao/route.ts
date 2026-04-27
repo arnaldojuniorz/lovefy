@@ -7,8 +7,8 @@ export const runtime = 'nodejs'
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
 
 const PLANOS = {
-  forever: { preco: 12.9, titulo: 'Lovefy - Carta Digital Para Sempre' },
-  impressao: { preco: 9.9, titulo: 'Lovefy - Carta para Impressao' },
+  forever: { preco: 9.9, titulo: 'Lovefy - Carta Digital Para Sempre' },
+  impressao: { preco: 6.9, titulo: 'Lovefy - Carta para Impressao' },
 } as const
 
 type Plano = keyof typeof PLANOS

@@ -7,8 +7,8 @@ import { initMercadoPago, Payment } from '@mercadopago/sdk-react'
 initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: 'pt-BR' })
 
 const PRECOS: Record<string, number> = {
-  'forever':   12.90,
-  'impressao':  9.90,
+  'forever':   9.90,
+  'impressao':  6.90,
 }
 
 function CheckoutContent() {
@@ -23,7 +23,7 @@ function CheckoutContent() {
   const [loading, setLoading]           = useState(true)
   const [processando, setProcessando]   = useState(false)
   const [erro, setErro]                 = useState('')
-  const valor = PRECOS[plano] ?? 12.90
+  const valor = PRECOS[plano] ?? 9.90
 
   useEffect(() => {
     if (!carta_id) {
