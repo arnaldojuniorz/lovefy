@@ -67,7 +67,7 @@ export default function Etapa5() {
         update({ carta_id })
       }
 
-      // ✅ plano fixo: forever (R$12,90)
+      // ✅ plano fixo: forever (R$9,90)
       window.location.href = `/checkout?carta_id=${carta_id}&plano=forever&tipo=digital&nome=${encodeURIComponent(data.nome_pagador)}&email=${encodeURIComponent(data.email_pagador)}`
 
     } catch {
@@ -102,7 +102,7 @@ export default function Etapa5() {
           <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs px-2 py-0.5 rounded-full">Único plano</span>
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-white font-bold text-2xl">R$ 12,90</p>
+              <p className="text-white font-bold text-2xl">R$ 9,90</p>
               <p className="text-white/70 text-sm font-medium">Carta Para Sempre</p>
               <p className="text-white/40 text-xs mt-1">Link vitalício · Nunca expira</p>
             </div>
