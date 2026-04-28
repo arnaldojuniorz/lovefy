@@ -21,7 +21,7 @@ export default function TermosPage() {
             },
             {
               titulo: '3. Planos e Preços',
-              texto: 'O Lovefy oferece os seguintes produtos: Carta Digital (Para Sempre): R$ 12,90 (acesso vitalício e ilimitado ao link da carta interativa). Carta PDF para Impressão: R$ 9,90 (arquivo em alta resolução pronto para impressão).'
+              texto: 'O Lovefy oferece os seguintes produtos: Carta Digital (Para Sempre): R$ 9,90 (acesso vitalício e ilimitado ao link da carta interativa). Carta PDF para Impressão: R$ 6,90 (arquivo em alta resolução pronto para impressão).'
             },
             {
               titulo: '4. Uso aceitável',
