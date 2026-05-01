@@ -1,14 +1,20 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react'
 
-initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: 'pt-BR' })
+// ✅ Inicializa fora do componente mas protegido contra dupla execução
+let mpInitialized = false
+function ensureMP() {
+  if (mpInitialized) return
+  initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: 'pt-BR' })
+  mpInitialized = true
+}
 
 const PRECOS: Record<string, number> = {
-  'forever':   9.90,
-  'impressao':  6.90,
+  forever:   9.90,
+  impressao: 6.90,
 }
 
 function CheckoutContent() {
@@ -24,6 +30,9 @@ function CheckoutContent() {
   const [processando, setProcessando]   = useState(false)
   const [erro, setErro]                 = useState('')
   const valor = PRECOS[plano] ?? 9.90
+
+  // ✅ Garante inicialização única
+  useEffect(() => { ensureMP() }, [])
 
   useEffect(() => {
     if (!carta_id) {
@@ -50,11 +59,6 @@ function CheckoutContent() {
   }, [carta_id, plano, tipo])
 
   async function handleSubmit(brickData: any) {
-    // ✅ Log temporário para diagnóstico — remove após confirmar funcionamento
-    console.log('[checkout] brickData keys:', Object.keys(brickData ?? {}))
-    console.log('[checkout] selectedPaymentMethod:', brickData?.selectedPaymentMethod)
-    console.log('[checkout] formData keys:', Object.keys(brickData?.formData ?? {}))
-
     const isPix =
       brickData?.selectedPaymentMethod === 'bank_transfer' ||
       brickData?.formData?.payment_method_id === 'pix'
@@ -64,13 +68,7 @@ function CheckoutContent() {
         const res = await fetch('/api/pix', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            carta_id,
-            plano,
-            tipo,
-            email_pagador: email,
-            nome_pagador:  nome,
-          }),
+          body: JSON.stringify({ carta_id, plano, tipo, email_pagador: email, nome_pagador: nome }),
         })
         const result = await res.json()
         if (!res.ok) { alert(result.error || 'Erro ao gerar PIX'); return }
@@ -81,15 +79,8 @@ function CheckoutContent() {
       return
     }
 
-    // Cartão de crédito
     setProcessando(true)
     try {
-      // ✅ O Brick pode enviar os dados direto em brickData ou dentro de brickData.formData
-      // Testa os dois formatos
-      const dadosCartao = brickData?.formData ?? brickData
-
-      console.log('[checkout] enviando para processar:', JSON.stringify(dadosCartao))
-
       const res = await fetch('/api/checkout/processar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -97,12 +88,11 @@ function CheckoutContent() {
           carta_id,
           plano,
           tipo,
-          formData: dadosCartao,
+          formData: brickData.formData,
         }),
       })
 
       const result = await res.json()
-      console.log('[checkout] resultado processar:', result.status)
 
       if (result.status === 'approved') {
         window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&plano=${plano}`
@@ -142,7 +132,6 @@ function CheckoutContent() {
               <p style={{ color: '#fff', fontSize: '16px' }}>Processando pagamento...</p>
             </div>
           )}
-
           {loading && (
             <div style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: 'rgba(255,255,255,0.5)' }}>Carregando checkout...</p>
@@ -167,7 +156,7 @@ function CheckoutContent() {
                   maxInstallments: 1,
                 },
                 visual: {
-                  style: { theme: 'dark' },
+                  style:             { theme: 'dark' },
                   hideFormTitle:     true,
                   hidePaymentButton: false,
                 },

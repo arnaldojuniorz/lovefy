@@ -5,6 +5,7 @@ export const runtime = 'nodejs'
 
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
 
+// ✅ Preços definidos no servidor — nunca aceitar do frontend
 const PLANOS = {
   forever:   { preco:  9.90, titulo: 'Lovefy - Carta Digital Para Sempre' },
   impressao: { preco:  6.90, titulo: 'Lovefy - Carta para Impressao' },
@@ -69,10 +70,10 @@ export async function POST(request: NextRequest) {
 
     const card = formData as Record<string, unknown>
 
-    // Extrai apenas campos necessários do cartão
-    const token = typeof card.token === 'string' ? card.token.trim() : ''
+    // Extrai campos do cartão
+    const token           = typeof card.token            === 'string' ? card.token.trim()            : ''
     const paymentMethodId = typeof card.payment_method_id === 'string' ? card.payment_method_id.trim() : ''
-    const issuerId = card.issuer_id !== undefined ? Number(card.issuer_id) : undefined
+    const issuerId        = card.issuer_id !== undefined ? Number(card.issuer_id) : undefined
 
     if (!token || !paymentMethodId) {
       return jsonError('Token ou método de pagamento ausente', 400)
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
       ? card.payer as Record<string, unknown>
       : {}
 
-    const payerEmail     = typeof payer.email      === 'string' ? payer.email.trim().toLowerCase()  : ''
+    const payerEmail     = typeof payer.email      === 'string' ? payer.email.trim().toLowerCase()     : ''
     const payerFirstName = typeof payer.first_name === 'string' ? payer.first_name.trim().slice(0, 80) : ''
     const payerLastName  = typeof payer.last_name  === 'string' ? payer.last_name.trim().slice(0, 80)  : ''
 
@@ -91,22 +92,39 @@ export async function POST(request: NextRequest) {
       return jsonError('E-mail do pagador ausente', 400)
     }
 
-    const client   = new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
-    const payment  = new Payment(client)
-    const baseUrl  = getBaseUrl()
+    // CPF / identificação
+    const identification = payer.identification && typeof payer.identification === 'object' && !Array.isArray(payer.identification)
+      ? payer.identification as Record<string, unknown>
+      : {}
+
+    const identType   = typeof identification.type   === 'string' ? identification.type.trim()           : ''
+    const identNumber = typeof identification.number === 'string' ? identification.number.trim()
+      : typeof identification.number === 'number'                 ? String(identification.number)
+      : ''
+
+    const client  = new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
+    const payment = new Payment(client)
+    const baseUrl = getBaseUrl()
 
     const response = await payment.create({
       body: {
+        // ✅ Preço vem do servidor — nunca do frontend
         transaction_amount: planoData.preco,
         description:        planoData.titulo,
         token,
-        installments:       1,
+        installments:       1, // sem parcelamento
         payment_method_id:  paymentMethodId,
         ...(issuerId && !isNaN(issuerId) ? { issuer_id: issuerId } : {}),
         payer: {
           email:      payerEmail,
           first_name: payerFirstName || 'Cliente',
           last_name:  payerLastName  || '',
+          ...(identType && identNumber ? {
+            identification: {
+              type:   identType,
+              number: identNumber,
+            },
+          } : {}),
         },
         external_reference:   `${carta_id.trim()}|${plano}`,
         notification_url:     `${baseUrl}/api/webhook`,
