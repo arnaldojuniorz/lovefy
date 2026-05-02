@@ -11,9 +11,9 @@ import { gerarPDF } from '@/lib/gerar-pdf'
 
 export const runtime = 'nodejs'
 
-const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
+const MERCADOPAGO_ACCESS_TOKEN  = process.env.MERCADOPAGO_ACCESS_TOKEN  ?? ''
 const MERCADOPAGO_WEBHOOK_SECRET = process.env.MERCADOPAGO_WEBHOOK_SECRET ?? ''
-const RESEND_API_KEY = process.env.RESEND_API_KEY ?? ''
+const RESEND_API_KEY             = process.env.RESEND_API_KEY             ?? ''
 
 const mpClient = MERCADOPAGO_ACCESS_TOKEN
   ? new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
@@ -27,72 +27,53 @@ type Plano = 'forever' | 'impressao'
 type WebhookBody = {
   id?: string | number
   type?: string
-  data?: {
-    id?: string | number
-  }
+  data?: { id?: string | number }
 }
 
 function safeJsonParse<T>(value: string): T | null {
-  try {
-    return JSON.parse(value) as T
-  } catch {
-    return null
-  }
+  try { return JSON.parse(value) as T } catch { return null }
 }
 
 function secureCompareHex(expectedHex: string, receivedHex: string): boolean {
   try {
     const a = Buffer.from(expectedHex, 'hex')
-    const b = Buffer.from(receivedHex, 'hex')
+    const b = Buffer.from(receivedHex,  'hex')
     if (a.length === 0 || b.length === 0 || a.length !== b.length) return false
     return timingSafeEqual(a, b)
-  } catch {
-    return false
-  }
+  } catch { return false }
 }
 
 function buildCandidateIds(request: NextRequest, body: WebhookBody): string[] {
   const url = new URL(request.url)
-
   const values = [
     url.searchParams.get('data.id'),
     url.searchParams.get('id'),
     body?.data?.id !== undefined ? String(body.data.id) : null,
-    body?.id !== undefined ? String(body.id) : null,
+    body?.id        !== undefined ? String(body.id)      : null,
   ]
     .filter((v): v is string => Boolean(v))
-    .map((v) => v.trim())
+    .map(v => v.trim())
     .filter(Boolean)
-
   return Array.from(new Set(values))
 }
 
 function validarAssinatura(request: NextRequest, body: WebhookBody): boolean {
   if (!MERCADOPAGO_WEBHOOK_SECRET) return false
-
   const xSignature = request.headers.get('x-signature')
   const xRequestId = request.headers.get('x-request-id')
-
   if (!xSignature || !xRequestId) return false
-
-  const parts = xSignature.split(',').map((p) => p.trim())
-  const ts = parts.find((p) => p.startsWith('ts='))?.slice(3)
-  const v1 = parts.find((p) => p.startsWith('v1='))?.slice(3)?.toLowerCase()
-
+  const parts = xSignature.split(',').map(p => p.trim())
+  const ts = parts.find(p => p.startsWith('ts='))?.slice(3)
+  const v1 = parts.find(p => p.startsWith('v1='))?.slice(3)?.toLowerCase()
   if (!ts || !v1) return false
-
   const candidates = buildCandidateIds(request, body)
   if (candidates.length === 0) return false
-
   for (const id of candidates) {
     const manifest = `id:${id};request-id:${xRequestId};ts:${ts};`
     const expected = createHmac('sha256', MERCADOPAGO_WEBHOOK_SECRET)
-      .update(manifest)
-      .digest('hex')
-
+      .update(manifest).digest('hex')
     if (secureCompareHex(expected, v1)) return true
   }
-
   return false
 }
 
@@ -100,20 +81,15 @@ function parseExternalReference(externalRef: string): { cartaId: string; plano: 
   const [rawCartaId, rawPlano] = externalRef.split('|')
   const cartaId = (rawCartaId ?? '').trim()
   if (!UUID_REGEX.test(cartaId)) return null
-
   const planoTxt = (rawPlano ?? 'forever').trim().toLowerCase()
   const plano: Plano = planoTxt === 'impressao' ? 'impressao' : 'forever'
-
   return { cartaId, plano }
 }
 
 function escapeHtml(text: string): string {
   return text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;')
 }
 
 function pickString(record: Record<string, unknown> | null | undefined, keys: string[]): string | null {
@@ -127,7 +103,7 @@ function pickString(record: Record<string, unknown> | null | undefined, keys: st
 
 function extractPayerEmail(paymentData: unknown): string | null {
   if (!paymentData || typeof paymentData !== 'object') return null
-  const root = paymentData as Record<string, unknown>
+  const root  = paymentData as Record<string, unknown>
   const payer = root.payer
   if (!payer || typeof payer !== 'object') return null
   const email = (payer as Record<string, unknown>).email
@@ -135,28 +111,62 @@ function extractPayerEmail(paymentData: unknown): string | null {
   return email.trim().toLowerCase()
 }
 
+// ✅ Gera slug a partir dos nomes — ex: "arnaldoewylma"
+function gerarSlug(nomeRemetente: string, nomeDestinatario: string): string {
+  const normalizar = (s: string) =>
+    s.normalize('NFD')
+     .replace(/[\u0300-\u036f]/g, '')
+     .toLowerCase()
+     .replace(/[^a-z0-9]/g, '')
+     .slice(0, 20)
+
+  const base = normalizar(nomeRemetente) + 'e' + normalizar(nomeDestinatario)
+  const sufixo = Math.random().toString(36).slice(2, 6)
+  return `${base}${sufixo}`
+}
+
+// ✅ Garante slug único no banco
+async function garantirSlug(cartaId: string, nomeRemetente: string, nomeDestinatario: string): Promise<string> {
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    const slug = gerarSlug(nomeRemetente, nomeDestinatario)
+    const { data } = await supabaseAdmin
+      .from('cartas')
+      .select('id')
+      .eq('slug', slug)
+      .maybeSingle()
+
+    if (!data) {
+      // Slug disponível — salva
+      await supabaseAdmin
+        .from('cartas')
+        .update({ slug })
+        .eq('id', cartaId)
+      return slug
+    }
+  }
+  // Fallback: usa parte do ID
+  const slug = cartaId.replace(/-/g, '').slice(0, 16)
+  await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
+  return slug
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!mpClient || !MERCADOPAGO_WEBHOOK_SECRET) {
-      console.error('[webhook] MERCADOPAGO_ACCESS_TOKEN ou MERCADOPAGO_WEBHOOK_SECRET ausente')
+      console.error('[webhook] credenciais ausentes')
       return NextResponse.json({ ok: false }, { status: 500 })
     }
 
     const rawBody = await request.text()
-    const body = safeJsonParse<WebhookBody>(rawBody)
-
-    if (!body) {
-      return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 })
-    }
+    const body    = safeJsonParse<WebhookBody>(rawBody)
+    if (!body) return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 })
 
     if (!validarAssinatura(request, body)) {
       console.warn('[webhook] assinatura inválida')
       return NextResponse.json({ ok: false }, { status: 401 })
     }
 
-    if (body.type !== 'payment') {
-      return NextResponse.json({ ok: true })
-    }
+    if (body.type !== 'payment') return NextResponse.json({ ok: true })
 
     const paymentIdRaw = body.data?.id ?? body.id
     if (!paymentIdRaw) return NextResponse.json({ ok: true })
@@ -167,12 +177,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    const paymentApi = new Payment(mpClient)
+    const paymentApi  = new Payment(mpClient)
     const paymentData = await paymentApi.get({ id: paymentId })
 
-    if (paymentData.status !== 'approved') {
-      return NextResponse.json({ ok: true })
-    }
+    if (paymentData.status !== 'approved') return NextResponse.json({ ok: true })
 
     const externalRef = String(paymentData.external_reference ?? '').trim()
     if (!externalRef) {
@@ -195,6 +203,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true })
+
   } catch (error) {
     console.error('[webhook] erro interno', error)
     return NextResponse.json({ ok: false }, { status: 500 })
@@ -205,9 +214,9 @@ async function processarDigital(cartaId: string, paymentId: string, fallbackEmai
   const { data, error } = await supabaseAdmin
     .from('cartas')
     .update({
-      status: 'ativo',
+      status:                 'ativo',
       mercadopago_payment_id: paymentId,
-      paid_at: new Date().toISOString(),
+      paid_at:                new Date().toISOString(),
     })
     .eq('id', cartaId)
     .in('status', ['rascunho', 'pendente_pagamento'])
@@ -221,34 +230,33 @@ async function processarDigital(cartaId: string, paymentId: string, fallbackEmai
 
   if (!data) {
     const { data: existente } = await supabaseAdmin
-      .from('cartas')
-      .select('id, status')
-      .eq('id', cartaId)
-      .maybeSingle()
-
+      .from('cartas').select('id, status').eq('id', cartaId).maybeSingle()
     if (!existente) {
-      console.warn('[webhook] carta digital não encontrada', cartaId)
-    } else if ((existente as { status?: string }).status === 'ativo') {
-      console.log('[webhook] carta digital já ativa (idempotente)', cartaId)
+      console.warn('[webhook] carta digital não encontrada')
+    } else if ((existente as any).status === 'ativo') {
+      console.log('[webhook] carta digital já ativa (idempotente)')
     }
     return
   }
 
-  const carta = data as Record<string, unknown>
-  const slug = pickString(carta, ['slug'])
-  const nomePagador = pickString(carta, ['nome_pagador', 'seu_nome', 'nome']) ?? ''
-  const nomeDestinatario = pickString(carta, ['nome_destinatario', 'destinatario']) ?? ''
-  const nomeRemetente = pickString(carta, ['nome_remetente', 'remetente']) ?? ''
+  const carta           = data as Record<string, unknown>
+  const nomeRemetente   = pickString(carta, ['nome_remetente',   'remetente'])    ?? 'Remetente'
+  const nomeDestinatario = pickString(carta, ['nome_destinatario', 'destinatario']) ?? 'Destinatario'
+  const nomePagador     = pickString(carta, ['nome_pagador', 'seu_nome', 'nome']) ?? ''
+
+  // ✅ Auto-gera slug se estiver vazio
+  let slug = pickString(carta, ['slug'])
+  if (!slug) {
+    console.log('[webhook] slug ausente — gerando automaticamente')
+    slug = await garantirSlug(cartaId, nomeRemetente, nomeDestinatario)
+  }
 
   let emailPagador =
     pickString(carta, ['email_pagador', 'email', 'seu_email', 'email_cliente']) ??
     (fallbackEmail ?? null)
 
   if (!pickString(carta, ['email_pagador']) && emailPagador) {
-    await supabaseAdmin
-      .from('cartas')
-      .update({ email_pagador: emailPagador })
-      .eq('id', cartaId)
+    await supabaseAdmin.from('cartas').update({ email_pagador: emailPagador }).eq('id', cartaId)
   }
 
   try {
@@ -258,31 +266,25 @@ async function processarDigital(cartaId: string, paymentId: string, fallbackEmai
   }
 
   let qrCodeUrl: string | null = null
-  if (slug) {
-    try {
-      qrCodeUrl = await gerarQRCode(cartaId, slug)
-    } catch (e) {
-      console.error('[webhook] erro ao gerar QR Code', e)
-    }
+  try {
+    qrCodeUrl = await gerarQRCode(cartaId, slug)
+  } catch (e) {
+    console.error('[webhook] erro ao gerar QR Code', e)
   }
 
-  if (!slug || !emailPagador) {
-    console.warn('[webhook] e-mail não enviado: slug/email ausente', {
-      cartaId,
-      temSlug: Boolean(slug),
-      temEmail: Boolean(emailPagador),
-    })
+  if (!emailPagador) {
+    console.warn('[webhook] email ausente — não enviará email')
     return
   }
 
   try {
     await enviarEmail({
-      nome_pagador: nomePagador,
-      email_pagador: emailPagador,
+      nome_pagador:      nomePagador,
+      email_pagador:     emailPagador,
       nome_destinatario: nomeDestinatario,
-      nome_remetente: nomeRemetente,
+      nome_remetente:    nomeRemetente,
       slug,
-      qr_code_url: qrCodeUrl,
+      qr_code_url:       qrCodeUrl,
     })
   } catch (e) {
     console.error('[webhook] erro ao enviar email digital', e)
@@ -293,9 +295,9 @@ async function processarImpressao(cartaId: string, paymentId: string, fallbackEm
   const { data: rawCarta, error } = await supabaseAdmin
     .from('cartas_impressao')
     .update({
-      status: 'ativo',
+      status:                 'ativo',
       mercadopago_payment_id: paymentId,
-      paid_at: new Date().toISOString(),
+      paid_at:                new Date().toISOString(),
     })
     .eq('id', cartaId)
     .in('status', ['rascunho', 'pendente_pagamento'])
@@ -309,15 +311,11 @@ async function processarImpressao(cartaId: string, paymentId: string, fallbackEm
 
   if (!rawCarta) {
     const { data: existente } = await supabaseAdmin
-      .from('cartas_impressao')
-      .select('id, status')
-      .eq('id', cartaId)
-      .maybeSingle()
-
+      .from('cartas_impressao').select('id, status').eq('id', cartaId).maybeSingle()
     if (!existente) {
-      console.warn('[webhook] carta impressão não encontrada', cartaId)
-    } else if ((existente as { status?: string }).status === 'ativo') {
-      console.log('[webhook] carta impressão já ativa (idempotente)', cartaId)
+      console.warn('[webhook] carta impressão não encontrada')
+    } else if ((existente as any).status === 'ativo') {
+      console.log('[webhook] carta impressão já ativa (idempotente)')
     }
     return
   }
@@ -329,9 +327,7 @@ async function processarImpressao(cartaId: string, paymentId: string, fallbackEm
 
   if (!pickString(carta, ['email_pagador']) && emailPagador) {
     await supabaseAdmin
-      .from('cartas_impressao')
-      .update({ email_pagador: emailPagador })
-      .eq('id', cartaId)
+      .from('cartas_impressao').update({ email_pagador: emailPagador }).eq('id', cartaId)
   }
 
   let pdfUrl: string | null = null
@@ -348,7 +344,7 @@ async function processarImpressao(cartaId: string, paymentId: string, fallbackEm
       console.error('[webhook] erro ao enviar email impressão', e)
     }
   } else {
-    console.warn('[webhook] e-mail impressão ausente', { cartaId })
+    console.warn('[webhook] e-mail impressão ausente')
   }
 }
 
@@ -357,24 +353,16 @@ async function enviarEmailImpressao(
   emailPagador: string,
   pdfUrl: string | null
 ) {
-  if (!RESEND_API_KEY) {
-    console.error('[webhook] RESEND_API_KEY ausente')
-    return
-  }
+  if (!RESEND_API_KEY) { console.error('[webhook] RESEND_API_KEY ausente'); return }
 
-  const nomePagadorRaw =
-    pickString(carta, ['nome_pagador', 'seu_nome', 'nome']) ?? 'Cliente'
-  const nomeDestinoRaw =
-    pickString(carta, ['destinatario', 'nome_destinatario']) ?? 'alguém especial'
-
-  const nomePagador = escapeHtml(nomePagadorRaw.slice(0, 80))
-  const nomeDestino = escapeHtml(nomeDestinoRaw.slice(0, 80))
+  const nomePagador = escapeHtml((pickString(carta, ['nome_pagador', 'seu_nome', 'nome']) ?? 'Cliente').slice(0, 80))
+  const nomeDestino = escapeHtml((pickString(carta, ['destinatario', 'nome_destinatario']) ?? 'alguém especial').slice(0, 80))
 
   const resend = new Resend(RESEND_API_KEY)
 
   await resend.emails.send({
-    from: 'Lovefy <contato@lovefy.app.br>',
-    to: emailPagador,
+    from:    'Lovefy <contato@lovefy.app.br>',
+    to:      emailPagador,
     subject: 'Sua carta para impressão está pronta! — Lovefy',
     html: `
       <div style="background:#1a1a2e;padding:40px 20px;font-family:Arial,sans-serif;color:#fff;max-width:600px;margin:0 auto">
@@ -383,14 +371,13 @@ async function enviarEmailImpressao(
         <p style="color:#ccc;margin:0 0 24px">
           Sua carta para <strong style="color:#ff6b9d">${nomeDestino}</strong> está pronta para impressão.
         </p>
-        ${
-          pdfUrl
-            ? `<p style="text-align:center;margin:0 0 24px">
-                 <a href="${pdfUrl}" style="background:#ff6b9d;color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block">
-                   Baixar PDF
-                 </a>
-               </p>`
-            : '<p style="color:#ccc">Em breve você receberá o PDF da sua carta por e-mail.</p>'
+        ${pdfUrl
+          ? `<p style="text-align:center;margin:0 0 24px">
+               <a href="${pdfUrl}" style="background:#ff6b9d;color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block">
+                 Baixar PDF
+               </a>
+             </p>`
+          : '<p style="color:#ccc">Em breve você receberá o PDF da sua carta por e-mail.</p>'
         }
         <p style="color:#555;font-size:12px;text-align:center;margin:0">Feito com amor pelo Lovefy</p>
       </div>
