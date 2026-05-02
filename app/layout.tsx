@@ -36,11 +36,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        {/* Mercado Pago */}
-        <Script
-          src="https://sdk.mercadopago.com/js/v2"
-          strategy="afterInteractive"
-        />
+        {/* ✅ MP Script removido — sdk-react inicializa sozinho via initMercadoPago() */}
 
         {/* Google Analytics */}
         <Script
@@ -57,9 +53,7 @@ export default function RootLayout({
         </Script>
       </head>
 
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <CartaProvider>
           {children}
         </CartaProvider>
