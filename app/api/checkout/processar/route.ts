@@ -5,7 +5,6 @@ export const runtime = 'nodejs'
 
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
 
-// ✅ Preços definidos no servidor — nunca aceitar do frontend
 const PLANOS = {
   forever:   { preco:  9.90, titulo: 'Lovefy - Carta Digital Para Sempre' },
   impressao: { preco:  6.90, titulo: 'Lovefy - Carta para Impressao' },
@@ -33,6 +32,7 @@ function jsonError(message: string, status: number) {
 export async function POST(request: NextRequest) {
   try {
     if (!MERCADOPAGO_ACCESS_TOKEN) {
+      console.error('[processar] MERCADOPAGO_ACCESS_TOKEN ausente')
       return jsonError('Serviço temporariamente indisponível', 500)
     }
 
@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     try {
       parsedBody = await request.json()
     } catch {
+      console.error('[processar] JSON inválido')
       return jsonError('JSON inválido', 400)
     }
 
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
 
     const body = parsedBody as Record<string, unknown>
     const { carta_id, plano: planoRaw, formData } = body
+
+    console.log('[processar] carta_id:', carta_id, '| plano:', planoRaw)
 
     // Valida carta_id
     if (typeof carta_id !== 'string' || !UUID_REGEX.test(carta_id.trim())) {
@@ -60,23 +63,31 @@ export async function POST(request: NextRequest) {
     if (planoKey !== 'forever' && planoKey !== 'impressao') {
       return jsonError('plano inválido', 400)
     }
-    const plano = planoKey as Plano
+    const plano     = planoKey as Plano
     const planoData = PLANOS[plano]
 
     // Valida formData
     if (!formData || typeof formData !== 'object' || Array.isArray(formData)) {
+      console.error('[processar] formData ausente ou inválido')
       return jsonError('Dados do cartão ausentes', 400)
     }
 
     const card = formData as Record<string, unknown>
 
+    console.log('[processar] formData keys:', Object.keys(card))
+
     // Extrai campos do cartão
-    const token           = typeof card.token            === 'string' ? card.token.trim()            : ''
+    const token           = typeof card.token             === 'string' ? card.token.trim()             : ''
     const paymentMethodId = typeof card.payment_method_id === 'string' ? card.payment_method_id.trim() : ''
     const issuerId        = card.issuer_id !== undefined ? Number(card.issuer_id) : undefined
 
-    if (!token || !paymentMethodId) {
-      return jsonError('Token ou método de pagamento ausente', 400)
+    if (!token) {
+      console.error('[processar] token ausente')
+      return jsonError('Token do cartão ausente', 400)
+    }
+    if (!paymentMethodId) {
+      console.error('[processar] payment_method_id ausente')
+      return jsonError('Método de pagamento ausente', 400)
     }
 
     // Dados do pagador
@@ -89,6 +100,7 @@ export async function POST(request: NextRequest) {
     const payerLastName  = typeof payer.last_name  === 'string' ? payer.last_name.trim().slice(0, 80)  : ''
 
     if (!payerEmail) {
+      console.error('[processar] email do pagador ausente')
       return jsonError('E-mail do pagador ausente', 400)
     }
 
@@ -97,10 +109,12 @@ export async function POST(request: NextRequest) {
       ? payer.identification as Record<string, unknown>
       : {}
 
-    const identType   = typeof identification.type   === 'string' ? identification.type.trim()           : ''
+    const identType   = typeof identification.type   === 'string' ? identification.type.trim()  : ''
     const identNumber = typeof identification.number === 'string' ? identification.number.trim()
-      : typeof identification.number === 'number'                 ? String(identification.number)
+      : typeof identification.number === 'number'                  ? String(identification.number)
       : ''
+
+    console.log('[processar] method:', paymentMethodId, '| email:', payerEmail, '| identType:', identType)
 
     const client  = new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
     const payment = new Payment(client)
@@ -108,11 +122,10 @@ export async function POST(request: NextRequest) {
 
     const response = await payment.create({
       body: {
-        // ✅ Preço vem do servidor — nunca do frontend
         transaction_amount: planoData.preco,
         description:        planoData.titulo,
         token,
-        installments:       1, // sem parcelamento
+        installments:       1,
         payment_method_id:  paymentMethodId,
         ...(issuerId && !isNaN(issuerId) ? { issuer_id: issuerId } : {}),
         payer: {
@@ -120,10 +133,7 @@ export async function POST(request: NextRequest) {
           first_name: payerFirstName || 'Cliente',
           last_name:  payerLastName  || '',
           ...(identType && identNumber ? {
-            identification: {
-              type:   identType,
-              number: identNumber,
-            },
+            identification: { type: identType, number: identNumber },
           } : {}),
         },
         external_reference:   `${carta_id.trim()}|${plano}`,
@@ -132,12 +142,16 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    console.log('[processar] status:', response.status, '| detail:', response.status_detail, '| id:', response.id)
+
     return NextResponse.json({
       status:     response.status,
       payment_id: response.id,
     })
 
-  } catch {
+  } catch (err: any) {
+    console.error('[processar] erro:', err?.message ?? String(err))
+    if (err?.cause) console.error('[processar] cause:', JSON.stringify(err.cause))
     return jsonError('Erro ao processar pagamento', 500)
   }
 }
