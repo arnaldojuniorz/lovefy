@@ -1,66 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
-const WINDOW_MS = 60_000 // 1 minuto
+// ✅ Redis compartilhado — funciona em múltiplas instâncias Vercel
+const redis = new Redis({
+  url:   process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
 
+// Limites por rota (requisições por minuto por IP)
 const LIMITES: Record<string, number> = {
-  '/api/pix':               5,
-  '/api/checkout':          5,
-  '/api/cartas':           20,
-  '/api/upload':           10,
-  '/api/upload-destaque':  10,
-  '/api/mapa-estrelas':     5,
+  '/api/pix':              5,
+  '/api/checkout':         5,
+  '/api/cartas':          20,
+  '/api/upload':          10,
+  '/api/upload-destaque': 10,
+  '/api/mapa-estrelas':    5,
+  '/api/webhook':         30,
 }
 
-const store = new Map<string, { count: number; resetAt: number }>()
+// Cache de instâncias Ratelimit por rota
+const limiters = new Map<string, Ratelimit>()
 
-function getIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim()
-  return request.headers.get('x-real-ip') ?? 'unknown'
-}
-
-function getLimit(pathname: string): number | null {
-  for (const [path, limit] of Object.entries(LIMITES)) {
-    if (pathname.startsWith(path)) return limit
+function getLimiter(path: string): { limiter: Ratelimit; prefix: string } | null {
+  for (const [route, max] of Object.entries(LIMITES)) {
+    if (path.startsWith(route)) {
+      if (!limiters.has(route)) {
+        limiters.set(route, new Ratelimit({
+          redis,
+          limiter:   Ratelimit.slidingWindow(max, '60s'),
+          prefix:    `lovefy:rl:${route}`,
+          analytics: false,
+        }))
+      }
+      return { limiter: limiters.get(route)!, prefix: route }
+    }
   }
   return null
 }
 
-export function middleware(request: NextRequest) {
+function getIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0].trim()
+  return request.headers.get('x-real-ip') ?? 'anonymous'
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const limit = getLimit(pathname)
-  if (!limit) return NextResponse.next()
+  const match = getLimiter(pathname)
 
-  const ip  = getIp(request)
-  const key = `${ip}:${pathname}`
-  const now = Date.now()
+  // Rota não limitada — passa direto
+  if (!match) return NextResponse.next()
 
-  const entry = store.get(key)
+  const ip = getIp(request)
 
-  if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + WINDOW_MS })
+  try {
+    const { success, limit, remaining, reset } = await match.limiter.limit(ip)
+
+    if (!success) {
+      const retryAfter = Math.max(1, Math.ceil((reset - Date.now()) / 1000))
+      return NextResponse.json(
+        { error: 'Muitas tentativas. Tente novamente em instantes.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After':           String(retryAfter),
+            'X-RateLimit-Limit':     String(limit),
+            'X-RateLimit-Remaining': String(remaining),
+            'X-RateLimit-Reset':     String(Math.floor(reset / 1000)),
+          },
+        }
+      )
+    }
+
+    // Adiciona headers informativos na resposta
+    const response = NextResponse.next()
+    response.headers.set('X-RateLimit-Limit',     String(limit))
+    response.headers.set('X-RateLimit-Remaining', String(remaining))
+    response.headers.set('X-RateLimit-Reset',     String(Math.floor(reset / 1000)))
+    return response
+
+  } catch {
+    // Se Redis falhar, deixa passar — não bloqueia o app
+    console.error('[middleware] redis rate limit falhou — passando sem limitar')
     return NextResponse.next()
   }
-
-  entry.count++
-
-  if (entry.count > limit) {
-    const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
-    return NextResponse.json(
-      { error: 'Muitas tentativas. Tente novamente em instantes.' },
-      {
-        status: 429,
-        headers: {
-          'Retry-After':          String(retryAfter),
-          'X-RateLimit-Limit':    String(limit),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset':    String(Math.floor(entry.resetAt / 1000)),
-        },
-      }
-    )
-  }
-
-  return NextResponse.next()
 }
 
 export const config = {
@@ -70,5 +94,6 @@ export const config = {
     '/api/cartas/:path*',
     '/api/upload/:path*',
     '/api/mapa-estrelas/:path*',
+    '/api/webhook/:path*',
   ],
 }
