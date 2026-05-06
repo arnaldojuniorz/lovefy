@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { moverFotos } from '@/lib/mover-fotos'
 import { gerarQRCode } from '@/lib/gerar-qrcode'
@@ -29,6 +30,7 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status })
 }
 
+// ✅ Slug com sufixo criptograficamente seguro (8 chars hex = 4 bilhões combinações)
 function gerarSlug(nomeRemetente: string, nomeDestinatario: string): string {
   const normalizar = (s: string) =>
     s.normalize('NFD')
@@ -37,11 +39,15 @@ function gerarSlug(nomeRemetente: string, nomeDestinatario: string): string {
      .replace(/[^a-z0-9]/g, '')
      .slice(0, 20)
   const base   = normalizar(nomeRemetente) + 'e' + normalizar(nomeDestinatario)
-  const sufixo = Math.random().toString(36).slice(2, 6)
+  const sufixo = randomBytes(4).toString('hex') // ✅ crypto seguro
   return `${base}${sufixo}`
 }
 
-async function garantirSlug(cartaId: string, nomeRemetente: string, nomeDestinatario: string): Promise<string> {
+async function garantirSlug(
+  cartaId: string,
+  nomeRemetente: string,
+  nomeDestinatario: string,
+): Promise<string> {
   for (let i = 0; i < 5; i++) {
     const slug = gerarSlug(nomeRemetente, nomeDestinatario)
     const { data } = await supabaseAdmin
@@ -51,19 +57,18 @@ async function garantirSlug(cartaId: string, nomeRemetente: string, nomeDestinat
       return slug
     }
   }
-  const slug = cartaId.replace(/-/g, '').slice(0, 16)
+  // Fallback: usa bytes aleatórios puros
+  const slug = randomBytes(8).toString('hex')
   await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
   return slug
 }
 
-// ✅ Ativa a carta imediatamente após aprovação do cartão
 async function ativarCartaDigital(
   cartaId: string,
   paymentId: string,
   emailPagador: string,
 ): Promise<string | null> {
   try {
-    // Busca carta atual
     const { data: cartaAtual } = await supabaseAdmin
       .from('cartas')
       .select('*')
@@ -71,28 +76,28 @@ async function ativarCartaDigital(
       .maybeSingle()
 
     if (!cartaAtual) {
-      console.error('[processar] carta não encontrada para ativar')
+      console.error('[processar] carta não encontrada')
       return null
     }
 
-    // Idempotente — já ativa
+    // ✅ Idempotente — se já está ativa retorna slug sem reprocessar
     if (cartaAtual.status === 'ativo') {
-      console.log('[processar] carta já ativa')
+      console.log('[processar] carta já ativa — idempotente')
       return cartaAtual.slug ?? null
     }
 
-    // Garante slug
-    let slug = cartaAtual.slug
+    // ✅ Garante slug antes de ativar
+    let slug = cartaAtual.slug as string | null
     if (!slug) {
       slug = await garantirSlug(
         cartaId,
-        cartaAtual.nome_remetente ?? '',
+        cartaAtual.nome_remetente    ?? '',
         cartaAtual.nome_destinatario ?? '',
       )
     }
 
-    // Ativa a carta
-    await supabaseAdmin
+    // ✅ Ativa com guard de status — evita dupla ativação em race condition
+    const { data: atualizado } = await supabaseAdmin
       .from('cartas')
       .update({
         status:                 'ativo',
@@ -102,8 +107,18 @@ async function ativarCartaDigital(
         slug,
       })
       .eq('id', cartaId)
+      .in('status', ['rascunho', 'pendente_pagamento']) // ✅ só atualiza se não ativo
+      .select('id')
+      .maybeSingle()
 
-    // Move fotos e gera QR Code em background (não bloqueia a resposta)
+    if (!atualizado) {
+      // Outro processo já ativou — busca slug atual
+      const { data: recheck } = await supabaseAdmin
+        .from('cartas').select('slug').eq('id', cartaId).maybeSingle()
+      return (recheck as any)?.slug ?? slug
+    }
+
+    // Move fotos e envia email em background — não bloqueia resposta
     Promise.allSettled([
       moverFotos(cartaId),
       gerarQRCode(cartaId, slug).then(qrCodeUrl =>
@@ -112,15 +127,16 @@ async function ativarCartaDigital(
           email_pagador:     cartaAtual.email_pagador     || emailPagador,
           nome_destinatario: cartaAtual.nome_destinatario ?? '',
           nome_remetente:    cartaAtual.nome_remetente    ?? '',
-          slug,
+          slug:              slug!,
           qr_code_url:       qrCodeUrl,
         })
       ),
     ]).catch(err => console.error('[processar] erro background:', err))
 
     return slug
+
   } catch (err) {
-    console.error('[processar] erro ao ativar carta:', err)
+    console.error('[processar] erro ao ativar carta')
     return null
   }
 }
@@ -128,7 +144,6 @@ async function ativarCartaDigital(
 export async function POST(request: NextRequest) {
   try {
     if (!MERCADOPAGO_ACCESS_TOKEN) {
-      console.error('[processar] MERCADOPAGO_ACCESS_TOKEN ausente')
       return jsonError('Serviço temporariamente indisponível', 500)
     }
 
@@ -143,8 +158,6 @@ export async function POST(request: NextRequest) {
     const body = parsedBody as Record<string, unknown>
     const { carta_id, plano: planoRaw, formData } = body
 
-    console.log('[processar] carta_id:', carta_id, '| plano:', planoRaw)
-
     if (typeof carta_id !== 'string' || !UUID_REGEX.test(carta_id.trim())) {
       return jsonError('carta_id inválido', 400)
     }
@@ -155,6 +168,17 @@ export async function POST(request: NextRequest) {
     }
     const plano     = planoKey as Plano
     const planoData = PLANOS[plano]
+
+    // ✅ Verifica se carta já está ativa antes de criar pagamento — evita dupla cobrança
+    const { data: cartaCheck } = await supabaseAdmin
+      .from('cartas')
+      .select('status')
+      .eq('id', carta_id.trim())
+      .maybeSingle()
+
+    if (cartaCheck?.status === 'ativo') {
+      return jsonError('Essa carta já foi paga e ativada', 409)
+    }
 
     if (!formData || typeof formData !== 'object' || Array.isArray(formData)) {
       return jsonError('Dados do cartão ausentes', 400)
@@ -183,11 +207,12 @@ export async function POST(request: NextRequest) {
       ? payer.identification as Record<string, unknown>
       : {}
 
-    const identType   = typeof identification.type   === 'string' ? identification.type.trim()   : ''
+    const identType   = typeof identification.type   === 'string' ? identification.type.trim()          : ''
     const identNumber = typeof identification.number === 'string' ? identification.number.trim()
-      : typeof identification.number === 'number'                  ? String(identification.number) : ''
+      : typeof identification.number === 'number'                  ? String(identification.number)        : ''
 
-    console.log('[processar] method:', paymentMethodId, '| email:', payerEmail, '| identType:', identType)
+    // ✅ Log sem dados sensíveis
+    console.log('[processar] method:', paymentMethodId, '| identType:', identType)
 
     const client  = new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
     const payment = new Payment(client)
@@ -215,21 +240,20 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    console.log('[processar] status:', response.status, '| detail:', response.status_detail, '| id:', response.id)
+    console.log('[processar] status:', response.status, '| detail:', response.status_detail)
 
-    // ✅ Aprovado — ativa carta imediatamente sem esperar webhook
+    // ✅ Aprovado — ativa carta imediatamente
     if (response.status === 'approved' && response.id) {
       const slug = await ativarCartaDigital(
         carta_id.trim(),
         String(response.id),
         payerEmail,
       )
-      console.log('[processar] carta ativada | slug:', slug)
 
       return NextResponse.json({
         status:     response.status,
         payment_id: response.id,
-        slug,        // ✅ retorna slug para o frontend usar diretamente
+        slug,
       })
     }
 
@@ -239,7 +263,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (err: any) {
-    console.error('[processar] erro:', err?.message ?? String(err))
+    console.error('[processar] erro interno')
     return jsonError('Erro ao processar pagamento', 500)
   }
 }
