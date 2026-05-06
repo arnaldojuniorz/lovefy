@@ -5,18 +5,29 @@ import { useSearchParams } from 'next/navigation'
 
 function ObrigadoContent() {
   const searchParams = useSearchParams()
-  const carta_id = searchParams.get('carta_id') || ''
-  const tipo     = searchParams.get('tipo')     || 'digital'
-  const pending  = searchParams.get('pending')  === 'true'
+  const carta_id   = searchParams.get('carta_id') || ''
+  const tipo       = searchParams.get('tipo')     || 'digital'
+  const pending    = searchParams.get('pending')  === 'true'
+  const slugDireto = searchParams.get('slug')     || ''
 
-  const [carta, setCarta]       = useState<any>(null)
-  const [loading, setLoading]   = useState(!pending) // se pending, não fica carregando
-  const [copiado, setCopiado]   = useState(false)
+  const [carta, setCarta]           = useState<any>(null)
+  const [loading, setLoading]       = useState(true)
+  const [copiado, setCopiado]       = useState(false)
   const [tentativas, setTentativas] = useState(0)
 
   useEffect(() => {
-    // ✅ Se pagamento pending, não faz polling — exibe tela de análise
-    if (!carta_id || pending) { setLoading(false); return }
+    // ✅ Slug direto do cartão aprovado — mostra imediatamente sem polling
+    if (slugDireto) {
+      setCarta({ slug: slugDireto })
+      setLoading(false)
+      return
+    }
+
+    // Pagamento pendente — não faz polling
+    if (!carta_id || pending) {
+      setLoading(false)
+      return
+    }
 
     const endpoint = tipo === 'impressao'
       ? '/api/cartas-impressao?id=' + carta_id
@@ -46,7 +57,7 @@ function ObrigadoContent() {
     interval = setInterval(verificar, 2000)
     timeout  = setTimeout(() => { clearInterval(interval); setLoading(false) }, 60000)
     return () => { clearInterval(interval); clearTimeout(timeout) }
-  }, [carta_id, tipo, pending])
+  }, [carta_id, tipo, pending, slugDireto])
 
   function copiar() {
     const link = 'https://www.lovefy.app.br/c/' + carta?.slug
@@ -77,7 +88,7 @@ function ObrigadoContent() {
     btnBack: { display: 'block', textAlign: 'center', padding: '14px', borderRadius: 100, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)', fontSize: 14, textDecoration: 'none' },
   }
 
-  // ✅ Tela de pagamento em análise (cartão pending)
+  // Pagamento em análise
   if (pending) {
     return (
       <main style={s.main}>
@@ -105,7 +116,7 @@ function ObrigadoContent() {
     )
   }
 
-  // Tela de carregando (polling ativo)
+  // Carregando (polling ativo)
   if (loading) {
     return (
       <main style={s.main}>
@@ -181,7 +192,6 @@ function ObrigadoContent() {
             <button onClick={whatsapp} style={s.btnWa}>Enviar pelo WhatsApp</button>
           </>
         ) : (
-          // Carta paga mas sem slug ainda
           <div style={{ background: '#1a1a1a', borderRadius: 16, padding: 20, textAlign: 'center', marginBottom: 16 }}>
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 1.6 }}>
               Sua carta foi criada! O link será enviado para o seu e-mail em instantes.
