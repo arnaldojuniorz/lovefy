@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
+import { supabaseAdmin } from '@/lib/supabase'
+import { moverFotos } from '@/lib/mover-fotos'
+import { gerarQRCode } from '@/lib/gerar-qrcode'
+import { enviarEmail } from '@/lib/enviar-email'
 
 export const runtime = 'nodejs'
 
@@ -18,15 +22,107 @@ const UUID_REGEX =
 function getBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.lovefy.app.br'
   const clean = String(raw).replace(/[\r\n\t ]+/g, '').trim()
-  try {
-    return new URL(clean).origin
-  } catch {
-    return 'https://www.lovefy.app.br'
-  }
+  try { return new URL(clean).origin } catch { return 'https://www.lovefy.app.br' }
 }
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status })
+}
+
+function gerarSlug(nomeRemetente: string, nomeDestinatario: string): string {
+  const normalizar = (s: string) =>
+    s.normalize('NFD')
+     .replace(/[\u0300-\u036f]/g, '')
+     .toLowerCase()
+     .replace(/[^a-z0-9]/g, '')
+     .slice(0, 20)
+  const base   = normalizar(nomeRemetente) + 'e' + normalizar(nomeDestinatario)
+  const sufixo = Math.random().toString(36).slice(2, 6)
+  return `${base}${sufixo}`
+}
+
+async function garantirSlug(cartaId: string, nomeRemetente: string, nomeDestinatario: string): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const slug = gerarSlug(nomeRemetente, nomeDestinatario)
+    const { data } = await supabaseAdmin
+      .from('cartas').select('id').eq('slug', slug).maybeSingle()
+    if (!data) {
+      await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
+      return slug
+    }
+  }
+  const slug = cartaId.replace(/-/g, '').slice(0, 16)
+  await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
+  return slug
+}
+
+// ✅ Ativa a carta imediatamente após aprovação do cartão
+async function ativarCartaDigital(
+  cartaId: string,
+  paymentId: string,
+  emailPagador: string,
+): Promise<string | null> {
+  try {
+    // Busca carta atual
+    const { data: cartaAtual } = await supabaseAdmin
+      .from('cartas')
+      .select('*')
+      .eq('id', cartaId)
+      .maybeSingle()
+
+    if (!cartaAtual) {
+      console.error('[processar] carta não encontrada para ativar')
+      return null
+    }
+
+    // Idempotente — já ativa
+    if (cartaAtual.status === 'ativo') {
+      console.log('[processar] carta já ativa')
+      return cartaAtual.slug ?? null
+    }
+
+    // Garante slug
+    let slug = cartaAtual.slug
+    if (!slug) {
+      slug = await garantirSlug(
+        cartaId,
+        cartaAtual.nome_remetente ?? '',
+        cartaAtual.nome_destinatario ?? '',
+      )
+    }
+
+    // Ativa a carta
+    await supabaseAdmin
+      .from('cartas')
+      .update({
+        status:                 'ativo',
+        mercadopago_payment_id: paymentId,
+        paid_at:                new Date().toISOString(),
+        email_pagador:          cartaAtual.email_pagador || emailPagador,
+        slug,
+      })
+      .eq('id', cartaId)
+
+    // Move fotos e gera QR Code em background (não bloqueia a resposta)
+    Promise.allSettled([
+      moverFotos(cartaId),
+      gerarQRCode(cartaId, slug).then(qrCodeUrl =>
+        enviarEmail({
+          nome_pagador:      cartaAtual.nome_pagador      ?? '',
+          email_pagador:     cartaAtual.email_pagador     || emailPagador,
+          nome_destinatario: cartaAtual.nome_destinatario ?? '',
+          nome_remetente:    cartaAtual.nome_remetente    ?? '',
+          slug,
+          qr_code_url:       qrCodeUrl,
+        })
+      ),
+    ]).catch(err => console.error('[processar] erro background:', err))
+
+    return slug
+  } catch (err) {
+    console.error('[processar] erro ao ativar carta:', err)
+    return null
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -37,12 +133,8 @@ export async function POST(request: NextRequest) {
     }
 
     let parsedBody: unknown
-    try {
-      parsedBody = await request.json()
-    } catch {
-      console.error('[processar] JSON inválido')
-      return jsonError('JSON inválido', 400)
-    }
+    try { parsedBody = await request.json() }
+    catch { return jsonError('JSON inválido', 400) }
 
     if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) {
       return jsonError('Payload inválido', 400)
@@ -53,12 +145,10 @@ export async function POST(request: NextRequest) {
 
     console.log('[processar] carta_id:', carta_id, '| plano:', planoRaw)
 
-    // Valida carta_id
     if (typeof carta_id !== 'string' || !UUID_REGEX.test(carta_id.trim())) {
       return jsonError('carta_id inválido', 400)
     }
 
-    // Valida plano
     const planoKey = typeof planoRaw === 'string' ? planoRaw.trim().toLowerCase() : ''
     if (planoKey !== 'forever' && planoKey !== 'impressao') {
       return jsonError('plano inválido', 400)
@@ -66,31 +156,19 @@ export async function POST(request: NextRequest) {
     const plano     = planoKey as Plano
     const planoData = PLANOS[plano]
 
-    // Valida formData
     if (!formData || typeof formData !== 'object' || Array.isArray(formData)) {
-      console.error('[processar] formData ausente ou inválido')
       return jsonError('Dados do cartão ausentes', 400)
     }
 
     const card = formData as Record<string, unknown>
 
-    console.log('[processar] formData keys:', Object.keys(card))
-
-    // Extrai campos do cartão
     const token           = typeof card.token             === 'string' ? card.token.trim()             : ''
     const paymentMethodId = typeof card.payment_method_id === 'string' ? card.payment_method_id.trim() : ''
     const issuerId        = card.issuer_id !== undefined ? Number(card.issuer_id) : undefined
 
-    if (!token) {
-      console.error('[processar] token ausente')
-      return jsonError('Token do cartão ausente', 400)
-    }
-    if (!paymentMethodId) {
-      console.error('[processar] payment_method_id ausente')
-      return jsonError('Método de pagamento ausente', 400)
-    }
+    if (!token)           return jsonError('Token do cartão ausente', 400)
+    if (!paymentMethodId) return jsonError('Método de pagamento ausente', 400)
 
-    // Dados do pagador
     const payer = card.payer && typeof card.payer === 'object' && !Array.isArray(card.payer)
       ? card.payer as Record<string, unknown>
       : {}
@@ -99,20 +177,15 @@ export async function POST(request: NextRequest) {
     const payerFirstName = typeof payer.first_name === 'string' ? payer.first_name.trim().slice(0, 80) : ''
     const payerLastName  = typeof payer.last_name  === 'string' ? payer.last_name.trim().slice(0, 80)  : ''
 
-    if (!payerEmail) {
-      console.error('[processar] email do pagador ausente')
-      return jsonError('E-mail do pagador ausente', 400)
-    }
+    if (!payerEmail) return jsonError('E-mail do pagador ausente', 400)
 
-    // CPF / identificação
     const identification = payer.identification && typeof payer.identification === 'object' && !Array.isArray(payer.identification)
       ? payer.identification as Record<string, unknown>
       : {}
 
-    const identType   = typeof identification.type   === 'string' ? identification.type.trim()  : ''
+    const identType   = typeof identification.type   === 'string' ? identification.type.trim()   : ''
     const identNumber = typeof identification.number === 'string' ? identification.number.trim()
-      : typeof identification.number === 'number'                  ? String(identification.number)
-      : ''
+      : typeof identification.number === 'number'                  ? String(identification.number) : ''
 
     console.log('[processar] method:', paymentMethodId, '| email:', payerEmail, '| identType:', identType)
 
@@ -144,6 +217,22 @@ export async function POST(request: NextRequest) {
 
     console.log('[processar] status:', response.status, '| detail:', response.status_detail, '| id:', response.id)
 
+    // ✅ Aprovado — ativa carta imediatamente sem esperar webhook
+    if (response.status === 'approved' && response.id) {
+      const slug = await ativarCartaDigital(
+        carta_id.trim(),
+        String(response.id),
+        payerEmail,
+      )
+      console.log('[processar] carta ativada | slug:', slug)
+
+      return NextResponse.json({
+        status:     response.status,
+        payment_id: response.id,
+        slug,        // ✅ retorna slug para o frontend usar diretamente
+      })
+    }
+
     return NextResponse.json({
       status:     response.status,
       payment_id: response.id,
@@ -151,7 +240,6 @@ export async function POST(request: NextRequest) {
 
   } catch (err: any) {
     console.error('[processar] erro:', err?.message ?? String(err))
-    if (err?.cause) console.error('[processar] cause:', JSON.stringify(err.cause))
     return jsonError('Erro ao processar pagamento', 500)
   }
 }

@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState, Suspense, useRef } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react'
 
-// ✅ Inicializa fora do componente mas protegido contra dupla execução
 let mpInitialized = false
 function ensureMP() {
   if (mpInitialized) return
@@ -31,7 +30,6 @@ function CheckoutContent() {
   const [erro, setErro]                 = useState('')
   const valor = PRECOS[plano] ?? 9.90
 
-  // ✅ Garante inicialização única
   useEffect(() => { ensureMP() }, [])
 
   useEffect(() => {
@@ -63,12 +61,19 @@ function CheckoutContent() {
       brickData?.selectedPaymentMethod === 'bank_transfer' ||
       brickData?.formData?.payment_method_id === 'pix'
 
+    // ─── PIX ─────────────────────────────────────────────
     if (isPix) {
       try {
         const res = await fetch('/api/pix', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ carta_id, plano, tipo, email_pagador: email, nome_pagador: nome }),
+          body: JSON.stringify({
+            carta_id,
+            plano,
+            tipo,
+            email_pagador: email,
+            nome_pagador:  nome,
+          }),
         })
         const result = await res.json()
         if (!res.ok) { alert(result.error || 'Erro ao gerar PIX'); return }
@@ -79,6 +84,7 @@ function CheckoutContent() {
       return
     }
 
+    // ─── Cartão ───────────────────────────────────────────
     setProcessando(true)
     try {
       const res = await fetch('/api/checkout/processar', {
@@ -95,7 +101,9 @@ function CheckoutContent() {
       const result = await res.json()
 
       if (result.status === 'approved') {
-        window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&plano=${plano}`
+        // ✅ Carta já ativada no servidor — slug disponível imediatamente
+        const slugParam = result.slug ? `&slug=${encodeURIComponent(result.slug)}` : ''
+        window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&plano=${plano}${slugParam}`
       } else if (result.status === 'in_process' || result.status === 'pending') {
         window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&plano=${plano}&pending=true`
       } else {
@@ -132,17 +140,20 @@ function CheckoutContent() {
               <p style={{ color: '#fff', fontSize: '16px' }}>Processando pagamento...</p>
             </div>
           )}
+
           {loading && (
             <div style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: 'rgba(255,255,255,0.5)' }}>Carregando checkout...</p>
             </div>
           )}
+
           {erro && (
             <div style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: '#ff6b9d' }}>{erro}</p>
               <a href="/criar" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', marginTop: '12px', display: 'block' }}>← Voltar ao início</a>
             </div>
           )}
+
           {preferenceId && !loading && !erro && (
             <Payment
               initialization={{ amount: valor, preferenceId }}
