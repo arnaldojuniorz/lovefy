@@ -11,9 +11,10 @@ function ensureMP() {
   mpInitialized = true
 }
 
+import { PLANOS } from '@/lib/planos'
 const PRECOS: Record<string, number> = {
-  forever:   9.90,
-  impressao: 6.90,
+  forever:   PLANOS.forever.preco,
+  impressao: PLANOS.impressao.preco,
 }
 
 function CheckoutContent() {
