@@ -13,8 +13,6 @@ const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
 import { PLANOS } from '@/lib/planos'
 import type { Plano } from '@/lib/planos'
 
-type Plano = keyof typeof PLANOS
-
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
