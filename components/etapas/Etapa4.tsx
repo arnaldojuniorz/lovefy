@@ -5,8 +5,9 @@ import { useCarta } from '@/lib/carta-context'
 
 export default function Etapa4() {
   const { data, update } = useCarta()
-  const [status, setStatus] = useState<'idle' | 'verificando' | 'disponivel' | 'indisponivel'>('idle')
+  const [status, setStatus]   = useState<'idle' | 'verificando' | 'disponivel' | 'indisponivel'>('idle')
   const [salvando, setSalvando] = useState(false)
+  const [erro, setErro]         = useState('')
 
   useEffect(() => {
     if (!data.slug || data.slug.length < 3) {
@@ -18,8 +19,8 @@ export default function Etapa4() {
 
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch(`/api/cartas?slug=${data.slug}`)
-        const result = await response.json()
+        const response = await fetch(`/api/cartas?slug=${encodeURIComponent(data.slug)}`)
+        const result   = await response.json()
         setStatus(result.disponivel ? 'disponivel' : 'indisponivel')
       } catch {
         setStatus('idle')
@@ -30,47 +31,44 @@ export default function Etapa4() {
   }, [data.slug])
 
   async function avancar() {
+    setErro('')
+
     if (!data.slug || data.slug.length < 3) {
-      alert('O link deve ter pelo menos 3 caracteres!')
+      setErro('O link deve ter pelo menos 3 caracteres.')
       return
     }
     if (status === 'indisponivel') {
-      alert('Esse link já está em uso. Escolha outro!')
+      setErro('Esse link já está em uso. Escolha outro.')
       return
     }
     if (status === 'verificando') {
-      alert('Aguarde a verificação do link!')
+      setErro('Aguarde a verificação do link.')
       return
     }
     if (!data.carta_id) {
-      alert('Erro: carta não encontrada. Volte para o início.')
+      setErro('Carta não encontrada. Volte para o início.')
       return
     }
 
     setSalvando(true)
 
     try {
-      // ✅ salva slug no Supabase antes de avançar
-      const res = await fetch('/api/cartas', {
-        method: 'PATCH',
+      const res    = await fetch('/api/cartas', {
+        method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          carta_id: data.carta_id,
-          slug: data.slug,
-        }),
+        body:    JSON.stringify({ carta_id: data.carta_id, slug: data.slug }),
       })
-
       const result = await res.json()
 
       if (!res.ok) {
-        alert(result.error || 'Erro ao salvar link. Tente novamente.')
+        setErro(result.error || 'Erro ao salvar link. Tente novamente.')
         return
       }
 
       update({ etapa_atual: 5 })
 
     } catch {
-      alert('Erro de conexão. Tente novamente.')
+      setErro('Erro de conexão. Tente novamente.')
     } finally {
       setSalvando(false)
     }
@@ -88,7 +86,10 @@ export default function Etapa4() {
           <input
             type="text"
             value={data.slug}
-            onChange={e => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+            onChange={e => {
+              update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })
+              setErro('')
+            }}
             placeholder="ana-e-lucas"
             className="flex-1 bg-transparent text-white px-4 py-3 outline-none"
           />
@@ -116,7 +117,11 @@ export default function Etapa4() {
         )}
       </div>
 
-      <div className="flex gap-3 mt-8">
+      {erro && (
+        <p className="text-pink-400 text-sm mt-4">{erro}</p>
+      )}
+
+      <div className="flex gap-3 mt-6">
         <button
           onClick={() => update({ etapa_atual: 3 })}
           disabled={salvando}

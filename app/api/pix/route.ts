@@ -1,29 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
 import { supabaseAdmin } from '@/lib/supabase'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
+import { PLANOS } from '@/lib/planos'
 
 export const runtime = 'nodejs'
 
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
 
-import { PLANOS } from '@/lib/planos'
-
-type Plano = keyof typeof PLANOS
-type Tipo = 'digital' | 'impressao'
+type Plano  = keyof typeof PLANOS
+type Tipo   = 'digital' | 'impressao'
 type Tabela = 'cartas' | 'cartas_impressao'
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const UUID_REGEX  = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const RATE_LIMIT_MAX = 8
-const RATE_LIMIT_WINDOW_MS = 60_000
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(8, '60 s'),
+  prefix: 'rl:pix',
+})
 
 function getBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://www.lovefy.app.br'
   const clean = String(raw).replace(/[\r\n\t ]+/g, '').trim()
-
   try {
     const url = new URL(clean)
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('invalid')
@@ -44,43 +45,11 @@ function getClientIp(request: NextRequest): string {
   return 'unknown'
 }
 
-function applyRateLimit(key: string) {
-  const now = Date.now()
-  const existing = rateLimitStore.get(key)
-
-  if (!existing || existing.resetAt <= now) {
-    const created = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
-    rateLimitStore.set(key, created)
-    return {
-      allowed: true,
-      limit: RATE_LIMIT_MAX,
-      remaining: RATE_LIMIT_MAX - 1,
-      resetAt: created.resetAt,
-      retryAfterSec: 0,
-    }
-  }
-
-  existing.count += 1
-  rateLimitStore.set(key, existing)
-
-  const remaining = Math.max(0, RATE_LIMIT_MAX - existing.count)
-  const allowed = existing.count <= RATE_LIMIT_MAX
-  const retryAfterSec = Math.max(1, Math.ceil((existing.resetAt - now) / 1000))
-
+function rateLimitHeaders(info: { limit: number; remaining: number; reset: number }) {
   return {
-    allowed,
-    limit: RATE_LIMIT_MAX,
-    remaining,
-    resetAt: existing.resetAt,
-    retryAfterSec,
-  }
-}
-
-function rateLimitHeaders(info: { limit: number; remaining: number; resetAt: number }) {
-  return {
-    'X-RateLimit-Limit': String(info.limit),
+    'X-RateLimit-Limit':     String(info.limit),
     'X-RateLimit-Remaining': String(info.remaining),
-    'X-RateLimit-Reset': String(Math.floor(info.resetAt / 1000)),
+    'X-RateLimit-Reset':     String(Math.floor(info.reset / 1000)),
   }
 }
 
@@ -127,13 +96,14 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
-  const limiter = applyRateLimit(`pix:${ip}`)
-  const baseHeaders = rateLimitHeaders(limiter)
+  const { success, limit, remaining, reset } = await ratelimit.limit(`pix:${ip}`)
+  const baseHeaders = rateLimitHeaders({ limit, remaining, reset })
 
-  if (!limiter.allowed) {
+  if (!success) {
+    const retryAfterSec = Math.max(1, Math.ceil((reset - Date.now()) / 1000))
     return jsonError('Muitas tentativas. Tente novamente em instantes.', 429, {
       ...baseHeaders,
-      'Retry-After': String(limiter.retryAfterSec),
+      'Retry-After': String(retryAfterSec),
     })
   }
 
@@ -153,9 +123,9 @@ export async function POST(request: NextRequest) {
       return jsonError('Payload inválido', 400, baseHeaders)
     }
 
-    const body = parsedBody as Record<string, unknown>
+    const body    = parsedBody as Record<string, unknown>
     const cartaId = typeof body.carta_id === 'string' ? body.carta_id.trim() : ''
-    const plano = normalizePlano(body.plano)
+    const plano   = normalizePlano(body.plano)
 
     if (!UUID_REGEX.test(cartaId)) {
       return jsonError('carta_id inválido', 400, baseHeaders)
@@ -187,7 +157,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (cartaError) {
-      console.error('[pix] erro ao buscar carta', cartaError)
+      console.error('[pix] erro ao buscar carta')
       return jsonError('Erro ao iniciar pagamento Pix', 500, baseHeaders)
     }
 
@@ -215,9 +185,9 @@ export async function POST(request: NextRequest) {
         'Cliente'
     )
 
-    const planoData = PLANOS[plano]
+    const planoData         = PLANOS[plano]
     const externalReference = `${cartaId}|${plano}`
-    const baseUrl = getBaseUrl()
+    const baseUrl           = getBaseUrl()
 
     const payment = new Payment(
       new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
@@ -226,18 +196,18 @@ export async function POST(request: NextRequest) {
     const response = await payment.create({
       body: {
         transaction_amount: planoData.preco,
-        description: planoData.titulo,
-        payment_method_id: 'pix',
+        description:        planoData.titulo,
+        payment_method_id:  'pix',
         payer: {
           email,
           first_name: nomePagador,
         },
         external_reference: externalReference,
-        notification_url: `${baseUrl}/api/webhook`,
+        notification_url:   `${baseUrl}/api/webhook`,
       },
     })
 
-    const pixData = response.point_of_interaction?.transaction_data
+    const pixData   = response.point_of_interaction?.transaction_data
     const paymentId = response.id ? String(response.id) : null
 
     if (!pixData?.qr_code || !pixData?.qr_code_base64 || !paymentId) {
@@ -249,22 +219,23 @@ export async function POST(request: NextRequest) {
       .from(tabela)
       .update({
         mercadopago_payment_id: paymentId,
-        status: 'pendente_pagamento',
+        status:                 'pendente_pagamento',
       })
       .eq('id', cartaId)
       .in('status', ['rascunho', 'pendente_pagamento'])
 
     return NextResponse.json(
       {
-        payment_id: paymentId,
-        qr_code: pixData.qr_code,
+        payment_id:     paymentId,
+        qr_code:        pixData.qr_code,
         qr_code_base64: pixData.qr_code_base64,
-        valor: planoData.preco,
+        valor:          planoData.preco,
       },
       { headers: baseHeaders }
     )
+
   } catch (error) {
-    console.error('[pix] erro interno', error)
+    console.error('[pix] erro interno:', error)
     return jsonError('Erro ao iniciar pagamento Pix', 500, baseHeaders)
   }
 }

@@ -1,36 +1,38 @@
 export type Foto = {
-  id: string
+  id:           string
   storage_path: string
-  ordem: number
-  is_temp: boolean
+  ordem:        number
+  is_temp:      boolean
 }
 
 export type Carta = {
-  id: string
-  nome_destinatario: string
-  nome_remetente: string
-  como_se_conheceram: string
-  memoria_especial: string
-  momento_marcante: string
-  localizacao: string
-  data_importante: string
-  mensagem_principal: string
-  estilo_fundo: string
-  recursos: string[]
-  musica_link: string
-  foto_destaque: string
-  jogo_palavra1?: string
-  jogo_palavra2?: string
-  jogo_palavra3?: string
-  mapa_estrelas_url?: string
-  slug: string
-  fotos: Foto[]
+  id:                  string
+  slug:                string
+  nome_destinatario:   string
+  nome_remetente:      string
+  como_se_conheceram:  string
+  memoria_especial:    string
+  momento_marcante:    string
+  localizacao:         string
+  data_importante:     string
+  mensagem_principal:  string
+  estilo_fundo:        string
+  estilo_animacao:     string
+  recursos:            string[]
+  musica_link:         string
+  foto_destaque:       string
+  qr_code_url:         string | null
+  mapa_estrelas_url:   string | null
+  jogo_palavra1?:      string
+  jogo_palavra2?:      string
+  jogo_palavra3?:      string
+  fotos:               Foto[]
 }
 
 export function getEstacao(data: string): { nome: string; emoji: string } {
   const mes = new Date(data).getUTCMonth() + 1
-  if (mes >= 3 && mes <= 5) return { nome: 'Outono', emoji: '🍂' }
-  if (mes >= 6 && mes <= 8) return { nome: 'Inverno', emoji: '❄️' }
+  if (mes >= 3 && mes <= 5) return { nome: 'Outono',   emoji: '🍂' }
+  if (mes >= 6 && mes <= 8) return { nome: 'Inverno',  emoji: '❄️' }
   if (mes >= 9 && mes <= 11) return { nome: 'Primavera', emoji: '🌸' }
   return { nome: 'Verão', emoji: '☀️' }
 }
@@ -42,7 +44,7 @@ export function getSpotifyId(link: string): string | null {
 
 export function formatarData(data: string): string {
   return new Date(data).toLocaleDateString('pt-BR', {
-    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
   })
 }
 
@@ -51,7 +53,7 @@ export function calcularTempo(data: string) {
   return {
     anos:     Math.floor(diff / (365.25 * 24 * 3600 * 1000)),
     meses:    Math.floor((diff % (365.25 * 24 * 3600 * 1000)) / (30.44 * 24 * 3600 * 1000)),
-    dias:     Math.floor((diff % (30.44 * 24 * 3600 * 1000)) / (24 * 3600 * 1000)),
+    dias:     Math.floor((diff % (30.44  * 24 * 3600 * 1000)) / (24 * 3600 * 1000)),
     horas:    Math.floor((diff % (24 * 3600 * 1000)) / (3600 * 1000)),
     minutos:  Math.floor((diff % (3600 * 1000)) / 60000),
     segundos: Math.floor((diff % 60000) / 1000),

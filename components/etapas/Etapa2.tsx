@@ -6,50 +6,13 @@ import { useCarta } from '@/lib/carta-context'
 export default function Etapa2() {
   const { data, update } = useCarta()
   const [loading, setLoading] = useState(false)
+  const [erro, setErro]       = useState('')
 
-  async function avancar() {
-    if (!data.data_importante || !data.mensagem_principal) {
-      alert('Preencha a data e a mensagem!')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      if (data.carta_id) {
-        const res = await fetch('/api/cartas', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            carta_id: data.carta_id,
-            data_importante: data.data_importante,
-            mensagem_principal: data.mensagem_principal,
-          }),
-        })
-
-        // ✅ Se carta não existe mais, recria silenciosamente
-        if (!res.ok) {
-          await recriarCarta()
-          return
-        }
-      } else {
-        await recriarCarta()
-        return
-      }
-
-      update({ etapa_atual: 3 })
-    } catch {
-      alert('Erro de conexão. Tente novamente.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function recriarCarta() {
+  async function recriarCarta(): Promise<void> {
     const res = await fetch('/api/cartas', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body:    JSON.stringify({
         nome_destinatario:  data.nome_destinatario,
         nome_remetente:     data.nome_remetente,
         data_importante:    data.data_importante,
@@ -60,11 +23,50 @@ export default function Etapa2() {
     const result = await res.json()
 
     if (!res.ok) {
-      alert(result.error || 'Erro ao salvar. Tente novamente.')
-      return
+      throw new Error(result.error || 'Erro ao salvar. Tente novamente.')
     }
 
     update({ carta_id: result.carta_id, etapa_atual: 3 })
+  }
+
+  async function avancar() {
+    if (!data.data_importante || !data.mensagem_principal) {
+      setErro('Preencha a data e a mensagem.')
+      return
+    }
+
+    setErro('')
+    setLoading(true)
+
+    try {
+      if (data.carta_id) {
+        const res = await fetch('/api/cartas', {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            carta_id:           data.carta_id,
+            data_importante:    data.data_importante,
+            mensagem_principal: data.mensagem_principal,
+          }),
+        })
+
+        if (!res.ok) {
+          // Carta não existe mais — recria propagando qualquer erro
+          await recriarCarta()
+          return
+        }
+      } else {
+        await recriarCarta()
+        return
+      }
+
+      update({ etapa_atual: 3 })
+
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro de conexão. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -78,7 +80,7 @@ export default function Etapa2() {
           <input
             type="date"
             value={data.data_importante}
-            onChange={e => update({ data_importante: e.target.value })}
+            onChange={e => { update({ data_importante: e.target.value }); setErro('') }}
             className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
           />
         </div>
@@ -87,7 +89,7 @@ export default function Etapa2() {
           <label className="text-white/70 text-sm block mb-2">Mensagem principal *</label>
           <textarea
             value={data.mensagem_principal}
-            onChange={e => update({ mensagem_principal: e.target.value })}
+            onChange={e => { update({ mensagem_principal: e.target.value }); setErro('') }}
             placeholder="Escreva sua mensagem com carinho..."
             rows={6}
             className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none"
@@ -95,7 +97,11 @@ export default function Etapa2() {
         </div>
       </div>
 
-      <div className="flex gap-3 mt-8">
+      {erro && (
+        <p className="text-pink-400 text-sm mt-4">{erro}</p>
+      )}
+
+      <div className="flex gap-3 mt-6">
         <button
           onClick={() => update({ etapa_atual: 1 })}
           disabled={loading}

@@ -6,21 +6,22 @@ import GaleriaUpload from './GaleriaUpload'
 
 type Foto = {
   foto_id: string
-  url: string
-  path: string
+  url:     string
+  path:    string
 }
 
 const RECURSOS = [
-  { id: 'galeria',       nome: 'Galeria de Fotos',   desc: 'Adicione até 3 fotos' },
-  { id: 'mapa_estrelas', nome: 'Mapa das Estrelas',   desc: 'O céu do dia especial' },
-  { id: 'jogo_palavras', nome: 'Jogo de Palavras',    desc: 'Um quiz com 3 palavras' },
-  { id: 'musica',        nome: 'Música',              desc: 'Link do Spotify' },
+  { id: 'galeria',       nome: 'Galeria de Fotos', desc: 'Adicione até 3 fotos' },
+  { id: 'mapa_estrelas', nome: 'Mapa das Estrelas', desc: 'O céu do dia especial' },
+  { id: 'jogo_palavras', nome: 'Jogo de Palavras',  desc: 'Um quiz com 3 palavras' },
+  { id: 'musica',        nome: 'Música',            desc: 'Link do Spotify' },
 ]
 
 export default function Etapa3() {
   const { data, update } = useCarta()
   const [uploadandoDestaque, setUploadandoDestaque] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [erro, setErro]       = useState('')
 
   function toggleRecurso(id: string) {
     const novos = data.recursos.includes(id)
@@ -31,66 +32,34 @@ export default function Etapa3() {
 
   async function uploadFotoDestaque(file: File) {
     if (!data.carta_id) {
-      alert('Aguarde a carta ser criada.')
+      setErro('Aguarde a carta ser criada.')
       return
     }
+    setErro('')
     setUploadandoDestaque(true)
     try {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('carta_id', data.carta_id)
-      const res = await fetch('/api/upload-destaque', { method: 'POST', body: formData })
+      const res    = await fetch('/api/upload-destaque', { method: 'POST', body: formData })
       const result = await res.json()
-      if (!res.ok) { alert(result.error || 'Erro ao fazer upload'); return }
+      if (!res.ok) {
+        setErro(result.error || 'Erro ao fazer upload')
+        return
+      }
       update({ foto_destaque: result.url })
     } catch {
-      alert('Erro de conexão')
+      setErro('Erro de conexão ao enviar foto.')
     } finally {
       setUploadandoDestaque(false)
     }
   }
 
-  async function avancar() {
-    setLoading(true)
-    try {
-      if (data.carta_id) {
-        const res = await fetch('/api/cartas', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            carta_id:      data.carta_id,
-            recursos:      data.recursos,
-            musica_link:   data.musica_link,
-            foto_destaque: data.foto_destaque,
-            jogo_palavra1: data.jogo_palavra1,
-            jogo_palavra2: data.jogo_palavra2,
-            jogo_palavra3: data.jogo_palavra3,
-          }),
-        })
-
-        // ✅ Se carta não existe mais, recria silenciosamente
-        if (!res.ok) {
-          await recriarCarta()
-          return
-        }
-      } else {
-        await recriarCarta()
-        return
-      }
-
-      update({ etapa_atual: 4 })
-    } catch {
-      alert('Erro de conexão. Tente novamente.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function recriarCarta() {
+  async function recriarCarta(): Promise<void> {
     const res = await fetch('/api/cartas', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body:    JSON.stringify({
         nome_destinatario:  data.nome_destinatario,
         nome_remetente:     data.nome_remetente,
         data_importante:    data.data_importante,
@@ -99,17 +68,13 @@ export default function Etapa3() {
     })
 
     const result = await res.json()
-
-    if (!res.ok) {
-      alert(result.error || 'Erro ao salvar. Tente novamente.')
-      return
-    }
+    if (!res.ok) throw new Error(result.error || 'Erro ao salvar. Tente novamente.')
 
     // Salva os extras na carta recriada
     await fetch('/api/cartas', {
-      method: 'PATCH',
+      method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body:    JSON.stringify({
         carta_id:      result.carta_id,
         recursos:      data.recursos,
         musica_link:   data.musica_link,
@@ -121,6 +86,42 @@ export default function Etapa3() {
     })
 
     update({ carta_id: result.carta_id, etapa_atual: 4 })
+  }
+
+  async function avancar() {
+    setErro('')
+    setLoading(true)
+    try {
+      if (data.carta_id) {
+        const res = await fetch('/api/cartas', {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            carta_id:      data.carta_id,
+            recursos:      data.recursos,
+            musica_link:   data.musica_link,
+            foto_destaque: data.foto_destaque,
+            jogo_palavra1: data.jogo_palavra1,
+            jogo_palavra2: data.jogo_palavra2,
+            jogo_palavra3: data.jogo_palavra3,
+          }),
+        })
+
+        if (!res.ok) {
+          await recriarCarta()
+          return
+        }
+      } else {
+        await recriarCarta()
+        return
+      }
+
+      update({ etapa_atual: 4 })
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro de conexão. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -230,7 +231,11 @@ export default function Etapa3() {
         ))}
       </div>
 
-      <div className="flex gap-3 mt-8">
+      {erro && (
+        <p className="text-pink-400 text-sm mt-4">{erro}</p>
+      )}
+
+      <div className="flex gap-3 mt-6">
         <button onClick={() => update({ etapa_atual: 2 })} disabled={loading}
           className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50">
           ← Voltar

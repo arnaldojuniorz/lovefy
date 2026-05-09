@@ -3,6 +3,15 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.lovefy.app.br'
+
+type CartaObrigado = {
+  slug?:             string
+  nome_destinatario?: string
+  pdf_url?:          string
+  status?:           string
+}
+
 function ObrigadoContent() {
   const searchParams = useSearchParams()
   const carta_id   = searchParams.get('carta_id') || ''
@@ -10,20 +19,18 @@ function ObrigadoContent() {
   const pending    = searchParams.get('pending')  === 'true'
   const slugDireto = searchParams.get('slug')     || ''
 
-  const [carta, setCarta]           = useState<any>(null)
+  const [carta, setCarta]           = useState<CartaObrigado | null>(null)
   const [loading, setLoading]       = useState(true)
   const [copiado, setCopiado]       = useState(false)
   const [tentativas, setTentativas] = useState(0)
 
   useEffect(() => {
-    // ✅ Slug direto do cartão aprovado — mostra imediatamente sem polling
     if (slugDireto) {
       setCarta({ slug: slugDireto })
       setLoading(false)
       return
     }
 
-    // Pagamento pendente — não faz polling
     if (!carta_id || pending) {
       setLoading(false)
       return
@@ -33,8 +40,8 @@ function ObrigadoContent() {
       ? '/api/cartas-impressao?id=' + carta_id
       : '/api/cartas?id=' + carta_id
 
-    let interval: any
-    let timeout: any
+    let interval: ReturnType<typeof setInterval>
+    let timeout:  ReturnType<typeof setTimeout>
 
     async function verificar() {
       try {
@@ -60,14 +67,33 @@ function ObrigadoContent() {
   }, [carta_id, tipo, pending, slugDireto])
 
   function copiar() {
-    const link = 'https://www.lovefy.app.br/c/' + carta?.slug
-    navigator.clipboard.writeText(link)
+    const link = `${BASE_URL}/c/${carta?.slug}`
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(link).then(() => {
+        setCopiado(true)
+        setTimeout(() => setCopiado(false), 2500)
+      }).catch(() => copiarFallback(link))
+    } else {
+      copiarFallback(link)
+    }
+  }
+
+  function copiarFallback(link: string) {
+    const el = document.createElement('textarea')
+    el.value = link
+    el.style.position = 'fixed'
+    el.style.opacity  = '0'
+    document.body.appendChild(el)
+    el.focus()
+    el.select()
+    document.execCommand('copy')
+    document.body.removeChild(el)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 2500)
   }
 
   function whatsapp() {
-    const link  = 'https://www.lovefy.app.br/c/' + carta?.slug
+    const link  = `${BASE_URL}/c/${carta?.slug}`
     const texto = 'Criei algo especial para você! Abra aqui: ' + link
     window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank')
   }
@@ -88,11 +114,9 @@ function ObrigadoContent() {
     btnBack: { display: 'block', textAlign: 'center', padding: '14px', borderRadius: 100, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)', fontSize: 14, textDecoration: 'none' },
   }
 
-  // Pagamento em análise
   if (pending) {
     return (
       <main style={s.main}>
-        <style>{'@keyframes spin { to { transform: rotate(360deg) } }'}</style>
         <div style={s.wrap}>
           <div style={s.center}>
             <div style={{ fontSize: 56, marginBottom: 16 }}>⏳</div>
@@ -116,7 +140,6 @@ function ObrigadoContent() {
     )
   }
 
-  // Carregando (polling ativo)
   if (loading) {
     return (
       <main style={s.main}>
@@ -136,7 +159,6 @@ function ObrigadoContent() {
     )
   }
 
-  // Carta de impressão
   if (tipo === 'impressao') {
     return (
       <main style={s.main}>
@@ -158,7 +180,6 @@ function ObrigadoContent() {
     )
   }
 
-  // Carta digital aprovada
   return (
     <main style={s.main}>
       <style>{'@keyframes spin { to { transform: rotate(360deg) } }'}</style>
@@ -173,18 +194,19 @@ function ObrigadoContent() {
           <>
             <div style={s.qrWrap}>
               <img
-                src={'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent('https://www.lovefy.app.br/c/' + carta.slug)}
-                alt="QR Code"
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${BASE_URL}/c/${carta.slug}`)}`}
+                alt="QR Code da carta"
                 style={s.qrImg}
               />
               <p style={{ color: '#888', fontSize: 12 }}>Escaneie para abrir a carta</p>
             </div>
 
             <div style={s.linkRow}>
-              <p style={s.linkTxt}>lovefy.app.br/c/{carta.slug}</p>
+              <p style={s.linkTxt}>{BASE_URL.replace('https://', '')}/c/{carta.slug}</p>
               <button
                 onClick={copiar}
-                style={{ background: copiado ? '#1DB954' : 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600, flexShrink: 0 }}>
+                style={{ background: copiado ? '#1DB954' : 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600, flexShrink: 0 }}
+              >
                 {copiado ? 'Copiado!' : 'Copiar'}
               </button>
             </div>
@@ -207,7 +229,11 @@ function ObrigadoContent() {
 
 export default function ObrigadoPage() {
   return (
-    <Suspense>
+    <Suspense fallback={
+      <main style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Carregando...</p>
+      </main>
+    }>
       <ObrigadoContent />
     </Suspense>
   )

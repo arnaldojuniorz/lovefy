@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
 import { supabaseAdmin } from '@/lib/supabase'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
+import { moverFotos } from '@/lib/mover-fotos'
+import { gerarQRCode } from '@/lib/gerar-qrcode'
+import { enviarEmail } from '@/lib/enviar-email'
 
 export const runtime = 'nodejs'
 
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const UUID_REGEX       = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const PAYMENT_ID_REGEX = /^\d{3,30}$/
 
-const RATE_LIMIT_MAX = 20
-const RATE_LIMIT_WINDOW_MS = 60_000
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(20, '60 s'),
+  prefix: 'rl:pix:status',
+})
 
-type Tipo = 'digital' | 'impressao'
+type Tipo   = 'digital' | 'impressao'
 type Tabela = 'cartas' | 'cartas_impressao'
 
 function getClientIp(request: NextRequest): string {
@@ -23,64 +29,20 @@ function getClientIp(request: NextRequest): string {
     const first = forwarded.split(',')[0]?.trim()
     if (first) return first
   }
-
   const realIp = request.headers.get('x-real-ip')
   if (realIp) return realIp.trim()
-
   return 'unknown'
 }
 
-function applyRateLimit(key: string) {
-  const now = Date.now()
-  const existing = rateLimitStore.get(key)
-
-  if (!existing || existing.resetAt <= now) {
-    const created = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
-    rateLimitStore.set(key, created)
-    return {
-      allowed: true,
-      limit: RATE_LIMIT_MAX,
-      remaining: RATE_LIMIT_MAX - 1,
-      resetAt: created.resetAt,
-      retryAfterSec: 0,
-    }
-  }
-
-  existing.count += 1
-  rateLimitStore.set(key, existing)
-
-  const remaining = Math.max(0, RATE_LIMIT_MAX - existing.count)
-  const allowed = existing.count <= RATE_LIMIT_MAX
-  const retryAfterSec = Math.max(1, Math.ceil((existing.resetAt - now) / 1000))
-
-  if (rateLimitStore.size > 5000) {
-    for (const [k, v] of rateLimitStore.entries()) {
-      if (v.resetAt <= now) rateLimitStore.delete(k)
-    }
-  }
-
+function rateLimitHeaders(info: { limit: number; remaining: number; reset: number }) {
   return {
-    allowed,
-    limit: RATE_LIMIT_MAX,
-    remaining,
-    resetAt: existing.resetAt,
-    retryAfterSec,
-  }
-}
-
-function rateLimitHeaders(info: { limit: number; remaining: number; resetAt: number }) {
-  return {
-    'X-RateLimit-Limit': String(info.limit),
+    'X-RateLimit-Limit':     String(info.limit),
     'X-RateLimit-Remaining': String(info.remaining),
-    'X-RateLimit-Reset': String(Math.floor(info.resetAt / 1000)),
+    'X-RateLimit-Reset':     String(Math.floor(info.reset / 1000)),
   }
 }
 
-function jsonError(
-  message: string,
-  status: number,
-  headers?: Record<string, string>
-) {
+function jsonError(message: string, status: number, headers?: Record<string, string>) {
   return NextResponse.json({ error: message }, { status, headers })
 }
 
@@ -93,7 +55,6 @@ function normalizeTipo(value: string | null): Tipo | null {
 
 function mapMpStatus(status: string | null | undefined): string {
   if (!status) return 'pending'
-
   const s = status.toLowerCase()
   if (s === 'approved') return 'approved'
   if (s === 'rejected' || s === 'cancelled' || s === 'charged_back') return 'failed'
@@ -109,15 +70,49 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
   return null
 }
 
+async function executarAcoesPosPagamento(
+  carta: Record<string, unknown>,
+  cartaId: string,
+  tipo: Tipo,
+  paymentId: string,
+  emailPagador: string,
+): Promise<void> {
+  if (tipo === 'impressao') return
+
+  const slug = pickString(carta, ['slug']) ?? ''
+  if (!slug) return
+
+  Promise.allSettled([
+    moverFotos(cartaId),
+    gerarQRCode(cartaId, slug).then(qrCodeUrl =>
+      enviarEmail({
+        nome_pagador:      pickString(carta, ['nome_pagador'])      ?? '',
+        email_pagador:     pickString(carta, ['email_pagador'])     || emailPagador,
+        nome_destinatario: pickString(carta, ['nome_destinatario']) ?? '',
+        nome_remetente:    pickString(carta, ['nome_remetente'])    ?? '',
+        slug,
+        qr_code_url: qrCodeUrl,
+      })
+    ),
+  ]).then(results => {
+    results.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        console.error(`[pix/status] erro background task ${i}:`, result.reason)
+      }
+    })
+  })
+}
+
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request)
-  const limiter = applyRateLimit(`pix-status:${ip}`)
-  const baseHeaders = rateLimitHeaders(limiter)
+  const { success, limit, remaining, reset } = await ratelimit.limit(`pix-status:${ip}`)
+  const baseHeaders = rateLimitHeaders({ limit, remaining, reset })
 
-  if (!limiter.allowed) {
+  if (!success) {
+    const retryAfterSec = Math.max(1, Math.ceil((reset - Date.now()) / 1000))
     return jsonError('Muitas tentativas. Tente novamente em instantes.', 429, {
       ...baseHeaders,
-      'Retry-After': String(limiter.retryAfterSec),
+      'Retry-After': String(retryAfterSec),
     })
   }
 
@@ -130,8 +125,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
 
     const paymentId = (searchParams.get('payment_id') ?? '').trim()
-    const cartaId = (searchParams.get('carta_id') ?? '').trim()
-    const tipo = normalizeTipo(searchParams.get('tipo'))
+    const cartaId   = (searchParams.get('carta_id')   ?? '').trim()
+    const tipo      = normalizeTipo(searchParams.get('tipo'))
 
     if (!paymentId || !cartaId) {
       return jsonError('payment_id e carta_id são obrigatórios', 400, baseHeaders)
@@ -177,13 +172,14 @@ export async function GET(request: NextRequest) {
       return jsonError('payment_id não corresponde à carta', 409, baseHeaders)
     }
 
+    // Carta já ativa — retorna imediatamente sem chamar Mercado Pago
     if (String(carta.status ?? '') === 'ativo') {
       return NextResponse.json(
         {
-          status: 'approved',
+          status:       'approved',
           carta_status: 'ativo',
-          slug: tipo === 'digital' ? pickString(carta, ['slug']) ?? null : null,
-          pdf_url: null,
+          slug:         tipo === 'digital' ? pickString(carta, ['slug']) ?? null : null,
+          pdf_url:      null,
         },
         { headers: baseHeaders }
       )
@@ -193,8 +189,9 @@ export async function GET(request: NextRequest) {
       new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
     )
 
-    const mpResponse = await payment.get({ id: paymentId })
-    const normalized = mapMpStatus(mpResponse.status)
+    const mpResponse  = await payment.get({ id: paymentId })
+    const normalized  = mapMpStatus(mpResponse.status)
+    const emailPagador = pickString(carta, ['email_pagador']) ?? ''
 
     if (normalized === 'approved') {
       const extRef = String(mpResponse.external_reference ?? '')
@@ -202,32 +199,33 @@ export async function GET(request: NextRequest) {
         return jsonError('payment_id não corresponde à carta', 409, baseHeaders)
       }
 
-      if (String(carta.status ?? '') !== 'ativo') {
-        await supabaseAdmin
-          .from(tabela)
-          .update({
-            status: 'ativo',
-            paid_at: new Date().toISOString(),
-            mercadopago_payment_id: paymentId,
-          })
-          .eq('id', cartaId)
-          .in('status', ['rascunho', 'pendente_pagamento'])
-      }
-
-      const { data: atualizadaRaw } = await supabaseAdmin
+      // Guard de status — evita dupla ativação em race condition com o webhook
+      const { data: ativada } = await supabaseAdmin
         .from(tabela)
-        .select('*')
+        .update({
+          status:                 'ativo',
+          paid_at:                new Date().toISOString(),
+          mercadopago_payment_id: paymentId,
+        })
         .eq('id', cartaId)
+        .in('status', ['rascunho', 'pendente_pagamento'])
+        .select('*')
         .maybeSingle()
 
-      const atualizada = (atualizadaRaw ?? carta) as Record<string, unknown>
+      const cartaFinal = (ativada ?? carta) as Record<string, unknown>
+
+      // Executa ações pós-pagamento em background caso o webhook tenha falhado
+      // Se webhook já executou, moverFotos e enviarEmail devem ser idempotentes
+      if (ativada) {
+        executarAcoesPosPagamento(cartaFinal, cartaId, tipo, paymentId, emailPagador)
+      }
 
       return NextResponse.json(
         {
-          status: 'approved',
-          carta_status: String(atualizada.status ?? 'ativo'),
-          slug: tipo === 'digital' ? pickString(atualizada, ['slug']) ?? null : null,
-          pdf_url: null,
+          status:       'approved',
+          carta_status: 'ativo',
+          slug:         tipo === 'digital' ? pickString(cartaFinal, ['slug']) ?? null : null,
+          pdf_url:      null,
         },
         { headers: baseHeaders }
       )
@@ -235,13 +233,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        status: normalized,
+        status:       normalized,
         carta_status: String(carta.status ?? 'pendente_pagamento'),
-        slug: null,
-        pdf_url: null,
+        slug:         null,
+        pdf_url:      null,
       },
       { headers: baseHeaders }
     )
+
   } catch (error) {
     console.error('[pix/status] erro interno', error)
     return jsonError('Erro ao verificar status', 500, baseHeaders)

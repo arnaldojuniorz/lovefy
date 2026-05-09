@@ -1,20 +1,52 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useCarta } from '@/lib/carta-context'
-import Etapa1 from '@/components/etapas/Etapa1'
-import Etapa2 from '@/components/etapas/Etapa2'
-import Etapa3 from '@/components/etapas/Etapa3'
-import Etapa4 from '@/components/etapas/Etapa4'
-import Etapa5 from '@/components/etapas/Etapa5'
+
+// Carregamento lazy de cada etapa — apenas a etapa atual é carregada no bundle
+const EtapaLoading = () => (
+  <div className="flex items-center justify-center h-40">
+    <div className="w-6 h-6 rounded-full border-2 border-pink-500 border-t-transparent animate-spin" />
+  </div>
+)
+
+const Etapa1 = dynamic(() => import('@/components/etapas/Etapa1'), { ssr: false, loading: EtapaLoading })
+const Etapa2 = dynamic(() => import('@/components/etapas/Etapa2'), { ssr: false, loading: EtapaLoading })
+const Etapa3 = dynamic(() => import('@/components/etapas/Etapa3'), { ssr: false, loading: EtapaLoading })
+const Etapa4 = dynamic(() => import('@/components/etapas/Etapa4'), { ssr: false, loading: EtapaLoading })
+const Etapa5 = dynamic(() => import('@/components/etapas/Etapa5'), { ssr: false, loading: EtapaLoading })
+
+// Fonte de verdade única para o número de etapas
+const TOTAL_ETAPAS = 5
+
+// Lookup tipado: extensível sem tocar na lógica de renderização
+const ETAPAS_MAP: Record<number, React.ComponentType> = {
+  1: Etapa1,
+  2: Etapa2,
+  3: Etapa3,
+  4: Etapa4,
+  5: Etapa5,
+}
 
 export default function CriarPage() {
   const { data } = useCarta()
 
+  const EtapaAtual = ETAPAS_MAP[data.etapa_atual]
+
   return (
-    <main className="min-h-screen bg-[#1a1a2e] flex items-center justify-center p-4">
+    <main className="min-h-screen bg-brand-bg flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
-        <div className="flex gap-2 mb-8">
-          {[1, 2, 3, 4, 5].map((n) => (
+
+        {/* Barra de progresso acessível */}
+        <div
+          className="flex gap-2 mb-8"
+          role="progressbar"
+          aria-valuenow={data.etapa_atual}
+          aria-valuemin={1}
+          aria-valuemax={TOTAL_ETAPAS}
+          aria-label={`Etapa ${data.etapa_atual} de ${TOTAL_ETAPAS}`}
+        >
+          {Array.from({ length: TOTAL_ETAPAS }, (_, i) => i + 1).map((n) => (
             <div
               key={n}
               className={`h-1 flex-1 rounded-full transition-all duration-300 ${
@@ -24,11 +56,15 @@ export default function CriarPage() {
           ))}
         </div>
 
-        {data.etapa_atual === 1 && <Etapa1 />}
-        {data.etapa_atual === 2 && <Etapa2 />}
-        {data.etapa_atual === 3 && <Etapa3 />}
-        {data.etapa_atual === 4 && <Etapa4 />}
-        {data.etapa_atual === 5 && <Etapa5 />}
+        {/* Renderização da etapa atual com fallback explícito */}
+        {EtapaAtual ? (
+          <EtapaAtual />
+        ) : (
+          <p className="text-white/50 text-center text-sm">
+            Etapa inválida. Por favor, recarregue a página.
+          </p>
+        )}
+
       </div>
     </main>
   )

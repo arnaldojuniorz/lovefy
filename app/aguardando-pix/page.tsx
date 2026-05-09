@@ -2,6 +2,13 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import Image from 'next/image'
+
+// Fora do useEffect para ser reutilizável
+const MAX_TENTATIVAS = 75
+
+// Status separados: rejected (banco recusou) vs timeout (expirou sem resposta)
+type StatusPagamento = 'pending' | 'approved' | 'rejected' | 'timeout'
 
 function AguardandoPixContent() {
   const searchParams = useSearchParams()
@@ -14,20 +21,21 @@ function AguardandoPixContent() {
   const qr         = searchParams.get('qr')          ?? ''
   const qr64       = searchParams.get('qr64')        ?? ''
 
-  const [copiado, setCopiado]   = useState(false)
-  const [status, setStatus]     = useState<'pending' | 'approved' | 'rejected'>('pending')
+  const [copiado, setCopiado] = useState(false)
+  const [status, setStatus]   = useState<StatusPagamento>('pending')
   const [tentativas, setTentativas] = useState(0)
 
   useEffect(() => {
     if (!payment_id || !carta_id) return
-
-    const MAX_TENTATIVAS = 75
 
     const interval = setInterval(async () => {
       try {
         const res = await fetch(
           `/api/pix/status?payment_id=${payment_id}&carta_id=${carta_id}&tipo=${tipo}`
         )
+
+        if (!res.ok) return // rede instável — aguarda próxima tentativa
+
         const data = await res.json()
 
         if (data.carta_status === 'ativo') {
@@ -36,7 +44,7 @@ function AguardandoPixContent() {
           if (tipo === 'impressao' && data.pdf_url) {
             router.push(`/obrigado?carta_id=${carta_id}&tipo=impressao&pdf_url=${encodeURIComponent(data.pdf_url)}`)
           } else {
-            router.push(`/obrigado?carta_id=${carta_id}&tipo=${tipo}&slug=${data.slug}&plano=${plano}`)
+            router.push(`/obrigado?carta_id=${carta_id}&tipo=${encodeURIComponent(tipo)}&slug=${encodeURIComponent(data.slug)}&plano=${encodeURIComponent(plano)}`)
           }
           return
         }
@@ -48,41 +56,71 @@ function AguardandoPixContent() {
         }
 
         setTentativas(t => {
-          if (t + 1 >= MAX_TENTATIVAS) {
+          const nova = t + 1
+          if (nova >= MAX_TENTATIVAS) {
             clearInterval(interval)
-            setStatus('rejected')
+            setStatus('timeout')
           }
-          return t + 1
+          return nova
         })
 
-      } catch { }
+      } catch (err) {
+        // Falha de rede — loga mas não interrompe o polling
+        console.error('[aguardando-pix] erro ao verificar status:', err)
+      }
     }, 4000)
 
     return () => clearInterval(interval)
   }, [payment_id, carta_id, tipo, plano, router])
 
   function copiar() {
-    navigator.clipboard.writeText(qr).then(() => {
-      setCopiado(true)
-      setTimeout(() => setCopiado(false), 2500)
-    })
+    // Fallback para WebViews (Instagram, WhatsApp) que não suportam Clipboard API
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(qr).then(() => {
+        setCopiado(true)
+        setTimeout(() => setCopiado(false), 2500)
+      }).catch(() => copiarFallback())
+    } else {
+      copiarFallback()
+    }
   }
+
+  function copiarFallback() {
+    const el = document.createElement('textarea')
+    el.value = qr
+    el.style.position = 'fixed'
+    el.style.opacity = '0'
+    document.body.appendChild(el)
+    el.focus()
+    el.select()
+    document.execCommand('copy')
+    document.body.removeChild(el)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2500)
+  }
+
+  const progresso = Math.min((tentativas / MAX_TENTATIVAS) * 100, 100)
 
   return (
     <main style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '40px 16px' }}>
       <div style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center' }}>
 
-        <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Pague com PIX</h1>
+        <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
+          Pague com PIX
+        </h1>
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', marginBottom: '32px' }}>
           Escaneie o QR Code ou copie o código abaixo
         </p>
 
         {qr64 && (
           <div style={{ marginBottom: '24px' }}>
-            <img
+            <Image
               src={`data:image/png;base64,${qr64}`}
               alt="QR Code PIX"
-              style={{ width: '220px', height: '220px', borderRadius: '16px', border: '3px solid rgba(255,107,157,0.3)', display: 'block', margin: '0 auto' }}
+              width={220}
+              height={220}
+              style={{ borderRadius: '16px', border: '3px solid rgba(255,107,157,0.3)', display: 'block', margin: '0 auto' }}
+              unoptimized // base64 não passa pelo Image Optimization da Vercel
             />
           </div>
         )}
@@ -103,15 +141,33 @@ function AguardandoPixContent() {
             <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', marginBottom: '8px' }}>
               ⏳ Aguardando confirmação do pagamento...
             </p>
-            <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '99px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.min((tentativas / 75) * 100, 100)}%`, background: 'linear-gradient(90deg, #ff6b9d, #c44569)', transition: 'width 0.4s ease' }} />
+            <div
+              role="progressbar"
+              aria-valuenow={progresso}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Tempo restante para pagamento"
+              style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '99px', overflow: 'hidden' }}
+            >
+              <div style={{ height: '100%', width: `${progresso}%`, background: 'linear-gradient(90deg, #ff6b9d, #c44569)', transition: 'width 0.4s ease' }} />
             </div>
           </div>
         )}
 
         {status === 'rejected' && (
           <div>
-            <p style={{ color: '#ff6b6b', fontSize: '14px', marginBottom: '12px' }}>❌ Pagamento não confirmado ou tempo esgotado.</p>
+            <p style={{ color: '#ff6b6b', fontSize: '14px', marginBottom: '12px' }}>
+              ❌ Pagamento recusado ou cancelado.
+            </p>
+            <a href="/criar" style={{ color: '#ff6b9d', fontSize: '14px' }}>← Tentar novamente</a>
+          </div>
+        )}
+
+        {status === 'timeout' && (
+          <div>
+            <p style={{ color: '#ff6b6b', fontSize: '14px', marginBottom: '12px' }}>
+              ⏱️ Tempo esgotado. Se você já pagou, aguarde alguns minutos e verifique seu e-mail.
+            </p>
             <a href="/criar" style={{ color: '#ff6b9d', fontSize: '14px' }}>← Tentar novamente</a>
           </div>
         )}
@@ -126,7 +182,11 @@ function AguardandoPixContent() {
 
 export default function AguardandoPixPage() {
   return (
-    <Suspense>
+    <Suspense fallback={
+      <main style={{ minHeight: '100vh', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Carregando...</div>
+      </main>
+    }>
       <AguardandoPixContent />
     </Suspense>
   )

@@ -1,51 +1,63 @@
 'use client'
 
 import { useState } from 'react'
+import { PLANOS } from '@/lib/planos'
 
-const PRECO_IMPRESSAO = 9.90
+const PRECO_IMPRESSAO = PLANOS.impressao.preco
 
 export default function ImprimirPage() {
-  const [etapa, setEtapa] = useState(1)
+  const [etapa, setEtapa]   = useState(1)
   const [loading, setLoading] = useState(false)
-  const [dados, setDados] = useState({
-    destinatario: '',
-    remetente: '',
-    mensagem: '',
+  const [erro, setErro]     = useState('')
+  const [dados, setDados]   = useState({
+    destinatario:    '',
+    remetente:       '',
+    mensagem:        '',
     data_importante: '',
-    musica_link: '',
-    nome_pagador: '',
-    email_pagador: '',
+    musica_link:     '',
+    nome_pagador:    '',
+    email_pagador:   '',
   })
 
   function atualizar(campo: string, valor: string) {
     setDados(prev => ({ ...prev, [campo]: valor }))
   }
 
-  async function handlePagar() {
-    if (!dados.nome_pagador || !dados.email_pagador) {
-      alert('Preencha seu nome e e-mail!')
+  function avancarEtapa() {
+    if (!dados.destinatario || !dados.remetente || !dados.mensagem) {
+      setErro('Preencha os campos obrigatórios.')
       return
     }
+    setErro('')
+    setEtapa(2)
+  }
+
+  async function handlePagar() {
+    if (!dados.nome_pagador || !dados.email_pagador) {
+      setErro('Preencha seu nome e e-mail.')
+      return
+    }
+    setErro('')
     setLoading(true)
     try {
       const response = await fetch('/api/cartas-impressao', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body:    JSON.stringify({
           ...dados,
-          cor: '#ffffff',
+          cor:    '#ffffff',
           estilo: 'moderno',
         }),
       })
       const result = await response.json()
       if (!response.ok) {
-        alert(result.error || 'Erro ao salvar carta')
+        setErro(result.error || 'Erro ao salvar carta')
         setLoading(false)
         return
       }
       window.location.href = `/checkout?carta_id=${result.carta_id}&plano=impressao&tipo=impressao&nome=${encodeURIComponent(dados.nome_pagador)}&email=${encodeURIComponent(dados.email_pagador)}`
     } catch {
-      alert('Erro de conexão. Tente novamente.')
+      setErro('Erro de conexão. Tente novamente.')
       setLoading(false)
     }
   }
@@ -60,62 +72,81 @@ export default function ImprimirPage() {
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: '0' }}>Um presente simples, mas inesquecível</p>
         </div>
 
-        {/* Barra de progresso — agora só 2 etapas */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
           {[1, 2].map(n => (
             <div key={n} style={{ flex: 1, height: '4px', borderRadius: '4px', background: n <= etapa ? '#ff6b9d' : 'rgba(255,255,255,0.2)', transition: 'all 0.3s' }} />
           ))}
         </div>
 
+        {erro && (
+          <div style={{ background: 'rgba(255,107,157,0.1)', border: '1px solid rgba(255,107,157,0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '16px', textAlign: 'center' }}>
+            <p style={{ color: '#ff6b9d', fontSize: '14px', margin: 0 }}>{erro}</p>
+          </div>
+        )}
+
         {/* Etapa 1 — Conteúdo */}
         {etapa === 1 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
-            <h1 className="text-2xl font-bold text-white mb-2">Para quem é essa carta? 💌</h1>
+            <h2 className="text-2xl font-bold text-white mb-2">Para quem é essa carta? 💌</h2>
             <p className="text-white/50 text-sm mb-8">Preencha os dados principais</p>
 
             <div className="space-y-4">
               <div>
                 <label className="text-white/70 text-sm block mb-2">Para quem é essa carta? *</label>
-                <input type="text" value={dados.destinatario} onChange={e => atualizar('destinatario', e.target.value)}
+                <input
+                  type="text"
+                  value={dados.destinatario}
+                  onChange={e => atualizar('destinatario', e.target.value)}
                   placeholder="Ex: Ana"
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
+                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
+                />
               </div>
               <div>
                 <label className="text-white/70 text-sm block mb-2">Seu nome *</label>
-                <input type="text" value={dados.remetente} onChange={e => atualizar('remetente', e.target.value)}
+                <input
+                  type="text"
+                  value={dados.remetente}
+                  onChange={e => atualizar('remetente', e.target.value)}
                   placeholder="Ex: Lucas"
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
+                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
+                />
               </div>
               <div>
                 <label className="text-white/70 text-sm block mb-2">Sua mensagem *</label>
-                <textarea value={dados.mensagem} onChange={e => atualizar('mensagem', e.target.value)}
+                <textarea
+                  value={dados.mensagem}
+                  onChange={e => atualizar('mensagem', e.target.value)}
                   placeholder="Escreva tudo que você sente..."
                   rows={8}
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none" />
+                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none"
+                />
               </div>
               <div>
                 <label className="text-white/70 text-sm block mb-2">Data importante <span className="text-white/30">(opcional)</span></label>
-                <input type="date" value={dados.data_importante} onChange={e => atualizar('data_importante', e.target.value)}
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
+                <input
+                  type="date"
+                  value={dados.data_importante}
+                  onChange={e => atualizar('data_importante', e.target.value)}
+                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
+                />
               </div>
               <div>
                 <label className="text-white/70 text-sm block mb-2">Link do Spotify <span className="text-white/30">(opcional)</span></label>
-                <input type="text" value={dados.musica_link} onChange={e => atualizar('musica_link', e.target.value)}
+                <input
+                  type="text"
+                  value={dados.musica_link}
+                  onChange={e => atualizar('musica_link', e.target.value)}
                   placeholder="https://open.spotify.com/track/..."
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm" />
+                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm"
+                />
                 <p className="text-white/30 text-xs mt-2">Um QR Code será adicionado à carta</p>
               </div>
             </div>
 
             <button
-              onClick={() => {
-                if (!dados.destinatario || !dados.remetente || !dados.mensagem) {
-                  alert('Preencha os campos obrigatórios!')
-                  return
-                }
-                setEtapa(2)
-              }}
-              className="w-full mt-8 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all">
+              onClick={avancarEtapa}
+              className="w-full mt-8 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all"
+            >
               Continuar →
             </button>
           </div>
@@ -124,21 +155,29 @@ export default function ImprimirPage() {
         {/* Etapa 2 — Pagamento */}
         {etapa === 2 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
-            <h1 className="text-2xl font-bold text-white mb-2">Quase lá! 💳</h1>
+            <h2 className="text-2xl font-bold text-white mb-2">Quase lá! 💳</h2>
             <p className="text-white/50 text-sm mb-6">Preencha seus dados para finalizar</p>
 
             <div className="space-y-4">
               <div>
                 <label className="text-white/70 text-sm block mb-2">Seu nome *</label>
-                <input type="text" value={dados.nome_pagador} onChange={e => atualizar('nome_pagador', e.target.value)}
+                <input
+                  type="text"
+                  value={dados.nome_pagador}
+                  onChange={e => atualizar('nome_pagador', e.target.value)}
                   placeholder="Seu nome completo"
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
+                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
+                />
               </div>
               <div>
                 <label className="text-white/70 text-sm block mb-2">Seu e-mail *</label>
-                <input type="email" value={dados.email_pagador} onChange={e => atualizar('email_pagador', e.target.value)}
+                <input
+                  type="email"
+                  value={dados.email_pagador}
+                  onChange={e => atualizar('email_pagador', e.target.value)}
                   placeholder="seu@email.com"
-                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors" />
+                  className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
+                />
               </div>
 
               <div className="bg-pink-500/10 border border-pink-500/20 rounded-xl p-5">
@@ -155,13 +194,19 @@ export default function ImprimirPage() {
             </div>
 
             <div className="flex gap-3 mt-8">
-              <button onClick={() => setEtapa(1)} disabled={loading}
-                className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50">
+              <button
+                onClick={() => { setErro(''); setEtapa(1) }}
+                disabled={loading}
+                className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50"
+              >
                 ← Voltar
               </button>
-              <button onClick={handlePagar} disabled={loading}
+              <button
+                onClick={handlePagar}
+                disabled={loading}
                 className="bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
-                style={{ flex: 2 }}>
+                style={{ flex: 2 }}
+              >
                 {loading ? 'Aguarde...' : `Pagar R$ ${PRECO_IMPRESSAO.toFixed(2).replace('.', ',')} 💳`}
               </button>
             </div>

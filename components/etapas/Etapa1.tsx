@@ -1,59 +1,64 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useCarta } from '@/lib/carta-context'
 
 export default function Etapa1() {
   const { data, update } = useCarta()
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    fetch('/api/cartas?slug=warmup').catch(() => {})
-  }, [])
+  const [erro, setErro]       = useState('')
 
   async function avancar() {
     if (!data.nome_destinatario || !data.nome_remetente) {
-      alert('Preencha o nome de quem envia e de quem recebe!')
+      setErro('Preencha o nome de quem envia e de quem recebe.')
       return
     }
 
+    setErro('')
     setLoading(true)
 
     try {
       if (data.carta_id) {
-        await fetch('/api/cartas', {
-          method: 'PATCH',
+        const res = await fetch('/api/cartas', {
+          method:  'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            carta_id: data.carta_id,
+          body:    JSON.stringify({
+            carta_id:          data.carta_id,
             nome_destinatario: data.nome_destinatario,
-            nome_remetente: data.nome_remetente,
+            nome_remetente:    data.nome_remetente,
           }),
         })
+
+        if (!res.ok) {
+          const result = await res.json()
+          setErro(result.error || 'Erro ao atualizar carta. Tente novamente.')
+          return
+        }
+
         update({ etapa_atual: 2 })
         return
       }
 
       const response = await fetch('/api/cartas', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body:    JSON.stringify({
           nome_destinatario: data.nome_destinatario,
-          nome_remetente: data.nome_remetente,
+          nome_remetente:    data.nome_remetente,
         }),
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        alert(result.error || 'Erro ao iniciar carta. Tente novamente.')
+        setErro(result.error || 'Erro ao iniciar carta. Tente novamente.')
         return
       }
 
       update({ carta_id: result.carta_id, etapa_atual: 2 })
 
     } catch {
-      alert('Erro de conexão. Tente novamente.')
+      setErro('Erro de conexão. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -70,7 +75,7 @@ export default function Etapa1() {
           <input
             type="text"
             value={data.nome_destinatario}
-            onChange={e => update({ nome_destinatario: e.target.value })}
+            onChange={e => { update({ nome_destinatario: e.target.value }); setErro('') }}
             placeholder="Ex: Ana"
             className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
           />
@@ -81,17 +86,21 @@ export default function Etapa1() {
           <input
             type="text"
             value={data.nome_remetente}
-            onChange={e => update({ nome_remetente: e.target.value })}
+            onChange={e => { update({ nome_remetente: e.target.value }); setErro('') }}
             placeholder="Ex: Lucas"
             className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors"
           />
         </div>
       </div>
 
+      {erro && (
+        <p className="text-pink-400 text-sm mt-4">{erro}</p>
+      )}
+
       <button
         onClick={avancar}
         disabled={loading}
-        className="w-full mt-8 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
+        className="w-full mt-6 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
       >
         {loading ? 'Criando...' : 'Continuar →'}
       </button>

@@ -5,16 +5,34 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { moverFotos } from '@/lib/mover-fotos'
 import { gerarQRCode } from '@/lib/gerar-qrcode'
 import { enviarEmail } from '@/lib/enviar-email'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
+import { PLANOS } from '@/lib/planos'
+import type { Plano } from '@/lib/planos'
 
 export const runtime = 'nodejs'
 
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
 
-import { PLANOS } from '@/lib/planos'
-import type { Plano } from '@/lib/planos'
-
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(6, '60 s'),
+  prefix: 'rl:checkout:processar',
+})
+
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim()
+    if (first) return first
+  }
+  const realIp = request.headers.get('x-real-ip')
+  if (realIp) return realIp.trim()
+  return 'unknown'
+}
 
 function getBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.lovefy.app.br'
@@ -26,7 +44,6 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status })
 }
 
-// ✅ Slug com sufixo criptograficamente seguro (8 chars hex = 4 bilhões combinações)
 function gerarSlug(nomeRemetente: string, nomeDestinatario: string): string {
   const normalizar = (s: string) =>
     s.normalize('NFD')
@@ -35,7 +52,7 @@ function gerarSlug(nomeRemetente: string, nomeDestinatario: string): string {
      .replace(/[^a-z0-9]/g, '')
      .slice(0, 20)
   const base   = normalizar(nomeRemetente) + 'e' + normalizar(nomeDestinatario)
-  const sufixo = randomBytes(4).toString('hex') // ✅ crypto seguro
+  const sufixo = randomBytes(4).toString('hex')
   return `${base}${sufixo}`
 }
 
@@ -53,7 +70,6 @@ async function garantirSlug(
       return slug
     }
   }
-  // Fallback: usa bytes aleatórios puros
   const slug = randomBytes(8).toString('hex')
   await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
   return slug
@@ -76,13 +92,11 @@ async function ativarCartaDigital(
       return null
     }
 
-    // ✅ Idempotente — se já está ativa retorna slug sem reprocessar
     if (cartaAtual.status === 'ativo') {
       console.log('[processar] carta já ativa — idempotente')
       return cartaAtual.slug ?? null
     }
 
-    // ✅ Garante slug antes de ativar
     let slug = cartaAtual.slug as string | null
     if (!slug) {
       slug = await garantirSlug(
@@ -92,7 +106,6 @@ async function ativarCartaDigital(
       )
     }
 
-    // ✅ Ativa com guard de status — evita dupla ativação em race condition
     const { data: atualizado } = await supabaseAdmin
       .from('cartas')
       .update({
@@ -103,18 +116,17 @@ async function ativarCartaDigital(
         slug,
       })
       .eq('id', cartaId)
-      .in('status', ['rascunho', 'pendente_pagamento']) // ✅ só atualiza se não ativo
+      .in('status', ['rascunho', 'pendente_pagamento'])
       .select('id')
       .maybeSingle()
 
     if (!atualizado) {
-      // Outro processo já ativou — busca slug atual
       const { data: recheck } = await supabaseAdmin
         .from('cartas').select('slug').eq('id', cartaId).maybeSingle()
-      return (recheck as any)?.slug ?? slug
+      return (recheck as { slug?: string } | null)?.slug ?? slug
     }
 
-    // Move fotos e envia email em background — não bloqueia resposta
+    // allSettled nunca rejeita — erros individuais são capturados nos results
     Promise.allSettled([
       moverFotos(cartaId),
       gerarQRCode(cartaId, slug).then(qrCodeUrl =>
@@ -127,17 +139,27 @@ async function ativarCartaDigital(
           qr_code_url:       qrCodeUrl,
         })
       ),
-    ]).catch(err => console.error('[processar] erro background:', err))
+    ]).then(results => {
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+          console.error(`[processar] erro background task ${i}:`, result.reason)
+        }
+      })
+    })
 
     return slug
 
   } catch (err) {
-    console.error('[processar] erro ao ativar carta')
+    console.error('[processar] erro ao ativar carta:', err)
     return null
   }
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request)
+  const { success } = await ratelimit.limit(`processar:${ip}`)
+  if (!success) return jsonError('Muitas tentativas. Tente novamente em instantes.', 429)
+
   try {
     if (!MERCADOPAGO_ACCESS_TOKEN) {
       return jsonError('Serviço temporariamente indisponível', 500)
@@ -165,7 +187,6 @@ export async function POST(request: NextRequest) {
     const plano     = planoKey as Plano
     const planoData = PLANOS[plano]
 
-    // ✅ Verifica se carta já está ativa antes de criar pagamento — evita dupla cobrança
     const { data: cartaCheck } = await supabaseAdmin
       .from('cartas')
       .select('status')
@@ -203,11 +224,10 @@ export async function POST(request: NextRequest) {
       ? payer.identification as Record<string, unknown>
       : {}
 
-    const identType   = typeof identification.type   === 'string' ? identification.type.trim()          : ''
+    const identType   = typeof identification.type   === 'string' ? identification.type.trim()   : ''
     const identNumber = typeof identification.number === 'string' ? identification.number.trim()
-      : typeof identification.number === 'number'                  ? String(identification.number)        : ''
+      : typeof identification.number === 'number'                  ? String(identification.number) : ''
 
-    // ✅ Log sem dados sensíveis
     console.log('[processar] method:', paymentMethodId, '| identType:', identType)
 
     const client  = new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
@@ -238,7 +258,6 @@ export async function POST(request: NextRequest) {
 
     console.log('[processar] status:', response.status, '| detail:', response.status_detail)
 
-    // ✅ Aprovado — ativa carta imediatamente
     if (response.status === 'approved' && response.id) {
       const slug = await ativarCartaDigital(
         carta_id.trim(),
@@ -258,8 +277,8 @@ export async function POST(request: NextRequest) {
       payment_id: response.id,
     })
 
-  } catch (err: any) {
-    console.error('[processar] erro interno')
+  } catch (err) {
+    console.error('[processar] erro interno:', err)
     return jsonError('Erro ao processar pagamento', 500)
   }
 }

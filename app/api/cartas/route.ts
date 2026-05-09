@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SLUG_REGEX = /^[a-z0-9-]{3,60}$/
 const TOKEN_REGEX = /^[a-z0-9_-]{1,40}$/i
+
+const ratelimitWrite = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, '60 s'),
+  prefix: 'rl:cartas:write',
+})
+
+const ratelimitRead = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(30, '60 s'),
+  prefix: 'rl:cartas:read',
+})
 
 const CAMPOS_FRONTEND = new Set<string>([
   'nome_destinatario',
@@ -35,9 +49,29 @@ const CAMPOS_BLOQUEADOS = new Set<string>([
   'qr_code_url',
 ])
 
+// Campos seguros para expor no GET — nunca expor dados financeiros ou de pagamento
+const CAMPOS_GET_PUBLICOS = [
+  'id',
+  'slug',
+  'status',
+  'nome_destinatario',
+  'nome_remetente',
+] as const
+
 type Body = Record<string, unknown>
 
 class ValidationError extends Error {}
+
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim()
+    if (first) return first
+  }
+  const realIp = request.headers.get('x-real-ip')
+  if (realIp) return realIp.trim()
+  return 'unknown'
+}
 
 function errorJson(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
@@ -93,32 +127,27 @@ function sanitizeMessage(value: unknown): string | null {
 function sanitizeEmail(value: unknown): string | null {
   if (value === null) return null
   if (typeof value !== 'string') throw new ValidationError('email_pagador inválido')
-
   const clean = value.trim().toLowerCase()
   if (!clean) return null
   if (clean.length > 200) throw new ValidationError('email_pagador muito longo')
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new ValidationError('email_pagador inválido')
-
   return clean
 }
 
 function sanitizeDate(value: unknown): string | null {
   if (value === null) return null
   if (typeof value !== 'string') throw new ValidationError('data_importante inválida')
-
   const clean = value.trim()
   if (!clean) return null
   if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
     throw new ValidationError('data_importante deve estar no formato YYYY-MM-DD')
   }
-
   return clean
 }
 
 function sanitizeUrl(value: unknown, spotifyOnly = false): string | null {
   if (value === null) return null
   if (typeof value !== 'string') throw new ValidationError('URL inválida')
-
   const clean = value.trim()
   if (!clean) return null
   if (clean.length > 700) throw new ValidationError('URL muito longa')
@@ -148,32 +177,26 @@ function sanitizeUrl(value: unknown, spotifyOnly = false): string | null {
 function sanitizeSlug(value: unknown): string | null {
   if (value === null) return null
   if (typeof value !== 'string') throw new ValidationError('slug inválido')
-
   const slug = value.trim().toLowerCase()
   if (!slug) return null
-
   if (!SLUG_REGEX.test(slug)) {
     throw new ValidationError('O link só pode ter letras, números e hífens (3 a 60 caracteres)')
   }
-
   return slug
 }
 
 function sanitizeToken(value: unknown, field: string): string | null {
   if (value === null) return null
   if (typeof value !== 'string') throw new ValidationError(`${field} inválido`)
-
   const clean = value.trim().toLowerCase()
   if (!clean) return null
   if (!TOKEN_REGEX.test(clean)) throw new ValidationError(`${field} inválido`)
-
   return clean
 }
 
 function sanitizeResources(value: unknown): string[] {
   if (value === null) return []
   if (!Array.isArray(value)) throw new ValidationError('recursos deve ser um array')
-
   const out = new Set<string>()
   for (const item of value) {
     if (typeof item !== 'string') continue
@@ -183,7 +206,6 @@ function sanitizeResources(value: unknown): string[] {
     out.add(clean)
     if (out.size >= 10) break
   }
-
   return Array.from(out)
 }
 
@@ -224,25 +246,26 @@ function sanitizeField(key: string, value: unknown): unknown {
 
 function sanitizeAllowedFields(input: Body): Body {
   const out: Body = {}
-
   for (const key of CAMPOS_FRONTEND) {
     if (!Object.prototype.hasOwnProperty.call(input, key)) continue
     out[key] = sanitizeField(key, input[key])
   }
-
   return out
 }
 
 async function slugInUse(slug: string, cartaId?: string): Promise<boolean> {
   let query = supabaseAdmin.from('cartas').select('id').eq('slug', slug).limit(1)
   if (cartaId) query = query.neq('id', cartaId)
-
   const { data, error } = await query.maybeSingle()
   if (error) throw error
   return Boolean(data)
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request)
+  const { success } = await ratelimitWrite.limit(`cartas:post:${ip}`)
+  if (!success) return errorJson('Muitas tentativas. Tente novamente em instantes.', 429)
+
   try {
     const body = await parseBody(request)
     const campos = sanitizeAllowedFields(stripBlockedFields(body))
@@ -284,15 +307,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ carta_id: carta.id }, { status: 201 })
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return errorJson(error.message, 400)
-    }
+    if (error instanceof ValidationError) return errorJson(error.message, 400)
     console.error('[cartas POST] erro interno')
     return errorJson('Erro interno do servidor', 500)
   }
 }
 
 export async function PATCH(request: NextRequest) {
+  const ip = getClientIp(request)
+  const { success } = await ratelimitWrite.limit(`cartas:patch:${ip}`)
+  if (!success) return errorJson('Muitas tentativas. Tente novamente em instantes.', 429)
+
   try {
     const body = await parseBody(request)
     const { carta_id, ...rest } = body
@@ -331,15 +356,17 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ carta_id: carta.id })
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return errorJson(error.message, 400)
-    }
+    if (error instanceof ValidationError) return errorJson(error.message, 400)
     console.error('[cartas PATCH] erro interno')
     return errorJson('Erro interno do servidor', 500)
   }
 }
 
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request)
+  const { success } = await ratelimitRead.limit(`cartas:get:${ip}`)
+  if (!success) return errorJson('Muitas tentativas. Tente novamente em instantes.', 429)
+
   try {
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
@@ -357,7 +384,7 @@ export async function GET(request: NextRequest) {
 
       const { data, error } = await supabaseAdmin
         .from('cartas')
-        .select('id, slug, status, nome_destinatario, nome_remetente, qr_code_url')
+        .select(CAMPOS_GET_PUBLICOS.join(', '))
         .eq('id', cleanId)
         .maybeSingle()
 
@@ -388,9 +415,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ disponivel: !data })
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return errorJson(error.message, 400)
-    }
+    if (error instanceof ValidationError) return errorJson(error.message, 400)
     return errorJson('Erro interno', 500)
   }
 }

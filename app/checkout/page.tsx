@@ -3,18 +3,25 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react'
+import { PLANOS } from '@/lib/planos'
+
+const PRECOS: Record<string, number> = {
+  forever:   PLANOS.forever.preco,
+  impressao: PLANOS.impressao.preco,
+}
+
+type PaymentSubmitHandler = NonNullable<React.ComponentProps<typeof Payment>['onSubmit']>
 
 let mpInitialized = false
 function ensureMP() {
   if (mpInitialized) return
-  initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: 'pt-BR' })
+  const key = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY ?? ''
+  if (!key) {
+    console.error('[checkout] NEXT_PUBLIC_MP_PUBLIC_KEY ausente')
+    return
+  }
+  initMercadoPago(key, { locale: 'pt-BR' })
   mpInitialized = true
-}
-
-import { PLANOS } from '@/lib/planos'
-const PRECOS: Record<string, number> = {
-  forever:   PLANOS.forever.preco,
-  impressao: PLANOS.impressao.preco,
 }
 
 function CheckoutContent() {
@@ -41,9 +48,9 @@ function CheckoutContent() {
     }
 
     fetch('/api/checkout', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ carta_id, plano, tipo }),
+      body:    JSON.stringify({ carta_id, plano, tipo }),
     })
       .then(res => res.json())
       .then(data => {
@@ -57,18 +64,19 @@ function CheckoutContent() {
       .finally(() => setLoading(false))
   }, [carta_id, plano, tipo])
 
-  async function handleSubmit(brickData: any) {
+  const handleSubmit: PaymentSubmitHandler = async (brickData) => {
+    const methodId = brickData?.formData?.payment_method_id
     const isPix =
-      brickData?.selectedPaymentMethod === 'bank_transfer' ||
-      brickData?.formData?.payment_method_id === 'pix'
+      (brickData as unknown as Record<string, unknown>)?.selectedPaymentMethod === 'bank_transfer' ||
+      methodId === 'pix'
 
     // ─── PIX ─────────────────────────────────────────────
     if (isPix) {
       try {
-        const res = await fetch('/api/pix', {
-          method: 'POST',
+        const res    = await fetch('/api/pix', {
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body:    JSON.stringify({
             carta_id,
             plano,
             tipo,
@@ -77,21 +85,27 @@ function CheckoutContent() {
           }),
         })
         const result = await res.json()
-        if (!res.ok) { alert(result.error || 'Erro ao gerar PIX'); return }
-        window.location.href = `/aguardando-pix?payment_id=${result.payment_id}&carta_id=${carta_id}&tipo=${tipo}&plano=${plano}&qr=${encodeURIComponent(result.qr_code)}&qr64=${encodeURIComponent(result.qr_code_base64 ?? '')}`
+
+        if (!res.ok) {
+          setErro(result.error || 'Erro ao gerar PIX')
+          return
+        }
+
+        window.location.href = `/aguardando-pix?payment_id=${result.payment_id}&carta_id=${encodeURIComponent(carta_id)}&tipo=${encodeURIComponent(tipo)}&plano=${encodeURIComponent(plano)}&qr=${encodeURIComponent(result.qr_code)}&qr64=${encodeURIComponent(result.qr_code_base64 ?? '')}`
       } catch {
-        alert('Erro ao gerar PIX. Tente novamente.')
+        setErro('Erro ao gerar PIX. Tente novamente.')
       }
       return
     }
 
     // ─── Cartão ───────────────────────────────────────────
     setProcessando(true)
+    setErro('')
     try {
       const res = await fetch('/api/checkout/processar', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body:    JSON.stringify({
           carta_id,
           plano,
           tipo,
@@ -102,16 +116,15 @@ function CheckoutContent() {
       const result = await res.json()
 
       if (result.status === 'approved') {
-        // ✅ Carta já ativada no servidor — slug disponível imediatamente
         const slugParam = result.slug ? `&slug=${encodeURIComponent(result.slug)}` : ''
-        window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&plano=${plano}${slugParam}`
+        window.location.href = `/obrigado?carta_id=${encodeURIComponent(carta_id)}&tipo=${encodeURIComponent(tipo)}&plano=${encodeURIComponent(plano)}${slugParam}`
       } else if (result.status === 'in_process' || result.status === 'pending') {
-        window.location.href = `/obrigado?carta_id=${carta_id}&tipo=${tipo}&plano=${plano}&pending=true`
+        window.location.href = `/obrigado?carta_id=${encodeURIComponent(carta_id)}&tipo=${encodeURIComponent(tipo)}&plano=${encodeURIComponent(plano)}&pending=true`
       } else {
-        alert('Pagamento não aprovado. Verifique os dados do cartão e tente novamente.')
+        setErro('Pagamento não aprovado. Verifique os dados do cartão e tente novamente.')
       }
     } catch {
-      alert('Erro ao processar pagamento. Tente novamente.')
+      setErro('Erro ao processar pagamento. Tente novamente.')
     } finally {
       setProcessando(false)
     }
@@ -142,7 +155,7 @@ function CheckoutContent() {
             </div>
           )}
 
-          {loading && (
+          {loading && !erro && (
             <div style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: 'rgba(255,255,255,0.5)' }}>Carregando checkout...</p>
             </div>
@@ -150,8 +163,14 @@ function CheckoutContent() {
 
           {erro && (
             <div style={{ textAlign: 'center', padding: '40px' }}>
-              <p style={{ color: '#ff6b9d' }}>{erro}</p>
-              <a href="/criar" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', marginTop: '12px', display: 'block' }}>← Voltar ao início</a>
+              <p style={{ color: '#ff6b9d', marginBottom: '12px' }}>{erro}</p>
+              <button
+                onClick={() => setErro('')}
+                style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Tentar novamente
+              </button>
+              <a href="/criar" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', marginTop: '8px', display: 'block' }}>← Voltar ao início</a>
             </div>
           )}
 
@@ -193,7 +212,11 @@ function CheckoutContent() {
 
 export default function CheckoutPage() {
   return (
-    <Suspense>
+    <Suspense fallback={
+      <main style={{ minHeight: '100vh', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Carregando...</p>
+      </main>
+    }>
       <CheckoutContent />
     </Suspense>
   )

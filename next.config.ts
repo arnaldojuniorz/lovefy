@@ -1,84 +1,29 @@
-import { withSentryConfig } from '@sentry/nextjs';
 import type { NextConfig } from 'next'
-
-const ALLOWED_ORIGIN = 'https://www.lovefy.app.br'
 
 const nextConfig: NextConfig = {
   async headers() {
     return [
-      // ─── Headers globais de segurança ─────────────────
       {
+        // Headers de segurança para todas as rotas
         source: '/(.*)',
         headers: [
-          { key: 'X-Content-Type-Options',    value: 'nosniff' },
-          { key: 'X-Frame-Options',           value: 'DENY' },
-          { key: 'X-XSS-Protection',          value: '1; mode=block' },
-          { key: 'Referrer-Policy',           value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy',        value: 'camera=(), microphone=(), geolocation=()' },
-          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'X-Content-Type-Options',            value: 'nosniff' },
+          { key: 'X-Frame-Options',                   value: 'DENY' },
+          { key: 'Referrer-Policy',                   value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy',                value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security',         value: 'max-age=63072000; includeSubDomains; preload' },
         ],
       },
-
-      // ─── APIs — sem cache + CORS restritivo ───────────
       {
+        // Cache: API routes nunca devem ser cacheadas
         source: '/api/(.*)',
         headers: [
-          // Sem cache
           { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
           { key: 'Pragma',        value: 'no-cache' },
-          // ✅ CORS — só aceita requisições do próprio domínio
-          { key: 'Access-Control-Allow-Origin',  value: ALLOWED_ORIGIN },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PATCH, OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
-          { key: 'Access-Control-Max-Age',       value: '86400' },
-        ],
-      },
-
-      // ─── Webhook — permite origem do Mercado Pago ─────
-      {
-        source: '/api/webhook',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
         ],
       },
     ]
   },
 }
 
-export default withSentryConfig(nextConfig, {
-  // For all available options, see:
-  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
-
-  org: "lovefy-jr",
-
-  project: "javascript-nextjs",
-
-  // Only print logs for uploading source maps in CI
-  silent: !process.env.CI,
-
-  // For all available options, see:
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
-
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
-  widenClientFileUpload: true,
-
-  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  // This can increase your server load as well as your hosting bill.
-  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-  // side errors will fail.
-  tunnelRoute: "/monitoring",
-
-  webpack: {
-    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-    // See the following for more information:
-    // https://docs.sentry.io/product/crons/
-    // https://vercel.com/docs/cron-jobs
-    automaticVercelMonitors: true,
-
-    // Tree-shaking options for reducing bundle size
-    treeshake: {
-      // Automatically tree-shake Sentry logger statements to reduce bundle size
-      removeDebugLogging: true,
-    },
-  },
-});
+export default nextConfig

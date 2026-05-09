@@ -1,27 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MercadoPagoConfig, Preference } from 'mercadopago'
 import { supabaseAdmin } from '@/lib/supabase'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
 export const runtime = 'nodejs'
 
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN ?? ''
 
 const PLANOS = {
-  forever: { preco: 9.9, titulo: 'Carta Digital Para Sempre', categoria: 'services' },
-  impressao: { preco: 6.9, titulo: 'Carta para Impressão', categoria: 'services' },
+  forever:   { preco: 9.9,  titulo: 'Carta Digital Para Sempre', categoria: 'services' },
+  impressao: { preco: 6.9,  titulo: 'Carta para Impressão',      categoria: 'services' },
 } as const
 
-type Plano = keyof typeof PLANOS
-type Tipo = 'digital' | 'impressao'
+type Plano  = keyof typeof PLANOS
+type Tipo   = 'digital' | 'impressao'
 type Tabela = 'cartas' | 'cartas_impressao'
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const UUID_REGEX  = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const RATE_LIMIT_MAX = 6
-const RATE_LIMIT_WINDOW_MS = 60_000
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(6, '60 s'),
+  prefix: 'rl:checkout',
+})
 
 function getBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://www.lovefy.app.br'
@@ -46,37 +49,11 @@ function getClientIp(request: NextRequest): string {
   return 'unknown'
 }
 
-function applyRateLimit(key: string) {
-  const now = Date.now()
-  const existing = rateLimitStore.get(key)
-
-  if (!existing || existing.resetAt <= now) {
-    const created = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
-    rateLimitStore.set(key, created)
-    return {
-      allowed: true,
-      limit: RATE_LIMIT_MAX,
-      remaining: RATE_LIMIT_MAX - 1,
-      resetAt: created.resetAt,
-      retryAfterSec: 0,
-    }
-  }
-
-  existing.count += 1
-  rateLimitStore.set(key, existing)
-
-  const remaining = Math.max(0, RATE_LIMIT_MAX - existing.count)
-  const allowed = existing.count <= RATE_LIMIT_MAX
-  const retryAfterSec = Math.max(1, Math.ceil((existing.resetAt - now) / 1000))
-
-  return { allowed, limit: RATE_LIMIT_MAX, remaining, resetAt: existing.resetAt, retryAfterSec }
-}
-
-function rateLimitHeaders(info: { limit: number; remaining: number; resetAt: number }) {
+function rateLimitHeaders(info: { limit: number; remaining: number; reset: number }) {
   return {
-    'X-RateLimit-Limit': String(info.limit),
+    'X-RateLimit-Limit':     String(info.limit),
     'X-RateLimit-Remaining': String(info.remaining),
-    'X-RateLimit-Reset': String(Math.floor(info.resetAt / 1000)),
+    'X-RateLimit-Reset':     String(Math.floor(info.reset / 1000)),
   }
 }
 
@@ -108,7 +85,7 @@ function sanitizeName(value: unknown, fallback = 'Cliente') {
 function splitName(fullName: string) {
   const parts = fullName.split(' ').filter(Boolean)
   const firstName = parts[0] ?? 'Cliente'
-  const lastName = parts.slice(1).join(' ') || firstName
+  const lastName  = parts.slice(1).join(' ') || firstName
   return { firstName, lastName }
 }
 
@@ -122,13 +99,14 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
-  const limiter = applyRateLimit(`checkout:${ip}`)
-  const baseHeaders = rateLimitHeaders(limiter)
+  const { success, limit, remaining, reset } = await ratelimit.limit(`checkout:${ip}`)
+  const baseHeaders = rateLimitHeaders({ limit, remaining, reset })
 
-  if (!limiter.allowed) {
+  if (!success) {
+    const retryAfterSec = Math.max(1, Math.ceil((reset - Date.now()) / 1000))
     return jsonError('Muitas tentativas. Tente novamente em instantes.', 429, {
       ...baseHeaders,
-      'Retry-After': String(limiter.retryAfterSec),
+      'Retry-After': String(retryAfterSec),
     })
   }
 
@@ -148,7 +126,7 @@ export async function POST(request: NextRequest) {
       return jsonError('Payload inválido', 400, baseHeaders)
     }
 
-    const body = parsedBody as Record<string, unknown>
+    const body    = parsedBody as Record<string, unknown>
     const cartaId = typeof body.carta_id === 'string' ? body.carta_id.trim() : ''
 
     if (!UUID_REGEX.test(cartaId)) {
@@ -182,7 +160,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (cartaError) {
-      console.error('[checkout] erro ao buscar carta', cartaError)
+      console.error('[checkout] erro ao buscar carta')
       return jsonError('Erro ao iniciar checkout', 500, baseHeaders)
     }
 
@@ -206,13 +184,13 @@ export async function POST(request: NextRequest) {
     )
     const { firstName, lastName } = splitName(nomeCompleto)
 
-    const baseUrl = getBaseUrl()
+    const baseUrl          = getBaseUrl()
     const planoSelecionado = PLANOS[plano]
     const externalReference = `${cartaId}|${plano}`
 
     const successParams = new URLSearchParams({ carta_id: cartaId, plano, tipo })
-    const successUrl = `${baseUrl}/obrigado?${successParams.toString()}`
-    const failureUrl = tipo === 'impressao' ? `${baseUrl}/imprimir` : `${baseUrl}/criar`
+    const successUrl    = `${baseUrl}/obrigado?${successParams.toString()}`
+    const failureUrl    = tipo === 'impressao' ? `${baseUrl}/imprimir` : `${baseUrl}/criar`
 
     const preference = new Preference(new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN }))
 
@@ -220,33 +198,33 @@ export async function POST(request: NextRequest) {
       body: {
         items: [
           {
-            id: cartaId,
-            title: planoSelecionado.titulo,
+            id:          cartaId,
+            title:       planoSelecionado.titulo,
             description: `Lovefy - ${planoSelecionado.titulo}`,
             category_id: planoSelecionado.categoria,
-            quantity: 1,
-            unit_price: planoSelecionado.preco,
+            quantity:    1,
+            unit_price:  planoSelecionado.preco,
             currency_id: 'BRL',
           },
         ],
         payer: {
-          name: nomeCompleto,
+          name:       nomeCompleto,
           email,
           first_name: firstName,
-          last_name: lastName,
-        } as any,
+          last_name:  lastName,
+        } as never,
         back_urls: {
           success: successUrl,
           failure: failureUrl,
           pending: successUrl,
         },
-        auto_return: 'approved',
-        external_reference: externalReference,
-        notification_url: `${baseUrl}/api/webhook`,
+        auto_return:          'approved',
+        external_reference:   externalReference,
+        notification_url:     `${baseUrl}/api/webhook`,
         statement_descriptor: 'LOVEFY',
-        expires: true,
+        expires:              true,
         expiration_date_from: new Date().toISOString(),
-        expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        expiration_date_to:   new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       },
     })
 
@@ -267,8 +245,9 @@ export async function POST(request: NextRequest) {
       { preference_id: response.id, checkout_url: response.init_point },
       { headers: baseHeaders }
     )
+
   } catch (error) {
-    console.error('[checkout] erro interno', error)
+    console.error('[checkout] erro interno:', error)
     return jsonError('Erro ao criar preferência de pagamento', 500, baseHeaders)
   }
 }

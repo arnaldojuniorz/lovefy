@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
 import { supabaseAdmin } from '@/lib/supabase'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
 export const runtime = 'nodejs'
 
@@ -21,9 +23,11 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TOKEN_REGEX = /^[a-zA-Z0-9_-]{20,600}$/
 const PAYMENT_METHOD_REGEX = /^[a-zA-Z0-9_]{2,40}$/
 
-const RATE_LIMIT_MAX = 6
-const RATE_LIMIT_WINDOW_MS = 60_000
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(6, '60 s'),
+  prefix: 'rl:cartao',
+})
 
 function getBaseUrl(): string {
   const raw =
@@ -55,49 +59,11 @@ function getClientIp(request: NextRequest): string {
   return 'unknown'
 }
 
-function applyRateLimit(key: string) {
-  const now = Date.now()
-  const existing = rateLimitStore.get(key)
-
-  if (!existing || existing.resetAt <= now) {
-    const created = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS }
-    rateLimitStore.set(key, created)
-    return {
-      allowed: true,
-      limit: RATE_LIMIT_MAX,
-      remaining: RATE_LIMIT_MAX - 1,
-      resetAt: created.resetAt,
-      retryAfterSec: 0,
-    }
-  }
-
-  existing.count += 1
-  rateLimitStore.set(key, existing)
-
-  const remaining = Math.max(0, RATE_LIMIT_MAX - existing.count)
-  const allowed = existing.count <= RATE_LIMIT_MAX
-  const retryAfterSec = Math.max(1, Math.ceil((existing.resetAt - now) / 1000))
-
-  if (rateLimitStore.size > 5000) {
-    for (const [k, v] of rateLimitStore.entries()) {
-      if (v.resetAt <= now) rateLimitStore.delete(k)
-    }
-  }
-
-  return {
-    allowed,
-    limit: RATE_LIMIT_MAX,
-    remaining,
-    resetAt: existing.resetAt,
-    retryAfterSec,
-  }
-}
-
-function rateLimitHeaders(info: { limit: number; remaining: number; resetAt: number }) {
+function rateLimitHeaders(info: { limit: number; remaining: number; reset: number }) {
   return {
     'X-RateLimit-Limit': String(info.limit),
     'X-RateLimit-Remaining': String(info.remaining),
-    'X-RateLimit-Reset': String(Math.floor(info.resetAt / 1000)),
+    'X-RateLimit-Reset': String(Math.floor(info.reset / 1000)),
   }
 }
 
@@ -170,13 +136,15 @@ function normalizeMpStatus(status: string | null | undefined): string {
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
-  const limiter = applyRateLimit(`cartao:${ip}`)
-  const baseHeaders = rateLimitHeaders(limiter)
+  const { success, limit, remaining, reset } = await ratelimit.limit(`cartao:${ip}`)
 
-  if (!limiter.allowed) {
+  const baseHeaders = rateLimitHeaders({ limit, remaining, reset })
+
+  if (!success) {
+    const retryAfterSec = Math.max(1, Math.ceil((reset - Date.now()) / 1000))
     return jsonError('Muitas tentativas. Tente novamente em instantes.', 429, {
       ...baseHeaders,
-      'Retry-After': String(limiter.retryAfterSec),
+      'Retry-After': String(retryAfterSec),
     })
   }
 
