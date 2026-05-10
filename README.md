@@ -106,7 +106,7 @@ lib/
 └── mover-fotos.ts    # Move fotos de temp para definitivo
 ## Deploy
 
-O deploy é automático via Vercel ao fazer push para `main`.
+O deploy é automático via Vercel ao fazer push para `develop`.
 
 Variáveis de ambiente de produção devem ser configuradas no painel da Vercel em **Settings → Environment Variables**.
 
