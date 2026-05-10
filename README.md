@@ -1,36 +1,113 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lovefy
 
-## Getting Started
+Plataforma de cartas digitais e PDF personalizadas para ocasiões especiais.
 
-First, run the development server:
+## Stack
+
+- **Framework:** Next.js 15 (App Router)
+- **Banco de dados:** Supabase (PostgreSQL + Storage)
+- **Pagamentos:** Mercado Pago (PIX + Cartão)
+- **E-mail:** Resend
+- **Deploy:** Vercel
+- **Rate limiting:** Upstash Redis
+- **Mapas estelares:** Astronomy API
+
+## Produtos
+
+| Produto | Preço | Entrega |
+|---|---|---|
+| Carta Digital (Para Sempre) | R$ 9,90 | Link exclusivo após pagamento |
+| Carta para Impressão (PDF) | R$ 6,90 | PDF por e-mail após pagamento |
+
+## Configuração local
+
+### 1. Instalar dependências
+
+```bash
+npm install
+```
+
+### 2. Variáveis de ambiente
+
+Crie `.env.local` na raiz com:
+
+```env
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Mercado Pago
+MERCADOPAGO_ACCESS_TOKEN=
+MERCADOPAGO_WEBHOOK_SECRET=
+NEXT_PUBLIC_MP_PUBLIC_KEY=
+
+# Resend
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=Lovefy <contato@lovefy.app.br>
+
+# Upstash Redis
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+
+# Astronomy API
+ASTRONOMY_API_ID=
+ASTRONOMY_API_SECRET=
+
+# Cron
+CRON_SECRET=
+
+# Google Analytics (opcional)
+NEXT_PUBLIC_GA_ID=
+```
+
+### 3. Rodar em desenvolvimento
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Webhook local (Mercado Pago)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Para testar pagamentos localmente, exponha o servidor via ngrok:
 
-## Learn More
+```bash
+ngrok http 3000
+```
 
-To learn more about Next.js, take a look at the following resources:
+Configure a URL `https://SEU-NGROK.ngrok.io/api/webhook` no painel do Mercado Pago.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+> ⚠️ Nunca use URL do ngrok em produção. Em produção o webhook deve apontar para `https://www.lovefy.app.br/api/webhook`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estrutura principal
+app/
+├── api/              # API Routes (pagamento, upload, webhook, etc.)
+├── c/[slug]/         # Página pública da carta digital
+├── criar/            # Formulário multi-etapa (carta digital)
+├── imprimir/         # Formulário (carta PDF)
+├── checkout/         # Página de pagamento (Mercado Pago Brick)
+├── aguardando-pix/   # Polling de status PIX
+└── obrigado/         # Confirmação pós-pagamento
+components/
+├── carta/            # CartaViewer, CartaPaginas, CartaTypes
+└── etapas/           # Etapa1–5, GaleriaUpload
+lib/
+├── carta-context.tsx # Estado global do formulário
+├── supabase.ts       # Clientes Supabase (público e admin)
+├── planos.ts         # Fonte de verdade de preços
+├── enviar-email.ts   # Envio via Resend
+├── gerar-pdf.ts      # Geração de PDF com jsPDF
+├── gerar-qrcode.ts   # Geração de QR Code
+└── mover-fotos.ts    # Move fotos de temp para definitivo
+## Deploy
 
-## Deploy on Vercel
+O deploy é automático via Vercel ao fazer push para `main`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Variáveis de ambiente de produção devem ser configuradas no painel da Vercel em **Settings → Environment Variables**.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+O cron job de limpeza de fotos órfãs roda diariamente (`0 0 * * *` UTC).
