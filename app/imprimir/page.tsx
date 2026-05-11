@@ -6,10 +6,10 @@ import { PLANOS } from '@/lib/planos'
 const PRECO_IMPRESSAO = PLANOS.impressao.preco
 
 export default function ImprimirPage() {
-  const [etapa, setEtapa]   = useState(1)
+  const [etapa, setEtapa]     = useState(1)
   const [loading, setLoading] = useState(false)
-  const [erro, setErro]     = useState('')
-  const [dados, setDados]   = useState({
+  const [erro, setErro]       = useState('')
+  const [dados, setDados]     = useState({
     destinatario:    '',
     remetente:       '',
     mensagem:        '',
@@ -84,7 +84,6 @@ export default function ImprimirPage() {
           </div>
         )}
 
-        {/* Etapa 1 — Conteúdo */}
         {etapa === 1 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
             <h2 className="text-2xl font-bold text-white mb-2">Para quem é essa carta? 💌</h2>
@@ -152,7 +151,6 @@ export default function ImprimirPage() {
           </div>
         )}
 
-        {/* Etapa 2 — Pagamento */}
         {etapa === 2 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
             <h2 className="text-2xl font-bold text-white mb-2">Quase lá! 💳</h2>
