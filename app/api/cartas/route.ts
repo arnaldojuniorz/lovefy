@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
+export const runtime = 'edge'
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SLUG_REGEX = /^[a-z0-9-]{3,60}$/
 const TOKEN_REGEX = /^[a-z0-9_-]{1,40}$/i
@@ -49,7 +51,6 @@ const CAMPOS_BLOQUEADOS = new Set<string>([
   'qr_code_url',
 ])
 
-// Campos seguros para expor no GET — nunca expor dados financeiros ou de pagamento
 const CAMPOS_GET_PUBLICOS = [
   'id',
   'slug',
@@ -84,11 +85,9 @@ async function parseBody(request: NextRequest): Promise<Body> {
   } catch {
     throw new ValidationError('JSON inválido')
   }
-
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new ValidationError('Payload inválido')
   }
-
   return body as Body
 }
 
@@ -151,25 +150,21 @@ function sanitizeUrl(value: unknown, spotifyOnly = false): string | null {
   const clean = value.trim()
   if (!clean) return null
   if (clean.length > 700) throw new ValidationError('URL muito longa')
-
   let url: URL
   try {
     url = new URL(clean)
   } catch {
     throw new ValidationError('URL inválida')
   }
-
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new ValidationError('URL deve usar http ou https')
   }
-
   if (spotifyOnly) {
     const host = url.hostname.toLowerCase()
     if (!host.endsWith('spotify.com')) {
       throw new ValidationError('musica_link deve ser do Spotify')
     }
   }
-
   url.hash = ''
   return url.toString()
 }
@@ -211,36 +206,22 @@ function sanitizeResources(value: unknown): string[] {
 
 function sanitizeField(key: string, value: unknown): unknown {
   switch (key) {
-    case 'nome_destinatario':
-      return sanitizeName(value, 'Nome do destinatário')
-    case 'nome_remetente':
-      return sanitizeName(value, 'Nome do remetente')
-    case 'nome_pagador':
-      return sanitizeOptionalString(value, 100)
+    case 'nome_destinatario':  return sanitizeName(value, 'Nome do destinatário')
+    case 'nome_remetente':     return sanitizeName(value, 'Nome do remetente')
+    case 'nome_pagador':       return sanitizeOptionalString(value, 100)
     case 'jogo_palavra1':
     case 'jogo_palavra2':
-    case 'jogo_palavra3':
-      return sanitizeOptionalString(value, 60)
-    case 'mensagem_principal':
-      return sanitizeMessage(value)
-    case 'email_pagador':
-      return sanitizeEmail(value)
-    case 'data_importante':
-      return sanitizeDate(value)
-    case 'musica_link':
-      return sanitizeUrl(value, true)
-    case 'foto_destaque':
-      return sanitizeUrl(value, false)
-    case 'slug':
-      return sanitizeSlug(value)
-    case 'estilo_fundo':
-      return sanitizeToken(value, 'estilo_fundo')
-    case 'estilo_animacao':
-      return sanitizeToken(value, 'estilo_animacao')
-    case 'recursos':
-      return sanitizeResources(value)
-    default:
-      return value
+    case 'jogo_palavra3':      return sanitizeOptionalString(value, 60)
+    case 'mensagem_principal': return sanitizeMessage(value)
+    case 'email_pagador':      return sanitizeEmail(value)
+    case 'data_importante':    return sanitizeDate(value)
+    case 'musica_link':        return sanitizeUrl(value, true)
+    case 'foto_destaque':      return sanitizeUrl(value, false)
+    case 'slug':               return sanitizeSlug(value)
+    case 'estilo_fundo':       return sanitizeToken(value, 'estilo_fundo')
+    case 'estilo_animacao':    return sanitizeToken(value, 'estilo_animacao')
+    case 'recursos':           return sanitizeResources(value)
+    default:                   return value
   }
 }
 
@@ -267,7 +248,7 @@ export async function POST(request: NextRequest) {
   if (!success) return errorJson('Muitas tentativas. Tente novamente em instantes.', 429)
 
   try {
-    const body = await parseBody(request)
+    const body   = await parseBody(request)
     const campos = sanitizeAllowedFields(stripBlockedFields(body))
 
     if (typeof campos.nome_destinatario !== 'string' || typeof campos.nome_remetente !== 'string') {
@@ -281,11 +262,11 @@ export async function POST(request: NextRequest) {
 
     const payload: Body = {
       nome_destinatario: campos.nome_destinatario,
-      nome_remetente: campos.nome_remetente,
-      status: 'rascunho',
-      estilo_fundo: 'stars',
-      estilo_animacao: 'float',
-      recursos: [],
+      nome_remetente:    campos.nome_remetente,
+      status:            'rascunho',
+      estilo_fundo:      'stars',
+      estilo_animacao:   'float',
+      recursos:          [],
     }
 
     for (const [key, value] of Object.entries(campos)) {
@@ -319,7 +300,7 @@ export async function PATCH(request: NextRequest) {
   if (!success) return errorJson('Muitas tentativas. Tente novamente em instantes.', 429)
 
   try {
-    const body = await parseBody(request)
+    const body           = await parseBody(request)
     const { carta_id, ...rest } = body
 
     if (typeof carta_id !== 'string' || !UUID_REGEX.test(carta_id.trim())) {
@@ -368,8 +349,8 @@ export async function GET(request: NextRequest) {
   if (!success) return errorJson('Muitas tentativas. Tente novamente em instantes.', 429)
 
   try {
-    const url = new URL(request.url)
-    const id = url.searchParams.get('id')
+    const url  = new URL(request.url)
+    const id   = url.searchParams.get('id')
     const slug = url.searchParams.get('slug')
 
     if (!id && !slug) {
