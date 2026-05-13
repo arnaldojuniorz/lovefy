@@ -185,7 +185,7 @@ export default function ImprimirPage() {
                     <p className="text-white/50 text-xs">PDF em alta qualidade • Fundo branco</p>
                   </div>
                   <p className="text-pink-400 text-2xl font-black">
-                    R$ {PRECO_IMPRESSAO.toFixed(2).replace('.', ',')}
+                    R$ 6,90
                   </p>
                 </div>
               </div>
@@ -205,7 +205,7 @@ export default function ImprimirPage() {
                 className="bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
                 style={{ flex: 2 }}
               >
-                {loading ? 'Aguarde...' : `Pagar R$ ${PRECO_IMPRESSAO.toFixed(2).replace('.', ',')} 💳`}
+                {loading ? 'Aguarde...' : 'Pagar R$ 6,90 💳'}
               </button>
             </div>
 
