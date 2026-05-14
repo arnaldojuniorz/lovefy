@@ -205,7 +205,7 @@ export default function ImprimirPage() {
                 className="bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
                 style={{ flex: 2 }}
               >
-                {loading ? 'Aguarde...' : 'Pagar R$ 6,90 💳'}
+                {loading ? 'Aguarde...' : 'Pagar R$ 6,90'}
               </button>
             </div>
 
