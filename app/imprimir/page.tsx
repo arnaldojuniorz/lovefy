@@ -1,9 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { PLANOS } from '@/lib/planos'
-
-const PRECO_IMPRESSAO = PLANOS.impressao.preco
 
 export default function ImprimirPage() {
   const [etapa, setEtapa]     = useState(1)
@@ -25,7 +22,7 @@ export default function ImprimirPage() {
 
   function avancarEtapa() {
     if (!dados.destinatario || !dados.remetente || !dados.mensagem) {
-      setErro('Preencha os campos obrigatórios.')
+      setErro('Preencha os campos obrigatorios.')
       return
     }
     setErro('')
@@ -57,7 +54,7 @@ export default function ImprimirPage() {
       }
       window.location.href = `/checkout?carta_id=${result.carta_id}&plano=impressao&tipo=impressao&nome=${encodeURIComponent(dados.nome_pagador)}&email=${encodeURIComponent(dados.email_pagador)}`
     } catch {
-      setErro('Erro de conexão. Tente novamente.')
+      setErro('Erro de conexao. Tente novamente.')
       setLoading(false)
     }
   }
@@ -67,9 +64,9 @@ export default function ImprimirPage() {
       <div style={{ maxWidth: '500px', margin: '0 auto' }}>
 
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <a href="/" style={{ color: '#ff6b9d', textDecoration: 'none', fontSize: '14px', display: 'block', marginBottom: '16px' }}>← Voltar</a>
-          <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: '700', margin: '0 0 8px' }}>Carta para impressão</h1>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: '0' }}>Um presente simples, mas inesquecível</p>
+          <a href="/" style={{ color: '#ff6b9d', textDecoration: 'none', fontSize: '14px', display: 'block', marginBottom: '16px' }}>Voltar</a>
+          <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: '700', margin: '0 0 8px' }}>Carta para impressao</h1>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: '0' }}>Um presente simples, mas inesquecivel</p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
@@ -86,12 +83,12 @@ export default function ImprimirPage() {
 
         {etapa === 1 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
-            <h2 className="text-2xl font-bold text-white mb-2">Para quem é essa carta? 💌</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Para quem e essa carta?</h2>
             <p className="text-white/50 text-sm mb-8">Preencha os dados principais</p>
 
             <div className="space-y-4">
               <div>
-                <label className="text-white/70 text-sm block mb-2">Para quem é essa carta? *</label>
+                <label className="text-white/70 text-sm block mb-2">Para quem e essa carta? *</label>
                 <input
                   type="text"
                   value={dados.destinatario}
@@ -115,13 +112,13 @@ export default function ImprimirPage() {
                 <textarea
                   value={dados.mensagem}
                   onChange={e => atualizar('mensagem', e.target.value)}
-                  placeholder="Escreva tudo que você sente..."
+                  placeholder="Escreva tudo que voce sente..."
                   rows={8}
                   className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors resize-none"
                 />
               </div>
               <div>
-                <label className="text-white/70 text-sm block mb-2">Data importante <span className="text-white/30">(opcional)</span></label>
+                <label className="text-white/70 text-sm block mb-2">Data importante (opcional)</label>
                 <input
                   type="date"
                   value={dados.data_importante}
@@ -130,7 +127,7 @@ export default function ImprimirPage() {
                 />
               </div>
               <div>
-                <label className="text-white/70 text-sm block mb-2">Link do Spotify <span className="text-white/30">(opcional)</span></label>
+                <label className="text-white/70 text-sm block mb-2">Link do Spotify (opcional)</label>
                 <input
                   type="text"
                   value={dados.musica_link}
@@ -138,7 +135,7 @@ export default function ImprimirPage() {
                   placeholder="https://open.spotify.com/track/..."
                   className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm"
                 />
-                <p className="text-white/30 text-xs mt-2">Um QR Code será adicionado à carta</p>
+                <p className="text-white/30 text-xs mt-2">Um QR Code sera adicionado a carta</p>
               </div>
             </div>
 
@@ -146,14 +143,14 @@ export default function ImprimirPage() {
               onClick={avancarEtapa}
               className="w-full mt-8 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all"
             >
-              Continuar →
+              Continuar
             </button>
           </div>
         )}
 
         {etapa === 2 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
-            <h2 className="text-2xl font-bold text-white mb-2">Quase lá! 💳</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Quase la!</h2>
             <p className="text-white/50 text-sm mb-6">Preencha seus dados para finalizar</p>
 
             <div className="space-y-4">
@@ -178,38 +175,35 @@ export default function ImprimirPage() {
                 />
               </div>
 
-              <div className="bg-pink-500/10 border border-pink-500/20 rounded-xl p-5">
-                <div className="flex justify-between items-center">
+              <div style={{ background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.2)', borderRadius: '12px', padding: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p className="text-white font-semibold mb-1">Carta para Impressão</p>
-                    <p className="text-white/50 text-xs">PDF em alta qualidade • Fundo branco</p>
+                    <p style={{ color: '#fff', fontWeight: '600', marginBottom: '4px' }}>Carta para Impressao</p>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>PDF em alta qualidade - Fundo branco</p>
                   </div>
-                  <p className="text-pink-400 text-2xl font-black">
-                    R$ 6,90
-                  </p>
+                  <p style={{ color: '#f472b6', fontSize: '24px', fontWeight: '900' }}>R$ 6,90</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 mt-8">
+            <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
               <button
                 onClick={() => { setErro(''); setEtapa(1) }}
                 disabled={loading}
-                className="flex-1 bg-white/10 text-white font-semibold py-4 rounded-xl hover:bg-white/20 transition-all disabled:opacity-50"
+                style={{ flex: 1, background: 'rgba(255,255,255,0.1)', color: '#fff', fontWeight: '600', padding: '16px', borderRadius: '12px', border: 'none', cursor: 'pointer', opacity: loading ? 0.5 : 1 }}
               >
-                ← Voltar
+                Voltar
               </button>
               <button
                 onClick={handlePagar}
                 disabled={loading}
-                className="bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
-                style={{ flex: 2 }}
+                style={{ flex: 2, background: 'linear-gradient(135deg, #ec4899, #f43f5e)', color: '#fff', fontWeight: '600', padding: '16px', borderRadius: '12px', border: 'none', cursor: 'pointer', opacity: loading ? 0.5 : 1 }}
               >
                 {loading ? 'Aguarde...' : 'Pagar R$ 6,90'}
               </button>
             </div>
 
-            <p className="text-center text-white/30 text-xs mt-4">🔒 Pagamento seguro pelo Mercado Pago</p>
+            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '12px', marginTop: '16px' }}>Pagamento seguro pelo Mercado Pago</p>
           </div>
         )}
 
