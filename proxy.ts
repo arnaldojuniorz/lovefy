@@ -2,24 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-// ✅ Redis compartilhado — funciona em múltiplas instâncias Vercel
-const redis = new Redis({
-  url:   process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-})
+const redis = Redis.fromEnv()
 
-// Limites por rota (requisições por minuto por IP)
 const LIMITES: Record<string, number> = {
-  '/api/pix':              5,
-  '/api/checkout':         5,
-  '/api/cartas':          20,
-  '/api/upload':          10,
-  '/api/upload-destaque': 10,
-  '/api/mapa-estrelas':    5,
-  '/api/webhook':         30,
+  '/api/pix':           8,
+  '/api/checkout':      6,
+  '/api/cartas':        30,
+  '/api/upload':        15,
+  '/api/mapa-estrelas': 10,
+  '/api/webhook':       30,
 }
 
-// Cache de instâncias Ratelimit por rota
 const limiters = new Map<string, Ratelimit>()
 
 function getLimiter(path: string): { limiter: Ratelimit; prefix: string } | null {
@@ -29,7 +22,7 @@ function getLimiter(path: string): { limiter: Ratelimit; prefix: string } | null
         limiters.set(route, new Ratelimit({
           redis,
           limiter:   Ratelimit.slidingWindow(max, '60s'),
-          prefix:    `lovefy:rl:${route}`,
+          prefix:    'lovefy:rl:' + route,
           analytics: false,
         }))
       }
@@ -45,11 +38,10 @@ function getIp(request: NextRequest): string {
   return request.headers.get('x-real-ip') ?? 'anonymous'
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const match = getLimiter(pathname)
 
-  // Rota não limitada — passa direto
   if (!match) return NextResponse.next()
 
   const ip = getIp(request)
@@ -73,7 +65,6 @@ export async function middleware(request: NextRequest) {
       )
     }
 
-    // Adiciona headers informativos na resposta
     const response = NextResponse.next()
     response.headers.set('X-RateLimit-Limit',     String(limit))
     response.headers.set('X-RateLimit-Remaining', String(remaining))
@@ -81,8 +72,7 @@ export async function middleware(request: NextRequest) {
     return response
 
   } catch {
-    // Se Redis falhar, deixa passar — não bloqueia o app
-    console.error('[middleware] redis rate limit falhou — passando sem limitar')
+    console.error('[proxy] redis rate limit falhou - passando sem limitar')
     return NextResponse.next()
   }
 }
