@@ -64,22 +64,45 @@ function buildCandidateIds(request: NextRequest, body: WebhookBody): string[] {
 }
 
 function validarAssinatura(request: NextRequest, body: WebhookBody): boolean {
-  if (!MERCADOPAGO_WEBHOOK_SECRET) return false
+  if (!MERCADOPAGO_WEBHOOK_SECRET) {
+    console.warn('[webhook] MERCADOPAGO_WEBHOOK_SECRET ausente')
+    return false
+  }
+
   const xSignature = request.headers.get('x-signature')
   const xRequestId = request.headers.get('x-request-id')
-  if (!xSignature || !xRequestId) return false
+
+  console.log('[webhook] x-signature:', xSignature)
+  console.log('[webhook] x-request-id:', xRequestId)
+  console.log('[webhook] secret length:', MERCADOPAGO_WEBHOOK_SECRET.length)
+
+  if (!xSignature || !xRequestId) {
+    console.warn('[webhook] headers ausentes — x-signature:', xSignature, '| x-request-id:', xRequestId)
+    return false
+  }
+
   const parts = xSignature.split(',').map(p => p.trim())
   const ts    = parts.find(p => p.startsWith('ts='))?.slice(3)
   const v1    = parts.find(p => p.startsWith('v1='))?.slice(3)?.toLowerCase()
+
+  console.log('[webhook] ts:', ts, '| v1:', v1)
+
   if (!ts || !v1) return false
+
   const candidates = buildCandidateIds(request, body)
+  console.log('[webhook] candidates:', candidates)
+
   if (candidates.length === 0) return false
+
   for (const id of candidates) {
     const manifest = `id:${id};request-id:${xRequestId};ts:${ts};`
+    console.log('[webhook] manifest:', manifest)
     const expected = createHmac('sha256', MERCADOPAGO_WEBHOOK_SECRET)
       .update(manifest).digest('hex')
+    console.log('[webhook] expected:', expected, '| received:', v1)
     if (secureCompareHex(expected, v1)) return true
   }
+
   return false
 }
 
@@ -156,11 +179,13 @@ export async function POST(request: NextRequest) {
     }
 
     const rawBody = await request.text()
-    const body    = safeJsonParse<WebhookBody>(rawBody)
+    console.log('[webhook] rawBody:', rawBody.slice(0, 200))
+
+    const body = safeJsonParse<WebhookBody>(rawBody)
     if (!body) return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 })
 
     if (!validarAssinatura(request, body)) {
-      console.warn('[webhook] assinatura inválida')
+      console.warn('[webhook] assinatura inválida — rejeitando')
       return NextResponse.json({ ok: false }, { status: 401 })
     }
 
@@ -203,7 +228,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
 
   } catch (error) {
-    // Loga o erro completo — essencial para debug em produção
     console.error('[webhook] erro interno:', error)
     return NextResponse.json({ ok: false }, { status: 500 })
   }
@@ -369,7 +393,6 @@ async function enviarEmailImpressao(
     (pickString(carta, ['destinatario', 'nome_destinatario']) ?? 'alguém especial').slice(0, 80)
   )
 
-  // pdfUrl é gerado internamente — escapa mesmo assim por boa prática
   const pdfUrlSafe = pdfUrl ? escapeHtml(pdfUrl) : null
 
   const resend = new Resend(RESEND_API_KEY)
