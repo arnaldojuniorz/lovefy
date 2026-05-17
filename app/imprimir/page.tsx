@@ -150,7 +150,7 @@ export default function ImprimirPage() {
 
         {etapa === 2 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
-            <h2 className="text-2xl font-bold text-white mb-2">Quase la!</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Quase lá!</h2>
             <p className="text-white/50 text-sm mb-6">Preencha seus dados para finalizar</p>
 
             <div className="space-y-4">
