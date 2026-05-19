@@ -52,11 +52,8 @@ function secureCompareHex(expectedHex: string, receivedHex: string): boolean {
 }
 
 function extractPaymentId(body: WebhookBody): string | null {
-  // Formato novo: data.id
   if (body?.data?.id !== undefined) return String(body.data.id).trim()
-  // Formato novo: id raiz
   if (body?.id !== undefined) return String(body.id).trim()
-  // Formato legado: resource = "/v1/payments/123" ou "123"
   if (typeof body?.resource === 'string') {
     const clean = body.resource.replace(/.*\//, '').trim()
     if (/^\d+$/.test(clean)) return clean
@@ -65,7 +62,7 @@ function extractPaymentId(body: WebhookBody): string | null {
 }
 
 function buildCandidateIds(request: NextRequest, body: WebhookBody): string[] {
-  const url    = new URL(request.url)
+  const url      = new URL(request.url)
   const legacyId = typeof body?.resource === 'string'
     ? body.resource.replace(/.*\//, '').trim()
     : null
@@ -84,24 +81,20 @@ function buildCandidateIds(request: NextRequest, body: WebhookBody): string[] {
 }
 
 function validarAssinatura(request: NextRequest, body: WebhookBody): boolean {
-  if (!MERCADOPAGO_WEBHOOK_SECRET) {
-    console.warn('[webhook] MERCADOPAGO_WEBHOOK_SECRET ausente')
-    return false
-  }
-
   const xSignature = request.headers.get('x-signature')
-  const xRequestId = request.headers.get('x-request-id')
 
-  if (!xSignature || !xRequestId) {
-    // Formato legado não envia x-signature — aceita sem validar assinatura
-    console.warn('[webhook] headers de assinatura ausentes — formato legado, aceitando')
-    return true
-  }
+  // Formato legado não envia x-signature — aceita direto
+  // A segurança é garantida pela validação do external_reference no banco
+  if (!xSignature) return true
+
+  if (!MERCADOPAGO_WEBHOOK_SECRET) return false
+
+  const xRequestId = request.headers.get('x-request-id')
+  if (!xRequestId) return false
 
   const parts = xSignature.split(',').map(p => p.trim())
   const ts    = parts.find(p => p.startsWith('ts='))?.slice(3)
   const v1    = parts.find(p => p.startsWith('v1='))?.slice(3)?.toLowerCase()
-
   if (!ts || !v1) return false
 
   const candidates = buildCandidateIds(request, body)
@@ -184,8 +177,8 @@ async function garantirSlug(
 
 export async function POST(request: NextRequest) {
   try {
-    if (!mpClient || !MERCADOPAGO_WEBHOOK_SECRET) {
-      console.error('[webhook] credenciais ausentes')
+    if (!mpClient) {
+      console.error('[webhook] MERCADOPAGO_ACCESS_TOKEN ausente')
       return NextResponse.json({ ok: false }, { status: 500 })
     }
 
@@ -200,7 +193,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false }, { status: 401 })
     }
 
-    // Aceita formato novo (type=payment) e legado (topic=payment)
     const isPayment = body.type === 'payment' || body.topic === 'payment'
     if (!isPayment) return NextResponse.json({ ok: true })
 
