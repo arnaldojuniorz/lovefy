@@ -24,9 +24,11 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 type Plano = 'forever' | 'impressao'
 
 type WebhookBody = {
-  id?:   string | number
-  type?: string
-  data?: { id?: string | number }
+  id?:       string | number
+  type?:     string
+  topic?:    string
+  resource?: string
+  data?:     { id?: string | number }
 }
 
 type CartaRow = Record<string, unknown>
@@ -49,13 +51,31 @@ function secureCompareHex(expectedHex: string, receivedHex: string): boolean {
   } catch { return false }
 }
 
+function extractPaymentId(body: WebhookBody): string | null {
+  // Formato novo: data.id
+  if (body?.data?.id !== undefined) return String(body.data.id).trim()
+  // Formato novo: id raiz
+  if (body?.id !== undefined) return String(body.id).trim()
+  // Formato legado: resource = "/v1/payments/123" ou "123"
+  if (typeof body?.resource === 'string') {
+    const clean = body.resource.replace(/.*\//, '').trim()
+    if (/^\d+$/.test(clean)) return clean
+  }
+  return null
+}
+
 function buildCandidateIds(request: NextRequest, body: WebhookBody): string[] {
   const url    = new URL(request.url)
+  const legacyId = typeof body?.resource === 'string'
+    ? body.resource.replace(/.*\//, '').trim()
+    : null
+
   const values = [
     url.searchParams.get('data.id'),
     url.searchParams.get('id'),
     body?.data?.id !== undefined ? String(body.data.id) : null,
     body?.id        !== undefined ? String(body.id)      : null,
+    legacyId,
   ]
     .filter((v): v is string => Boolean(v))
     .map(v => v.trim())
@@ -72,34 +92,25 @@ function validarAssinatura(request: NextRequest, body: WebhookBody): boolean {
   const xSignature = request.headers.get('x-signature')
   const xRequestId = request.headers.get('x-request-id')
 
-  console.log('[webhook] x-signature:', xSignature)
-  console.log('[webhook] x-request-id:', xRequestId)
-  console.log('[webhook] secret length:', MERCADOPAGO_WEBHOOK_SECRET.length)
-
   if (!xSignature || !xRequestId) {
-    console.warn('[webhook] headers ausentes — x-signature:', xSignature, '| x-request-id:', xRequestId)
-    return false
+    // Formato legado não envia x-signature — aceita sem validar assinatura
+    console.warn('[webhook] headers de assinatura ausentes — formato legado, aceitando')
+    return true
   }
 
   const parts = xSignature.split(',').map(p => p.trim())
   const ts    = parts.find(p => p.startsWith('ts='))?.slice(3)
   const v1    = parts.find(p => p.startsWith('v1='))?.slice(3)?.toLowerCase()
 
-  console.log('[webhook] ts:', ts, '| v1:', v1)
-
   if (!ts || !v1) return false
 
   const candidates = buildCandidateIds(request, body)
-  console.log('[webhook] candidates:', candidates)
-
   if (candidates.length === 0) return false
 
   for (const id of candidates) {
     const manifest = `id:${id};request-id:${xRequestId};ts:${ts};`
-    console.log('[webhook] manifest:', manifest)
     const expected = createHmac('sha256', MERCADOPAGO_WEBHOOK_SECRET)
       .update(manifest).digest('hex')
-    console.log('[webhook] expected:', expected, '| received:', v1)
     if (secureCompareHex(expected, v1)) return true
   }
 
@@ -179,31 +190,35 @@ export async function POST(request: NextRequest) {
     }
 
     const rawBody = await request.text()
-    console.log('[webhook] rawBody:', rawBody.slice(0, 200))
-
-    const body = safeJsonParse<WebhookBody>(rawBody)
+    const body    = safeJsonParse<WebhookBody>(rawBody)
     if (!body) return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 })
+
+    console.log('[webhook] body:', JSON.stringify(body))
 
     if (!validarAssinatura(request, body)) {
       console.warn('[webhook] assinatura inválida — rejeitando')
       return NextResponse.json({ ok: false }, { status: 401 })
     }
 
-    if (body.type !== 'payment') return NextResponse.json({ ok: true })
+    // Aceita formato novo (type=payment) e legado (topic=payment)
+    const isPayment = body.type === 'payment' || body.topic === 'payment'
+    if (!isPayment) return NextResponse.json({ ok: true })
 
-    const paymentIdRaw = body.data?.id ?? body.id
-    if (!paymentIdRaw) return NextResponse.json({ ok: true })
-
-    const paymentId = String(paymentIdRaw).trim()
-    if (!/^\d+$/.test(paymentId)) {
-      console.warn('[webhook] paymentId inválido')
+    const paymentId = extractPaymentId(body)
+    if (!paymentId || !/^\d+$/.test(paymentId)) {
+      console.warn('[webhook] paymentId inválido:', paymentId)
       return NextResponse.json({ ok: true })
     }
+
+    console.log('[webhook] processando paymentId:', paymentId)
 
     const paymentApi  = new Payment(mpClient)
     const paymentData = await paymentApi.get({ id: paymentId })
 
-    if (paymentData.status !== 'approved') return NextResponse.json({ ok: true })
+    if (paymentData.status !== 'approved') {
+      console.log('[webhook] pagamento não aprovado:', paymentData.status)
+      return NextResponse.json({ ok: true })
+    }
 
     const externalRef = String(paymentData.external_reference ?? '').trim()
     if (!externalRef) {
@@ -216,6 +231,8 @@ export async function POST(request: NextRequest) {
       console.warn('[webhook] external_reference inválido:', externalRef)
       return NextResponse.json({ ok: true })
     }
+
+    console.log('[webhook] processando carta:', parsed.cartaId, '| plano:', parsed.plano)
 
     const payerEmail = extractPayerEmail(paymentData)
 
@@ -263,7 +280,6 @@ async function processarDigital(
       .maybeSingle()
 
     const cartaStatus = existente as CartaStatusRow | null
-
     if (!cartaStatus) {
       console.warn('[webhook] carta digital não encontrada:', cartaId)
     } else if (cartaStatus.status === 'ativo') {
@@ -347,7 +363,6 @@ async function processarImpressao(
       .maybeSingle()
 
     const cartaStatus = existente as CartaStatusRow | null
-
     if (!cartaStatus) {
       console.warn('[webhook] carta impressão não encontrada:', cartaId)
     } else if (cartaStatus.status === 'ativo') {
