@@ -83,8 +83,6 @@ function buildCandidateIds(request: NextRequest, body: WebhookBody): string[] {
 function validarAssinatura(request: NextRequest, body: WebhookBody): boolean {
   const xSignature = request.headers.get('x-signature')
 
-  // Formato legado não envia x-signature — aceita direto
-  // A segurança é garantida pela validação do external_reference no banco
   if (!xSignature) return true
 
   if (!MERCADOPAGO_WEBHOOK_SECRET) return false
@@ -255,7 +253,7 @@ async function processarDigital(
       paid_at:                new Date().toISOString(),
     })
     .eq('id', cartaId)
-    .in('status', ['rascunho', 'pendente_pagamento'])
+    .in('status', ['rascunho', 'pendente_pagamento', 'pendente'])
     .select('*')
     .maybeSingle()
 
@@ -338,7 +336,7 @@ async function processarImpressao(
       paid_at:                new Date().toISOString(),
     })
     .eq('id', cartaId)
-    .in('status', ['rascunho', 'pendente_pagamento'])
+    .in('status', ['rascunho', 'pendente_pagamento', 'pendente'])
     .select('*')
     .maybeSingle()
 
