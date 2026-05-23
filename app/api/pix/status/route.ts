@@ -70,6 +70,11 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
   return null
 }
 
+function getPdfUrl(carta: Record<string, unknown>, tipo: Tipo): string | null {
+  if (tipo !== 'impressao') return null
+  return pickString(carta, ['pdf_url']) ?? null
+}
+
 async function executarAcoesPosPagamento(
   carta: Record<string, unknown>,
   cartaId: string,
@@ -172,14 +177,14 @@ export async function GET(request: NextRequest) {
       return jsonError('payment_id não corresponde à carta', 409, baseHeaders)
     }
 
-    // Carta já ativa — retorna imediatamente sem chamar Mercado Pago
+    // Carta já ativa — retorna imediatamente com pdf_url real se impressao
     if (String(carta.status ?? '') === 'ativo') {
       return NextResponse.json(
         {
           status:       'approved',
           carta_status: 'ativo',
           slug:         tipo === 'digital' ? pickString(carta, ['slug']) ?? null : null,
-          pdf_url:      null,
+          pdf_url:      getPdfUrl(carta, tipo),
         },
         { headers: baseHeaders }
       )
@@ -189,8 +194,8 @@ export async function GET(request: NextRequest) {
       new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
     )
 
-    const mpResponse  = await payment.get({ id: paymentId })
-    const normalized  = mapMpStatus(mpResponse.status)
+    const mpResponse   = await payment.get({ id: paymentId })
+    const normalized   = mapMpStatus(mpResponse.status)
     const emailPagador = pickString(carta, ['email_pagador']) ?? ''
 
     if (normalized === 'approved') {
@@ -199,7 +204,6 @@ export async function GET(request: NextRequest) {
         return jsonError('payment_id não corresponde à carta', 409, baseHeaders)
       }
 
-      // Guard de status — evita dupla ativação em race condition com o webhook
       const { data: ativada } = await supabaseAdmin
         .from(tabela)
         .update({
@@ -208,14 +212,12 @@ export async function GET(request: NextRequest) {
           mercadopago_payment_id: paymentId,
         })
         .eq('id', cartaId)
-        .in('status', ['rascunho', 'pendente_pagamento'])
+        .in('status', ['rascunho', 'pendente_pagamento', 'pendente'])
         .select('*')
         .maybeSingle()
 
       const cartaFinal = (ativada ?? carta) as Record<string, unknown>
 
-      // Executa ações pós-pagamento em background caso o webhook tenha falhado
-      // Se webhook já executou, moverFotos e enviarEmail devem ser idempotentes
       if (ativada) {
         executarAcoesPosPagamento(cartaFinal, cartaId, tipo, paymentId, emailPagador)
       }
@@ -225,7 +227,7 @@ export async function GET(request: NextRequest) {
           status:       'approved',
           carta_status: 'ativo',
           slug:         tipo === 'digital' ? pickString(cartaFinal, ['slug']) ?? null : null,
-          pdf_url:      null,
+          pdf_url:      getPdfUrl(cartaFinal, tipo),
         },
         { headers: baseHeaders }
       )
