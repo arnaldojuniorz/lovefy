@@ -22,27 +22,27 @@ export async function gerarPDF(carta_id: string, carta: CartaImpressao): Promise
       format:      'a4',
     })
 
-    const BG         = '#FEF9F0'
-    const TEXTO      = '#2B2B2B'
-    const CINZA      = '#6C757D'
-    const CINZA_LEVE = '#AAAAAA'
-    const ACENTO     = '#C44569'
-    const DIVISOR    = '#EAEAEA'
-
+    // ── Dimensões ─────────────────────────────────────────────────────────────
     const PG_W  = 210
     const PG_H  = 297
-    const ML    = 20
-    const MR    = 20
-    const MT    = 24
-    const MB    = 20
-    const PW    = PG_W - ML - MR
-    const CX    = PG_W / 2
-    const MAX_Y = PG_H - MB - 16
+    const ML    = 25
+    const MR    = 25
+    const MT    = 25
+    const PW    = PG_W - ML - MR   // 160mm
+    const CX    = PG_W / 2         // 105mm
 
-    function setSerif(style: 'normal' | 'italic' | 'bold' = 'normal') {
+    // ── Paleta ────────────────────────────────────────────────────────────────
+    const BRANCO      = '#FFFFFF'
+    const TEXTO       = '#1A1A1A'
+    const CINZA       = '#666666'
+    const CINZA_LEVE  = '#999999'
+    const ACENTO      = '#C44569'
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function setCormorant(style: 'normal' | 'italic' | 'bold' = 'normal') {
       doc.setFont('times', style)
     }
-    function setSans(style: 'normal' | 'italic' | 'bold' = 'normal') {
+    function setInter(style: 'normal' | 'italic' | 'bold' = 'normal') {
       doc.setFont('helvetica', style)
     }
 
@@ -60,19 +60,12 @@ export async function gerarPDF(carta_id: string, carta: CartaImpressao): Promise
         .trim()
     }
 
-    function divisorLinha(y: number, pct = 0.45) {
-      const w = PW * pct
-      const x = CX - w / 2
-      doc.setDrawColor(DIVISOR)
-      doc.setLineWidth(0.35)
-      doc.line(x, y, x + w, y)
-    }
-
-    const destinatario = limparTexto(carta.nome_destinatario || carta.destinatario) || 'Destinatário'
+    // ── Dados ─────────────────────────────────────────────────────────────────
+    const destinatario = limparTexto(carta.nome_destinatario || carta.destinatario) || 'Voce'
     const remetente    = limparTexto(carta.nome_remetente    || carta.remetente)    || 'Remetente'
     const mensagem     = limparTexto(carta.mensagem_principal || carta.mensagem)    || ''
+    const dataImp      = carta.data_importante
 
-    const dataImp = carta.data_importante
     let diasNum       = 0
     let dataFormatada = ''
 
@@ -81,162 +74,138 @@ export async function gerarPDF(carta_id: string, carta: CartaImpressao): Promise
       diasNum = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24))
       dataFormatada = d.toLocaleDateString('pt-BR', {
         day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
-      }).replace(/&/g, 'e')
+      })
     }
 
-    // ── Página 1 ──────────────────────────────────────────────────────────────
-    doc.setFillColor(BG)
+    // ══════════════════════════════════════════════════════════════════════════
+    // FUNDO BRANCO
+    // ══════════════════════════════════════════════════════════════════════════
+    doc.setFillColor(BRANCO)
     doc.rect(0, 0, PG_W, PG_H, 'F')
 
+    // ── Cursor vertical ───────────────────────────────────────────────────────
     let y = MT
 
-    setSans('normal')
-    doc.setFontSize(13)
-    doc.setTextColor(210, 150, 150)
-    doc.text('<3', CX, y, { align: 'center' })
+    // ── Coração minimalista ───────────────────────────────────────────────────
+    // Desenhado com linhas finas em vez de emoji ou "<3"
+    setInter('normal')
+    doc.setFontSize(22)
+    doc.setTextColor(ACENTO)
+    doc.text('\u2665', CX, y, { align: 'center' })
+    y += 14
+
+    // ── "Para você" ───────────────────────────────────────────────────────────
+    setCormorant('normal')
+    doc.setFontSize(22)
+    doc.setTextColor(TEXTO)
+    doc.text('Para voc\u00EA', CX, y, { align: 'center' })
     y += 12
 
-    setSans('normal')
-    doc.setFontSize(8.5)
-    doc.setTextColor(CINZA)
-    doc.text('para voce', CX, y, { align: 'center' })
-    y += 7
-
-    setSerif('normal')
-    doc.setFontSize(26)
-    doc.setTextColor(TEXTO)
-    const nomeLinhas = doc.splitTextToSize(destinatario, PW - 10)
-    doc.text(nomeLinhas[0] ?? destinatario, CX, y, { align: 'center' })
-    y += 9
-
+    // ── Contador de dias ──────────────────────────────────────────────────────
     if (dataImp && dataFormatada) {
-      setSerif('italic')
-      doc.setFontSize(9.5)
+      setInter('normal')
+      doc.setFontSize(10)
       doc.setTextColor(CINZA)
-      const tempoTxt   = `Desde ${dataFormatada}  -  ${diasNum} dias`
-      const tempoLinhas = doc.splitTextToSize(tempoTxt, PW)
-      doc.text(tempoLinhas[0], CX, y, { align: 'center' })
-      y += 9
+      doc.text('Desde ' + dataFormatada, CX, y, { align: 'center' })
+      y += 5.5
+      doc.text(String(diasNum) + ' dias', CX, y, { align: 'center' })
+      y += 5.5
     }
 
-    divisorLinha(y)
+    // ── Linha divisória sutil ─────────────────────────────────────────────────
+    y += 6
+    const DIV_W = 24
+    doc.setDrawColor('#DDDDDD')
+    doc.setLineWidth(0.25)
+    doc.line(CX - DIV_W / 2, y, CX + DIV_W / 2, y)
     y += 10
 
-    setSans('normal')
+    // ── Mensagem principal ────────────────────────────────────────────────────
+    // Largura controlada: máx 110mm, centralizada na página
+    const MSG_W    = 110
+    const MSG_X    = CX - MSG_W / 2
+
+    setInter('normal')
     doc.setFontSize(11.5)
     doc.setTextColor(TEXTO)
 
-    const linhasMensagem = doc.splitTextToSize(mensagem, PW)
-    for (const linha of linhasMensagem) {
-      if (y > MAX_Y - 50) break
-      doc.text(linha, ML, y)
-      y += 6.8
+    const linhas = doc.splitTextToSize(mensagem, MSG_W)
+    const LINHA_H = 6.8
+
+    // Limite de linhas para não ultrapassar a página
+    const MAX_LINHAS = 18
+    const linhasUsadas = linhas.slice(0, MAX_LINHAS)
+
+    for (const linha of linhasUsadas) {
+      doc.text(linha, MSG_X, y)
+      y += LINHA_H
     }
 
-    y += 8
+    // ── Respiro grande antes de "TE AMO" ──────────────────────────────────────
+    y += 18
 
-    if (y < MAX_Y - 40) {
-      setSerif('italic')
-      doc.setFontSize(20)
-      doc.setTextColor(ACENTO)
-      doc.text('te amo', CX, y, { align: 'center' })
-      y += 12
-    }
+    // ── "TE AMO" — elemento focal ────────────────────────────────────────────
+    setCormorant('normal')
+    doc.setFontSize(52)
+    doc.setTextColor(ACENTO)
+    doc.text('TE AMO', CX, y, { align: 'center' })
+    y += 6
 
-    if (y < MAX_Y - 30) {
-      divisorLinha(y)
-      y += 11
-    }
+    // Linha decorativa abaixo
+    doc.setDrawColor(ACENTO)
+    doc.setLineWidth(0.3)
+    const DEC_W = 40
+    doc.line(CX - DEC_W / 2, y, CX + DEC_W / 2, y)
+    y += 16
 
-    if (y < MAX_Y - 20) {
-      setSans('normal')
-      doc.setFontSize(9.5)
-      doc.setTextColor(CINZA)
-      doc.text('com carinho,', CX, y, { align: 'center' })
-      y += 7
+    // ── Assinatura ────────────────────────────────────────────────────────────
+    setInter('italic')
+    doc.setFontSize(11)
+    doc.setTextColor(CINZA)
+    doc.text('Com carinho,', CX, y, { align: 'center' })
+    y += 6.5
 
-      setSerif('normal')
-      doc.setFontSize(13)
-      doc.setTextColor(TEXTO)
-      doc.text(remetente, CX, y, { align: 'center' })
-      y += 12
-    }
+    setInter('normal')
+    doc.setFontSize(12.5)
+    doc.setTextColor(TEXTO)
+    doc.text(remetente, CX, y, { align: 'center' })
+    y += 14
 
-    if (carta.musica_link && y < MAX_Y - 38) {
+    // ── QR Code (música) ──────────────────────────────────────────────────────
+    if (carta.musica_link && y < 265) {
       try {
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(carta.musica_link)}&color=2B2B2B&bgcolor=FEF9F0`
-        const res   = await fetch(qrUrl)
-        const ab    = await res.arrayBuffer()
-        const b64   = Buffer.from(ab).toString('base64')
+        const qrUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(carta.musica_link)}&color=1A1A1A&bgcolor=FFFFFF`
+        const res    = await fetch(qrUrl)
+        const ab     = await res.arrayBuffer()
+        const b64    = Buffer.from(ab).toString('base64')
         const imgUrl = `data:image/png;base64,${b64}`
 
-        const qrSize = 28
-        const qrX    = CX - qrSize / 2
+        const QR_SIZE = 22
+        const QR_X    = CX - QR_SIZE / 2
 
-        doc.setFillColor('#FFFFFF')
-        doc.setDrawColor(DIVISOR)
-        doc.setLineWidth(0.3)
-        doc.roundedRect(qrX - 5, y - 3, qrSize + 10, qrSize + 14, 3, 3, 'FD')
-        doc.addImage(imgUrl, 'PNG', qrX, y, qrSize, qrSize)
-        y += qrSize + 5
+        // Container limpo ao redor do QR
+        doc.setFillColor('#F8F8F8')
+        doc.setDrawColor('#EEEEEE')
+        doc.setLineWidth(0.2)
+        doc.roundedRect(QR_X - 4, y - 4, QR_SIZE + 8, QR_SIZE + 8, 2, 2, 'FD')
 
-        setSans('normal')
-        doc.setFontSize(8)
-        doc.setTextColor(CINZA)
-        doc.text('essa musica me faz lembrar de voce', CX, y, { align: 'center' })
-      } catch { /* QR Code é opcional — falha silenciosa intencional */ }
+        doc.addImage(imgUrl, 'PNG', QR_X, y, QR_SIZE, QR_SIZE)
+        y += QR_SIZE + 8
+
+        // Legenda abaixo do QR
+        setInter('italic')
+        doc.setFontSize(10)
+        doc.setTextColor(CINZA_LEVE)
+        doc.text('Essa m\u00FAsica me faz lembrar de voc\u00EA', CX, y, { align: 'center' })
+
+      } catch { /* QR Code é opcional */ }
     }
 
-    doc.setDrawColor(DIVISOR)
-    doc.setLineWidth(0.3)
-    doc.line(ML, PG_H - 14, PG_W - MR, PG_H - 14)
-
-    setSans('normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(CINZA_LEVE)
-    doc.text('Lovefy  -  feito com carinho', CX, PG_H - 9, { align: 'center' })
-
-    // ── Página 2 ──────────────────────────────────────────────────────────────
-    doc.addPage()
-
-    doc.setFillColor(BG)
-    doc.rect(0, 0, PG_W, PG_H, 'F')
-
-    let y2 = MT + 4
-
-    setSans('normal')
-    doc.setFontSize(11)
-    doc.setTextColor(200, 200, 200)
-    doc.text('<3', CX, y2, { align: 'center' })
-    y2 += 11
-
-    setSerif('normal')
-    doc.setFontSize(13)
-    doc.setTextColor(TEXTO)
-    doc.text('anotacoes', CX, y2, { align: 'center' })
-    y2 += 7
-
-    setSerif('italic')
-    doc.setFontSize(8.5)
-    doc.setTextColor(CINZA)
-    doc.text('um espaco para guardar mais momentos seus', CX, y2, { align: 'center' })
-    y2 += 14
-
-    doc.setDrawColor(DIVISOR)
-    doc.setLineWidth(0.35)
-    for (let i = 0; i < 8; i++) {
-      doc.line(ML, y2, PG_W - MR, y2)
-      y2 += 14
-    }
-
-    doc.setDrawColor(DIVISOR)
-    doc.setLineWidth(0.3)
-    doc.line(ML, PG_H - 14, PG_W - MR, PG_H - 14)
-
-    setSans('normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(CINZA_LEVE)
-    doc.text('2 / 2', CX, PG_H - 9, { align: 'center' })
+    // ── Rodapé discreto ───────────────────────────────────────────────────────
+    setInter('normal')
+    doc.setFontSize(7)
+    doc.setTextColor('#CCCCCC')
+    doc.text('Lovefy', CX, PG_H - 10, { align: 'center' })
 
     // ── Upload Supabase ───────────────────────────────────────────────────────
     const pdfBuffer   = Buffer.from(doc.output('arraybuffer'))
