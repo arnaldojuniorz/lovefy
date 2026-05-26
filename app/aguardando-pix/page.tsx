@@ -4,15 +4,14 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 
-// Fora do useEffect para ser reutilizável
-const MAX_TENTATIVAS = 75
+const MAX_TENTATIVAS     = 75
+const MAX_TENTATIVAS_PDF = 20 // ~80 segundos extras esperando o PDF após carta ativa
 
-// Status separados: rejected (banco recusou) vs timeout (expirou sem resposta)
 type StatusPagamento = 'pending' | 'approved' | 'rejected' | 'timeout'
 
 function AguardandoPixContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
+  const router       = useRouter()
 
   const payment_id = searchParams.get('payment_id') ?? ''
   const carta_id   = searchParams.get('carta_id')   ?? ''
@@ -21,9 +20,11 @@ function AguardandoPixContent() {
   const qr         = searchParams.get('qr')          ?? ''
   const qr64       = searchParams.get('qr64')        ?? ''
 
-  const [copiado, setCopiado] = useState(false)
-  const [status, setStatus]   = useState<StatusPagamento>('pending')
-  const [tentativas, setTentativas] = useState(0)
+  const [copiado, setCopiado]           = useState(false)
+  const [status, setStatus]             = useState<StatusPagamento>('pending')
+  const [tentativas, setTentativas]     = useState(0)
+  const [cartaAtiva, setCartaAtiva]     = useState(false)
+  const [tentativasPdf, setTentativasPdf] = useState(0)
 
   useEffect(() => {
     if (!payment_id || !carta_id) return
@@ -34,19 +35,42 @@ function AguardandoPixContent() {
           `/api/pix/status?payment_id=${payment_id}&carta_id=${carta_id}&tipo=${tipo}`
         )
 
-        if (!res.ok) return // rede instável — aguarda próxima tentativa
+        if (!res.ok) return
 
         const data = await res.json()
 
         if (data.carta_status === 'ativo') {
-          clearInterval(interval)
-          setStatus('approved')
-          if (tipo === 'impressao' && data.pdf_url) {
-            router.push(`/obrigado?carta_id=${carta_id}&tipo=impressao&pdf_url=${encodeURIComponent(data.pdf_url)}`)
-          } else {
-            router.push(`/obrigado?carta_id=${carta_id}&tipo=${encodeURIComponent(tipo)}&slug=${encodeURIComponent(data.slug)}&plano=${encodeURIComponent(plano)}`)
+          // Carta digital — redireciona imediatamente
+          if (tipo !== 'impressao') {
+            clearInterval(interval)
+            setStatus('approved')
+            router.push(`/obrigado?carta_id=${carta_id}&tipo=${encodeURIComponent(tipo)}&slug=${encodeURIComponent(data.slug ?? '')}&plano=${encodeURIComponent(plano)}`)
+            return
           }
-          return
+
+          // Carta impressão com PDF pronto — redireciona com link
+          if (tipo === 'impressao' && data.pdf_url) {
+            clearInterval(interval)
+            setStatus('approved')
+            router.push(`/obrigado?carta_id=${carta_id}&tipo=impressao&pdf_url=${encodeURIComponent(data.pdf_url)}`)
+            return
+          }
+
+          // Carta impressão sem PDF ainda — aguarda mais tentativas
+          if (tipo === 'impressao' && !data.pdf_url) {
+            setCartaAtiva(true)
+            setTentativasPdf(t => {
+              const nova = t + 1
+              if (nova >= MAX_TENTATIVAS_PDF) {
+                // PDF demorou muito — redireciona sem ele, usuário receberá por email
+                clearInterval(interval)
+                setStatus('approved')
+                router.push(`/obrigado?carta_id=${carta_id}&tipo=impressao&plano=${encodeURIComponent(plano)}`)
+              }
+              return nova
+            })
+            return
+          }
         }
 
         if (data.status === 'rejected' || data.status === 'cancelled') {
@@ -55,26 +79,26 @@ function AguardandoPixContent() {
           return
         }
 
-        setTentativas(t => {
-          const nova = t + 1
-          if (nova >= MAX_TENTATIVAS) {
-            clearInterval(interval)
-            setStatus('timeout')
-          }
-          return nova
-        })
+        if (!cartaAtiva) {
+          setTentativas(t => {
+            const nova = t + 1
+            if (nova >= MAX_TENTATIVAS) {
+              clearInterval(interval)
+              setStatus('timeout')
+            }
+            return nova
+          })
+        }
 
       } catch (err) {
-        // Falha de rede — loga mas não interrompe o polling
         console.error('[aguardando-pix] erro ao verificar status:', err)
       }
     }, 4000)
 
     return () => clearInterval(interval)
-  }, [payment_id, carta_id, tipo, plano, router])
+  }, [payment_id, carta_id, tipo, plano, router, cartaAtiva])
 
   function copiar() {
-    // Fallback para WebViews (Instagram, WhatsApp) que não suportam Clipboard API
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(qr).then(() => {
         setCopiado(true)
@@ -89,7 +113,7 @@ function AguardandoPixContent() {
     const el = document.createElement('textarea')
     el.value = qr
     el.style.position = 'fixed'
-    el.style.opacity = '0'
+    el.style.opacity  = '0'
     document.body.appendChild(el)
     el.focus()
     el.select()
@@ -120,7 +144,7 @@ function AguardandoPixContent() {
               width={220}
               height={220}
               style={{ borderRadius: '16px', border: '3px solid rgba(255,107,157,0.3)', display: 'block', margin: '0 auto' }}
-              unoptimized // base64 não passa pelo Image Optimization da Vercel
+              unoptimized
             />
           </div>
         )}
@@ -136,7 +160,7 @@ function AguardandoPixContent() {
           {copiado ? '✅ Copiado!' : '📋 Copiar código PIX'}
         </button>
 
-        {status === 'pending' && (
+        {status === 'pending' && !cartaAtiva && (
           <div>
             <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', marginBottom: '8px' }}>
               ⏳ Aguardando confirmação do pagamento...
@@ -150,6 +174,17 @@ function AguardandoPixContent() {
               style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '99px', overflow: 'hidden' }}
             >
               <div style={{ height: '100%', width: `${progresso}%`, background: 'linear-gradient(90deg, #ff6b9d, #c44569)', transition: 'width 0.4s ease' }} />
+            </div>
+          </div>
+        )}
+
+        {status === 'pending' && cartaAtiva && tipo === 'impressao' && (
+          <div>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', marginBottom: '8px' }}>
+              ✅ Pagamento confirmado! Gerando seu PDF...
+            </p>
+            <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '99px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.min((tentativasPdf / MAX_TENTATIVAS_PDF) * 100, 95)}%`, background: 'linear-gradient(90deg, #1DB954, #17a84a)', transition: 'width 0.4s ease' }} />
             </div>
           </div>
         )}
