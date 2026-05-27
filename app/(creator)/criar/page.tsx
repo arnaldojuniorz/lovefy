@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic'
 import { useCarta } from '@/lib/carta-context'
 
-// Carregamento lazy de cada etapa — apenas a etapa atual é carregada no bundle
 const EtapaLoading = () => (
   <div className="flex items-center justify-center h-40">
     <div className="w-6 h-6 rounded-full border-2 border-pink-500 border-t-transparent animate-spin" />
@@ -16,10 +15,8 @@ const Etapa3 = dynamic(() => import('@/components/etapas/Etapa3'), { ssr: false,
 const Etapa4 = dynamic(() => import('@/components/etapas/Etapa4'), { ssr: false, loading: EtapaLoading })
 const Etapa5 = dynamic(() => import('@/components/etapas/Etapa5'), { ssr: false, loading: EtapaLoading })
 
-// Fonte de verdade única para o número de etapas
 const TOTAL_ETAPAS = 5
 
-// Lookup tipado: extensível sem tocar na lógica de renderização
 const ETAPAS_MAP: Record<number, React.ComponentType> = {
   1: Etapa1,
   2: Etapa2,
@@ -34,10 +31,9 @@ export default function CriarPage() {
   const EtapaAtual = ETAPAS_MAP[data.etapa_atual]
 
   return (
-    <main className="min-h-screen bg-brand-bg flex items-center justify-center p-4">
+    <main style={{ minHeight: '100vh', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
       <div className="w-full max-w-lg">
 
-        {/* Barra de progresso acessível */}
         <div
           className="flex gap-2 mb-8"
           role="progressbar"
@@ -56,7 +52,6 @@ export default function CriarPage() {
           ))}
         </div>
 
-        {/* Renderização da etapa atual com fallback explícito */}
         {EtapaAtual ? (
           <EtapaAtual />
         ) : (
