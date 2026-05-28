@@ -10,10 +10,6 @@ export type Carta = {
   slug:                string
   nome_destinatario:   string
   nome_remetente:      string
-  como_se_conheceram:  string
-  memoria_especial:    string
-  momento_marcante:    string
-  localizacao:         string
   data_importante:     string
   mensagem_principal:  string
   estilo_fundo:        string
@@ -31,8 +27,8 @@ export type Carta = {
 
 export function getEstacao(data: string): { nome: string; emoji: string } {
   const mes = new Date(data).getUTCMonth() + 1
-  if (mes >= 3 && mes <= 5) return { nome: 'Outono',   emoji: '🍂' }
-  if (mes >= 6 && mes <= 8) return { nome: 'Inverno',  emoji: '❄️' }
+  if (mes >= 3 && mes <= 5) return { nome: 'Outono',    emoji: '🍂' }
+  if (mes >= 6 && mes <= 8) return { nome: 'Inverno',   emoji: '❄️' }
   if (mes >= 9 && mes <= 11) return { nome: 'Primavera', emoji: '🌸' }
   return { nome: 'Verão', emoji: '☀️' }
 }
