@@ -22,26 +22,27 @@ export async function gerarPDF(carta_id: string, carta: CartaImpressao): Promise
       format:      'a4',
     })
 
-    // ── Dimensões ─────────────────────────────────────────────────────────────
-    const PG_W  = 210
-    const PG_H  = 297
-    const ML    = 25
-    const MR    = 25
-    const MT    = 25
-    const PW    = PG_W - ML - MR   // 160mm
-    const CX    = PG_W / 2         // 105mm
+    // ── Dimensões A4 ──────────────────────────────────────────────────────────
+    const PG_W = 210
+    const PG_H = 297
+    const ML   = 28
+    const MR   = 28
+    const CX   = PG_W / 2
+    const PW   = PG_W - ML - MR   // 154mm
 
-    // ── Paleta ────────────────────────────────────────────────────────────────
-    const BRANCO      = '#FFFFFF'
-    const TEXTO       = '#1A1A1A'
-    const CINZA       = '#666666'
-    const CINZA_LEVE  = '#999999'
-    const ACENTO      = '#C44569'
+    // ── Paleta creme premium ──────────────────────────────────────────────────
+    const FUNDO      = '#F3EFE8'
+    const TEXTO_ESC  = '#2E2A27'
+    const TEXTO_MED  = '#5C5248'
+    const TEXTO_LEVE = '#9C9189'
+    const ACENTO     = '#B07070'   // rosé suave — não vermelho puro
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Helpers tipográficos ──────────────────────────────────────────────────
+    // Cormorant Garamond simulado via times (melhor serif disponível no jsPDF)
     function setCormorant(style: 'normal' | 'italic' | 'bold' = 'normal') {
       doc.setFont('times', style)
     }
+    // Inter simulado via helvetica
     function setInter(style: 'normal' | 'italic' | 'bold' = 'normal') {
       doc.setFont('helvetica', style)
     }
@@ -60,9 +61,31 @@ export async function gerarPDF(carta_id: string, carta: CartaImpressao): Promise
         .trim()
     }
 
+    function hexToRgb(hex: string): [number, number, number] {
+      const r = parseInt(hex.slice(1, 3), 16)
+      const g = parseInt(hex.slice(3, 5), 16)
+      const b = parseInt(hex.slice(5, 7), 16)
+      return [r, g, b]
+    }
+
+    function setTextColor(hex: string) {
+      const [r, g, b] = hexToRgb(hex)
+      doc.setTextColor(r, g, b)
+    }
+
+    function setDrawColorHex(hex: string) {
+      const [r, g, b] = hexToRgb(hex)
+      doc.setDrawColor(r, g, b)
+    }
+
+    function setFillColorHex(hex: string) {
+      const [r, g, b] = hexToRgb(hex)
+      doc.setFillColor(r, g, b)
+    }
+
     // ── Dados ─────────────────────────────────────────────────────────────────
-    const destinatario = limparTexto(carta.nome_destinatario || carta.destinatario) || 'Voce'
-    const remetente    = limparTexto(carta.nome_remetente    || carta.remetente)    || 'Remetente'
+    const destinatario = limparTexto(carta.nome_destinatario || carta.destinatario) || ''
+    const remetente    = limparTexto(carta.nome_remetente    || carta.remetente)    || ''
     const mensagem     = limparTexto(carta.mensagem_principal || carta.mensagem)    || ''
     const dataImp      = carta.data_importante
 
@@ -71,143 +94,183 @@ export async function gerarPDF(carta_id: string, carta: CartaImpressao): Promise
 
     if (dataImp) {
       const d = new Date(dataImp)
-      diasNum = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24))
+      diasNum       = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24))
       dataFormatada = d.toLocaleDateString('pt-BR', {
         day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
       })
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // FUNDO BRANCO
+    // FUNDO CREME QUENTE
     // ══════════════════════════════════════════════════════════════════════════
-    doc.setFillColor(BRANCO)
+    setFillColorHex(FUNDO)
     doc.rect(0, 0, PG_W, PG_H, 'F')
 
-    // ── Cursor vertical ───────────────────────────────────────────────────────
-    let y = MT
+    // Borda refinada interna — 4mm da margem
+    const BORDA_M = 8
+    setDrawColorHex('#DDD5C8')
+    doc.setLineWidth(0.2)
+    doc.rect(BORDA_M, BORDA_M, PG_W - BORDA_M * 2, PG_H - BORDA_M * 2)
 
-    // ── Coração minimalista ───────────────────────────────────────────────────
-    // Desenhado com linhas finas em vez de emoji ou "<3"
-    setInter('normal')
-    doc.setFontSize(22)
-    doc.setTextColor(ACENTO)
-    doc.text('\u2665', CX, y, { align: 'center' })
+    // ── Cursor vertical ───────────────────────────────────────────────────────
+    let y = 38
+
+    // ── Ornamento topo: linha + diamante ──────────────────────────────────────
+    setDrawColorHex('#C8BDB0')
+    doc.setLineWidth(0.25)
+    const ORN_W = 32
+    doc.line(CX - ORN_W - 3, y, CX - 4, y)
+    doc.line(CX + 4, y, CX + ORN_W + 3, y)
+    // losango central
+    doc.setLineWidth(0.3)
+    setDrawColorHex(ACENTO)
+    doc.line(CX, y - 2, CX + 2.5, y)
+    doc.line(CX + 2.5, y, CX, y + 2)
+    doc.line(CX, y + 2, CX - 2.5, y)
+    doc.line(CX - 2.5, y, CX, y - 2)
     y += 14
 
     // ── "Para você" ───────────────────────────────────────────────────────────
-    setCormorant('normal')
-    doc.setFontSize(22)
-    doc.setTextColor(TEXTO)
+    setCormorant('italic')
+    doc.setFontSize(15)
+    setTextColor(TEXTO_MED)
     doc.text('Para voc\u00EA', CX, y, { align: 'center' })
-    y += 12
+    y += 5
 
-    // ── Contador de dias ──────────────────────────────────────────────────────
-    if (dataImp && dataFormatada) {
-      setInter('normal')
-      doc.setFontSize(10)
-      doc.setTextColor(CINZA)
-      doc.text('Desde ' + dataFormatada, CX, y, { align: 'center' })
-      y += 5.5
-      doc.text(String(diasNum) + ' dias', CX, y, { align: 'center' })
-      y += 5.5
-    }
-
-    // ── Linha divisória sutil ─────────────────────────────────────────────────
-    y += 6
-    const DIV_W = 24
-    doc.setDrawColor('#DDDDDD')
-    doc.setLineWidth(0.25)
-    doc.line(CX - DIV_W / 2, y, CX + DIV_W / 2, y)
+    // ── Linha separadora fina ─────────────────────────────────────────────────
+    setDrawColorHex('#D8CFC4')
+    doc.setLineWidth(0.15)
+    doc.line(CX - 18, y, CX + 18, y)
     y += 10
 
-    // ── Mensagem principal ────────────────────────────────────────────────────
-    // Largura controlada: máx 110mm, centralizada na página
-    const MSG_W    = 110
-    const MSG_X    = CX - MSG_W / 2
-
-    setInter('normal')
-    doc.setFontSize(11.5)
-    doc.setTextColor(TEXTO)
-
-    const linhas = doc.splitTextToSize(mensagem, MSG_W)
-    const LINHA_H = 6.8
-
-    // Limite de linhas para não ultrapassar a página
-    const MAX_LINHAS = 18
-    const linhasUsadas = linhas.slice(0, MAX_LINHAS)
-
-    for (const linha of linhasUsadas) {
-      doc.text(linha, MSG_X, y)
-      y += LINHA_H
+    // ── Contador ──────────────────────────────────────────────────────────────
+    if (dataImp && dataFormatada) {
+      setInter('normal')
+      doc.setFontSize(8.5)
+      setTextColor(TEXTO_LEVE)
+      doc.text('Desde ' + dataFormatada, CX, y, { align: 'center' })
+      y += 5
+      setInter('bold')
+      doc.setFontSize(9)
+      setTextColor(TEXTO_MED)
+      doc.text(String(diasNum) + ' dias juntos', CX, y, { align: 'center' })
+      y += 5
     }
 
-    // ── Respiro grande antes de "TE AMO" ──────────────────────────────────────
-    y += 18
-
-    // ── "TE AMO" — elemento focal ────────────────────────────────────────────
-    setCormorant('normal')
-    doc.setFontSize(52)
-    doc.setTextColor(ACENTO)
-    doc.text('TE AMO', CX, y, { align: 'center' })
+    // ── Linha separadora ──────────────────────────────────────────────────────
     y += 6
+    setDrawColorHex('#D8CFC4')
+    doc.setLineWidth(0.15)
+    doc.line(CX - 22, y, CX + 22, y)
+    y += 12
 
-    // Linha decorativa abaixo
-    doc.setDrawColor(ACENTO)
-    doc.setLineWidth(0.3)
-    const DEC_W = 40
-    doc.line(CX - DEC_W / 2, y, CX + DEC_W / 2, y)
+    // ── Mensagem ──────────────────────────────────────────────────────────────
+    if (mensagem) {
+      const MSG_W = 120
+      const MSG_X = CX - MSG_W / 2
+
+      setInter('normal')
+      doc.setFontSize(10.5)
+      setTextColor(TEXTO_MED)
+
+      const linhas    = doc.splitTextToSize(mensagem, MSG_W)
+      const MAX_LINHAS = 16
+      const LINHA_H   = 6.2
+
+      linhas.slice(0, MAX_LINHAS).forEach((linha: string) => {
+        doc.text(linha, MSG_X, y)
+        y += LINHA_H
+      })
+
+      y += 10
+    } else {
+      y += 6
+    }
+
+    // ── "te amo" — foco emocional sofisticado ─────────────────────────────────
+    // Ornamento antes
+    setDrawColorHex('#C8BDB0')
+    doc.setLineWidth(0.2)
+    doc.line(CX - 28, y, CX + 28, y)
+    y += 10
+
+    setCormorant('italic')
+    doc.setFontSize(36)
+    setTextColor(ACENTO)
+    doc.text('te amo', CX, y, { align: 'center' })
+    y += 5
+
+    // Ornamento depois
+    setDrawColorHex('#C8BDB0')
+    doc.setLineWidth(0.2)
+    doc.line(CX - 28, y, CX + 28, y)
     y += 16
 
     // ── Assinatura ────────────────────────────────────────────────────────────
     setInter('italic')
-    doc.setFontSize(11)
-    doc.setTextColor(CINZA)
+    doc.setFontSize(9.5)
+    setTextColor(TEXTO_LEVE)
     doc.text('Com carinho,', CX, y, { align: 'center' })
-    y += 6.5
+    y += 6
 
-    setInter('normal')
-    doc.setFontSize(12.5)
-    doc.setTextColor(TEXTO)
-    doc.text(remetente, CX, y, { align: 'center' })
-    y += 14
+    setCormorant('normal')
+    doc.setFontSize(13)
+    setTextColor(TEXTO_ESC)
+    doc.text(remetente || destinatario, CX, y, { align: 'center' })
+    y += 16
 
-    // ── QR Code (música) ──────────────────────────────────────────────────────
-    if (carta.musica_link && y < 265) {
+    // ── QR Code ───────────────────────────────────────────────────────────────
+    if (carta.musica_link && y < 250) {
       try {
-        const qrUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(carta.musica_link)}&color=1A1A1A&bgcolor=FFFFFF`
+        const qrUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(carta.musica_link)}&color=2E2A27&bgcolor=F3EFE8`
         const res    = await fetch(qrUrl)
         const ab     = await res.arrayBuffer()
         const b64    = Buffer.from(ab).toString('base64')
         const imgUrl = `data:image/png;base64,${b64}`
 
-        const QR_SIZE = 22
+        const QR_SIZE = 20
         const QR_X    = CX - QR_SIZE / 2
 
-        // Container limpo ao redor do QR
-        doc.setFillColor('#F8F8F8')
-        doc.setDrawColor('#EEEEEE')
+        // Container creme com borda suave
+        setFillColorHex('#EDE8DF')
+        setDrawColorHex('#D8CFC4')
         doc.setLineWidth(0.2)
-        doc.roundedRect(QR_X - 4, y - 4, QR_SIZE + 8, QR_SIZE + 8, 2, 2, 'FD')
+        doc.roundedRect(QR_X - 5, y - 4, QR_SIZE + 10, QR_SIZE + 10, 2, 2, 'FD')
 
         doc.addImage(imgUrl, 'PNG', QR_X, y, QR_SIZE, QR_SIZE)
         y += QR_SIZE + 8
 
-        // Legenda abaixo do QR
         setInter('italic')
-        doc.setFontSize(10)
-        doc.setTextColor(CINZA_LEVE)
+        doc.setFontSize(8)
+        setTextColor(TEXTO_LEVE)
         doc.text('Essa m\u00FAsica me faz lembrar de voc\u00EA', CX, y, { align: 'center' })
 
-      } catch { /* QR Code é opcional */ }
+      } catch { /* QR opcional */ }
     }
 
-    // ── Rodapé discreto ───────────────────────────────────────────────────────
+    // ── Ornamento base ────────────────────────────────────────────────────────
+    const BASE_Y = PG_H - 18
+    setDrawColorHex('#C8BDB0')
+    doc.setLineWidth(0.2)
+    const BASE_W = 30
+    doc.line(CX - BASE_W - 3, BASE_Y, CX - 4, BASE_Y)
+    doc.line(CX + 4, BASE_Y, CX + BASE_W + 3, BASE_Y)
+    setDrawColorHex(ACENTO)
+    doc.setLineWidth(0.3)
+    doc.line(CX, BASE_Y - 2, CX + 2, BASE_Y)
+    doc.line(CX + 2, BASE_Y, CX, BASE_Y + 2)
+    doc.line(CX, BASE_Y + 2, CX - 2, BASE_Y)
+    doc.line(CX - 2, BASE_Y, CX, BASE_Y - 2)
+
+    // ── Rodapé ────────────────────────────────────────────────────────────────
     setInter('normal')
-    doc.setFontSize(7)
-    doc.setTextColor('#CCCCCC')
+    doc.setFontSize(6.5)
+    setTextColor('#B8AFA6')
     doc.text('Lovefy', CX, PG_H - 10, { align: 'center' })
 
-    // ── Upload Supabase ───────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // UPLOAD SUPABASE
+    // ══════════════════════════════════════════════════════════════════════════
     const pdfBuffer   = Buffer.from(doc.output('arraybuffer'))
     const storagePath = `pdfs/${carta_id}.pdf`
 
