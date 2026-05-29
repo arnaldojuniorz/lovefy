@@ -28,28 +28,27 @@ export async function gerarPDF(
     // ════════════════════════════════════════════════════════════════════════
     // BASE
     // ════════════════════════════════════════════════════════════════════════
-    const PG_W  = 210
-    const PG_H  = 297
+    const PG_W = 210
+    const PG_H = 297
 
-    const MOLDURA = 16
-    const ML      = 34
-    const MT      = 32
-    const MB      = 28
+    const MOLDURA = 22
+    const MT       = 32
+    const MB       = 28
 
-    const CX      = PG_W / 2
-    const MAX_Y   = PG_H - MB
+    const CX     = PG_W / 2
+    const MAX_Y  = PG_H - MB
 
     // ════════════════════════════════════════════════════════════════════════
     // PALETA
     // ════════════════════════════════════════════════════════════════════════
-    const FUNDO      = '#F6F2EC'
-    const ESCURO     = '#2B2724'
-    const MEDIO      = '#675F59'
-    const LEVE       = '#9D948C'
-    const LINHA      = '#D9D0C7'
-    const ACENTO     = '#A06A6E'
-    const CAIXA_QR   = '#EEE7DE'
-    const RODAPE     = '#C1B8AF'
+    const FUNDO   = '#FFFFFF'
+    const ESCURO  = '#1F1F1F'
+    const MEDIO   = '#555555'
+    const LEVE    = '#8C8C8C'
+    const LINHA   = '#E9E9E9'
+    const ACENTO  = '#B07A7A'
+    const CAIXA_QR = '#FAFAFA'
+    const RODAPE  = '#D4D4D4'
 
     // ════════════════════════════════════════════════════════════════════════
     // HELPERS
@@ -105,7 +104,7 @@ export async function gerarPDF(
       y: number,
       w = 26,
       cor = LINHA,
-      espessura = 0.16,
+      espessura = 0.14,
     ) {
       dc(cor)
       doc.setLineWidth(espessura)
@@ -120,12 +119,12 @@ export async function gerarPDF(
 
     function losango(y: number, cor = ACENTO) {
       dc(cor)
-      doc.setLineWidth(0.28)
+      doc.setLineWidth(0.22)
 
-      doc.line(CX, y - 1.8, CX + 1.8, y)
-      doc.line(CX + 1.8, y, CX, y + 1.8)
-      doc.line(CX, y + 1.8, CX - 1.8, y)
-      doc.line(CX - 1.8, y, CX, y - 1.8)
+      doc.line(CX, y - 1.6, CX + 1.6, y)
+      doc.line(CX + 1.6, y, CX, y + 1.6)
+      doc.line(CX, y + 1.6, CX - 1.6, y)
+      doc.line(CX - 1.6, y, CX, y - 1.6)
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -167,9 +166,9 @@ export async function gerarPDF(
     // MENSAGEM
     // ════════════════════════════════════════════════════════════════════════
     sans('normal')
-    doc.setFontSize(10)
+    doc.setFontSize(11)
 
-    const MSG_W = 122
+    const MSG_W = 118
 
     const linhasMensagem = (
       doc.splitTextToSize(mensagem, MSG_W)
@@ -177,7 +176,7 @@ export async function gerarPDF(
     ) as string[]
 
     const ALTURA_MENSAGEM =
-      linhasMensagem.length * 6
+      linhasMensagem.length * 6.5
 
     const hasMensagem = linhasMensagem.length > 0
     const hasData     = Boolean(dataFormatada)
@@ -186,15 +185,15 @@ export async function gerarPDF(
     // ════════════════════════════════════════════════════════════════════════
     // ALTURA DINÂMICA
     // ════════════════════════════════════════════════════════════════════════
-    const BLOCO_TOPO      = 26
-    const BLOCO_DATA      = hasData ? 22 : 0
-    const BLOCO_MENSAGEM  = hasMensagem
-      ? ALTURA_MENSAGEM + 18
+    const BLOCO_TOPO       = 28
+    const BLOCO_DATA       = hasData ? 24 : 0
+    const BLOCO_MENSAGEM   = hasMensagem
+      ? ALTURA_MENSAGEM + 20
       : 0
 
-    const BLOCO_TITULO    = 24
-    const BLOCO_ASSINATURA = 22
-    const BLOCO_QR        = hasMusica ? 48 : 0
+    const BLOCO_TITULO     = 28
+    const BLOCO_ASSINATURA = 24
+    const BLOCO_QR         = hasMusica ? 54 : 0
 
     const TOTAL =
       BLOCO_TOPO +
@@ -211,7 +210,7 @@ export async function gerarPDF(
       MT +
       Math.max(
         0,
-        (ESPACO_UTIL - TOTAL) / 2 - 6,
+        (ESPACO_UTIL - TOTAL) / 2 - 4,
       )
 
     // ════════════════════════════════════════════════════════════════════════
@@ -224,7 +223,7 @@ export async function gerarPDF(
     // MOLDURA
     // ════════════════════════════════════════════════════════════════════════
     dc(LINHA)
-    doc.setLineWidth(0.22)
+    doc.setLineWidth(0.12)
 
     doc.rect(
       MOLDURA,
@@ -241,27 +240,28 @@ export async function gerarPDF(
     // ─────────────────────────────────────────────────────────────────────
     // TOPO
     // ─────────────────────────────────────────────────────────────────────
-    linha(y, 22)
+    linha(y, 20)
     losango(y)
-    y += 10
+
+    y += 11
 
     serif('italic')
-    doc.setFontSize(16)
+    doc.setFontSize(20)
 
     tc(ESCURO)
 
     doc.text(
-      'Para voc\u00EA',
+      'Para você',
       CX,
       y,
       { align: 'center' },
     )
 
-    y += 5
+    y += 6
 
-    linha(y, 14, LINHA, 0.14)
+    linha(y, 12, LINHA, 0.12)
 
-    y += hasData ? 9 : 7
+    y += hasData ? 10 : 8
 
     // ─────────────────────────────────────────────────────────────────────
     // DATA
@@ -279,7 +279,7 @@ export async function gerarPDF(
         { align: 'center' },
       )
 
-      y += 5.5
+      y += 6
 
       sans('bold')
       doc.setFontSize(9)
@@ -293,7 +293,7 @@ export async function gerarPDF(
         { align: 'center' },
       )
 
-      y += 12
+      y += 16
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -301,33 +301,33 @@ export async function gerarPDF(
     // ─────────────────────────────────────────────────────────────────────
     if (hasMensagem) {
       sans('normal')
-      doc.setFontSize(10)
+      doc.setFontSize(11)
 
-      tc(MEDIO)
+      tc('#4A4A4A')
 
-      const LH = 6
-      const MSG_X = CX - MSG_W / 2
+      const LH = 6.5
 
       linhasMensagem.forEach((linhaTexto) => {
-        if (y + LH > MAX_Y - 65) return
+        if (y + LH > MAX_Y - 70) return
 
         doc.text(
           linhaTexto,
-          MSG_X,
+          CX,
           y,
+          { align: 'center' },
         )
 
         y += LH
       })
 
-      y += 12
+      y += 16
     }
 
     // ─────────────────────────────────────────────────────────────────────
     // TE AMO
     // ─────────────────────────────────────────────────────────────────────
     serif('italic')
-    doc.setFontSize(24)
+    doc.setFontSize(30)
 
     tc(ACENTO)
 
@@ -338,17 +338,17 @@ export async function gerarPDF(
       { align: 'center' },
     )
 
-    y += 6
+    y += 8
 
     linha(y, 18, ACENTO, 0.18)
 
-    y += 14
+    y += 18
 
     // ─────────────────────────────────────────────────────────────────────
     // ASSINATURA
     // ─────────────────────────────────────────────────────────────────────
     sans('italic')
-    doc.setFontSize(8.5)
+    doc.setFontSize(8)
 
     tc(LEVE)
 
@@ -359,7 +359,7 @@ export async function gerarPDF(
       { align: 'center' },
     )
 
-    y += 5.5
+    y += 6
 
     serif('normal')
     doc.setFontSize(12)
@@ -373,17 +373,17 @@ export async function gerarPDF(
       { align: 'center' },
     )
 
-    y += 18
+    y += 22
 
     // ─────────────────────────────────────────────────────────────────────
     // QR CODE
     // ─────────────────────────────────────────────────────────────────────
-    if (hasMusica && y + 40 < MAX_Y) {
+    if (hasMusica && y + 42 < MAX_Y) {
       try {
         const qrUrl =
           `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${
             encodeURIComponent(carta.musica_link as string)
-          }&color=2B2724&bgcolor=F6F2EC`
+          }&color=1F1F1F&bgcolor=FFFFFF`
 
         const res = await fetch(qrUrl)
 
@@ -396,21 +396,21 @@ export async function gerarPDF(
         const imgUrl =
           `data:image/png;base64,${b64}`
 
-        const QR = 24
+        const QR = 28
         const QX = CX - QR / 2
 
         fc(CAIXA_QR)
-        dc(LINHA)
+        dc('#EAEAEA')
 
-        doc.setLineWidth(0.14)
+        doc.setLineWidth(0.2)
 
         doc.roundedRect(
-          QX - 4,
-          y - 3,
-          QR + 8,
-          QR + 8,
-          1.8,
-          1.8,
+          QX - 5,
+          y - 4,
+          QR + 10,
+          QR + 10,
+          2,
+          2,
           'FD',
         )
 
@@ -423,7 +423,7 @@ export async function gerarPDF(
           QR,
         )
 
-        y += QR + 8
+        y += QR + 10
 
         sans('italic')
         doc.setFontSize(7.5)
@@ -431,7 +431,7 @@ export async function gerarPDF(
         tc(LEVE)
 
         doc.text(
-          'Essa m\u00FAsica me faz lembrar de voc\u00EA',
+          'Escaneie para ouvir nossa música',
           CX,
           y,
           { align: 'center' },
@@ -446,14 +446,14 @@ export async function gerarPDF(
     // ─────────────────────────────────────────────────────────────────────
     const BASE_Y = PG_H - 18
 
-    linha(BASE_Y, 22)
+    linha(BASE_Y, 20)
     losango(BASE_Y)
 
     // ─────────────────────────────────────────────────────────────────────
     // RODAPÉ
     // ─────────────────────────────────────────────────────────────────────
     sans('normal')
-    doc.setFontSize(7)
+    doc.setFontSize(5.5)
 
     tc(RODAPE)
 
