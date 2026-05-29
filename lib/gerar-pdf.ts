@@ -1,18 +1,21 @@
 import { supabaseAdmin } from './supabase'
 
 type CartaImpressao = {
-  nome_destinatario?: string
-  destinatario?:      string
-  nome_remetente?:    string
-  remetente?:         string
+  nome_destinatario?:  string
+  destinatario?:       string
+  nome_remetente?:     string
+  remetente?:          string
   mensagem_principal?: string
-  mensagem?:          string
-  data_importante?:   string
-  musica_link?:       string
-  [key: string]:      unknown
+  mensagem?:           string
+  data_importante?:    string
+  musica_link?:        string
+  [key: string]:       unknown
 }
 
-export async function gerarPDF(carta_id: string, carta: CartaImpressao): Promise<string | null> {
+export async function gerarPDF(
+  carta_id: string,
+  carta: CartaImpressao,
+): Promise<string | null> {
   try {
     const { jsPDF } = await import('jspdf')
 
@@ -22,283 +25,507 @@ export async function gerarPDF(carta_id: string, carta: CartaImpressao): Promise
       format:      'a4',
     })
 
-    // ── Dimensões A4 ──────────────────────────────────────────────────────────
-    const PG_W = 210
-    const PG_H = 297
-    const ML   = 28
-    const MR   = 28
-    const CX   = PG_W / 2
-    const PW   = PG_W - ML - MR   // 154mm
+    // ════════════════════════════════════════════════════════════════════════
+    // BASE
+    // ════════════════════════════════════════════════════════════════════════
+    const PG_W  = 210
+    const PG_H  = 297
 
-    // ── Paleta creme premium ──────────────────────────────────────────────────
-    const FUNDO      = '#F3EFE8'
-    const TEXTO_ESC  = '#2E2A27'
-    const TEXTO_MED  = '#5C5248'
-    const TEXTO_LEVE = '#9C9189'
-    const ACENTO     = '#B07070'   // rosé suave — não vermelho puro
+    const MOLDURA = 16
+    const ML      = 34
+    const MT      = 32
+    const MB      = 28
 
-    // ── Helpers tipográficos ──────────────────────────────────────────────────
-    // Cormorant Garamond simulado via times (melhor serif disponível no jsPDF)
-    function setCormorant(style: 'normal' | 'italic' | 'bold' = 'normal') {
-      doc.setFont('times', style)
+    const CX      = PG_W / 2
+    const MAX_Y   = PG_H - MB
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PALETA
+    // ════════════════════════════════════════════════════════════════════════
+    const FUNDO      = '#F6F2EC'
+    const ESCURO     = '#2B2724'
+    const MEDIO      = '#675F59'
+    const LEVE       = '#9D948C'
+    const LINHA      = '#D9D0C7'
+    const ACENTO     = '#A06A6E'
+    const CAIXA_QR   = '#EEE7DE'
+    const RODAPE     = '#C1B8AF'
+
+    // ════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ════════════════════════════════════════════════════════════════════════
+    function rgb(hex: string): [number, number, number] {
+      return [
+        parseInt(hex.slice(1, 3), 16),
+        parseInt(hex.slice(3, 5), 16),
+        parseInt(hex.slice(5, 7), 16),
+      ]
     }
-    // Inter simulado via helvetica
-    function setInter(style: 'normal' | 'italic' | 'bold' = 'normal') {
-      doc.setFont('helvetica', style)
+
+    function tc(hex: string) {
+      doc.setTextColor(...rgb(hex))
     }
 
-    function limparTexto(raw: unknown): string {
+    function dc(hex: string) {
+      doc.setDrawColor(...rgb(hex))
+    }
+
+    function fc(hex: string) {
+      doc.setFillColor(...rgb(hex))
+    }
+
+    function serif(
+      s: 'normal' | 'italic' | 'bold' = 'normal',
+    ) {
+      doc.setFont('times', s)
+    }
+
+    function sans(
+      s: 'normal' | 'italic' | 'bold' = 'normal',
+    ) {
+      doc.setFont('helvetica', s)
+    }
+
+    function limpar(raw: unknown): string {
       if (!raw) return ''
+
       return String(raw)
-        .replace(/&amp;/gi,  '&')
-        .replace(/&lt;/gi,   '<')
-        .replace(/&gt;/gi,   '>')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
         .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi,  "'")
+        .replace(/&#39;/gi, "'")
         .replace(/&[a-zA-Z0-9#]+;/g, '')
         .replace(/[^\x20-\x7E\u00C0-\u024F\u0080-\u00FF]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
     }
 
-    function hexToRgb(hex: string): [number, number, number] {
-      const r = parseInt(hex.slice(1, 3), 16)
-      const g = parseInt(hex.slice(3, 5), 16)
-      const b = parseInt(hex.slice(5, 7), 16)
-      return [r, g, b]
+    function linha(
+      y: number,
+      w = 26,
+      cor = LINHA,
+      espessura = 0.16,
+    ) {
+      dc(cor)
+      doc.setLineWidth(espessura)
+
+      doc.line(
+        CX - w / 2,
+        y,
+        CX + w / 2,
+        y,
+      )
     }
 
-    function setTextColor(hex: string) {
-      const [r, g, b] = hexToRgb(hex)
-      doc.setTextColor(r, g, b)
+    function losango(y: number, cor = ACENTO) {
+      dc(cor)
+      doc.setLineWidth(0.28)
+
+      doc.line(CX, y - 1.8, CX + 1.8, y)
+      doc.line(CX + 1.8, y, CX, y + 1.8)
+      doc.line(CX, y + 1.8, CX - 1.8, y)
+      doc.line(CX - 1.8, y, CX, y - 1.8)
     }
 
-    function setDrawColorHex(hex: string) {
-      const [r, g, b] = hexToRgb(hex)
-      doc.setDrawColor(r, g, b)
-    }
+    // ════════════════════════════════════════════════════════════════════════
+    // DADOS
+    // ════════════════════════════════════════════════════════════════════════
+    const destinatario =
+      limpar(carta.nome_destinatario || carta.destinatario)
 
-    function setFillColorHex(hex: string) {
-      const [r, g, b] = hexToRgb(hex)
-      doc.setFillColor(r, g, b)
-    }
+    const remetente =
+      limpar(carta.nome_remetente || carta.remetente)
 
-    // ── Dados ─────────────────────────────────────────────────────────────────
-    const destinatario = limparTexto(carta.nome_destinatario || carta.destinatario) || ''
-    const remetente    = limparTexto(carta.nome_remetente    || carta.remetente)    || ''
-    const mensagem     = limparTexto(carta.mensagem_principal || carta.mensagem)    || ''
-    const dataImp      = carta.data_importante
+    const mensagem =
+      limpar(carta.mensagem_principal || carta.mensagem)
 
-    let diasNum       = 0
+    const dataImportante = carta.data_importante
+
+    let diasJuntos = 0
     let dataFormatada = ''
 
-    if (dataImp) {
-      const d = new Date(dataImp)
-      diasNum       = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24))
-      dataFormatada = d.toLocaleDateString('pt-BR', {
-        day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
-      })
+    if (dataImportante) {
+      const d = new Date(dataImportante)
+
+      diasJuntos = Math.floor(
+        (Date.now() - d.getTime()) / 86400000,
+      )
+
+      dataFormatada = d.toLocaleDateString(
+        'pt-BR',
+        {
+          day:      'numeric',
+          month:    'long',
+          year:     'numeric',
+          timeZone: 'UTC',
+        },
+      )
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // FUNDO CREME QUENTE
-    // ══════════════════════════════════════════════════════════════════════════
-    setFillColorHex(FUNDO)
+    // ════════════════════════════════════════════════════════════════════════
+    // MENSAGEM
+    // ════════════════════════════════════════════════════════════════════════
+    sans('normal')
+    doc.setFontSize(10)
+
+    const MSG_W = 122
+
+    const linhasMensagem = (
+      doc.splitTextToSize(mensagem, MSG_W)
+        .slice(0, 12)
+    ) as string[]
+
+    const ALTURA_MENSAGEM =
+      linhasMensagem.length * 6
+
+    const hasMensagem = linhasMensagem.length > 0
+    const hasData     = Boolean(dataFormatada)
+    const hasMusica   = Boolean(carta.musica_link)
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ALTURA DINÂMICA
+    // ════════════════════════════════════════════════════════════════════════
+    const BLOCO_TOPO      = 26
+    const BLOCO_DATA      = hasData ? 22 : 0
+    const BLOCO_MENSAGEM  = hasMensagem
+      ? ALTURA_MENSAGEM + 18
+      : 0
+
+    const BLOCO_TITULO    = 24
+    const BLOCO_ASSINATURA = 22
+    const BLOCO_QR        = hasMusica ? 48 : 0
+
+    const TOTAL =
+      BLOCO_TOPO +
+      BLOCO_DATA +
+      BLOCO_MENSAGEM +
+      BLOCO_TITULO +
+      BLOCO_ASSINATURA +
+      BLOCO_QR
+
+    const ESPACO_UTIL =
+      PG_H - MT - MB
+
+    const START_Y =
+      MT +
+      Math.max(
+        0,
+        (ESPACO_UTIL - TOTAL) / 2 - 6,
+      )
+
+    // ════════════════════════════════════════════════════════════════════════
+    // FUNDO
+    // ════════════════════════════════════════════════════════════════════════
+    fc(FUNDO)
     doc.rect(0, 0, PG_W, PG_H, 'F')
 
-    // Borda refinada interna — 4mm da margem
-    const BORDA_M = 8
-    setDrawColorHex('#DDD5C8')
-    doc.setLineWidth(0.2)
-    doc.rect(BORDA_M, BORDA_M, PG_W - BORDA_M * 2, PG_H - BORDA_M * 2)
+    // ════════════════════════════════════════════════════════════════════════
+    // MOLDURA
+    // ════════════════════════════════════════════════════════════════════════
+    dc(LINHA)
+    doc.setLineWidth(0.22)
 
-    // ── Cursor vertical ───────────────────────────────────────────────────────
-    let y = 38
+    doc.rect(
+      MOLDURA,
+      MOLDURA,
+      PG_W - MOLDURA * 2,
+      PG_H - MOLDURA * 2,
+    )
 
-    // ── Ornamento topo: linha + diamante ──────────────────────────────────────
-    setDrawColorHex('#C8BDB0')
-    doc.setLineWidth(0.25)
-    const ORN_W = 32
-    doc.line(CX - ORN_W - 3, y, CX - 4, y)
-    doc.line(CX + 4, y, CX + ORN_W + 3, y)
-    // losango central
-    doc.setLineWidth(0.3)
-    setDrawColorHex(ACENTO)
-    doc.line(CX, y - 2, CX + 2.5, y)
-    doc.line(CX + 2.5, y, CX, y + 2)
-    doc.line(CX, y + 2, CX - 2.5, y)
-    doc.line(CX - 2.5, y, CX, y - 2)
-    y += 14
+    // ════════════════════════════════════════════════════════════════════════
+    // RENDER
+    // ════════════════════════════════════════════════════════════════════════
+    let y = START_Y
 
-    // ── "Para você" ───────────────────────────────────────────────────────────
-    setCormorant('italic')
-    doc.setFontSize(15)
-    setTextColor(TEXTO_MED)
-    doc.text('Para voc\u00EA', CX, y, { align: 'center' })
-    y += 5
-
-    // ── Linha separadora fina ─────────────────────────────────────────────────
-    setDrawColorHex('#D8CFC4')
-    doc.setLineWidth(0.15)
-    doc.line(CX - 18, y, CX + 18, y)
+    // ─────────────────────────────────────────────────────────────────────
+    // TOPO
+    // ─────────────────────────────────────────────────────────────────────
+    linha(y, 22)
+    losango(y)
     y += 10
 
-    // ── Contador ──────────────────────────────────────────────────────────────
-    if (dataImp && dataFormatada) {
-      setInter('normal')
-      doc.setFontSize(8.5)
-      setTextColor(TEXTO_LEVE)
-      doc.text('Desde ' + dataFormatada, CX, y, { align: 'center' })
-      y += 5
-      setInter('bold')
+    serif('italic')
+    doc.setFontSize(16)
+
+    tc(ESCURO)
+
+    doc.text(
+      'Para voc\u00EA',
+      CX,
+      y,
+      { align: 'center' },
+    )
+
+    y += 5
+
+    linha(y, 14, LINHA, 0.14)
+
+    y += hasData ? 9 : 7
+
+    // ─────────────────────────────────────────────────────────────────────
+    // DATA
+    // ─────────────────────────────────────────────────────────────────────
+    if (hasData) {
+      sans('normal')
+      doc.setFontSize(8)
+
+      tc(LEVE)
+
+      doc.text(
+        `Desde ${dataFormatada}`,
+        CX,
+        y,
+        { align: 'center' },
+      )
+
+      y += 5.5
+
+      sans('bold')
       doc.setFontSize(9)
-      setTextColor(TEXTO_MED)
-      doc.text(String(diasNum) + ' dias juntos', CX, y, { align: 'center' })
-      y += 5
+
+      tc(MEDIO)
+
+      doc.text(
+        `${diasJuntos} dias juntos`,
+        CX,
+        y,
+        { align: 'center' },
+      )
+
+      y += 12
     }
 
-    // ── Linha separadora ──────────────────────────────────────────────────────
-    y += 6
-    setDrawColorHex('#D8CFC4')
-    doc.setLineWidth(0.15)
-    doc.line(CX - 22, y, CX + 22, y)
-    y += 12
+    // ─────────────────────────────────────────────────────────────────────
+    // MENSAGEM
+    // ─────────────────────────────────────────────────────────────────────
+    if (hasMensagem) {
+      sans('normal')
+      doc.setFontSize(10)
 
-    // ── Mensagem ──────────────────────────────────────────────────────────────
-    if (mensagem) {
-      const MSG_W = 120
+      tc(MEDIO)
+
+      const LH = 6
       const MSG_X = CX - MSG_W / 2
 
-      setInter('normal')
-      doc.setFontSize(10.5)
-      setTextColor(TEXTO_MED)
+      linhasMensagem.forEach((linhaTexto) => {
+        if (y + LH > MAX_Y - 65) return
 
-      const linhas    = doc.splitTextToSize(mensagem, MSG_W)
-      const MAX_LINHAS = 16
-      const LINHA_H   = 6.2
+        doc.text(
+          linhaTexto,
+          MSG_X,
+          y,
+        )
 
-      linhas.slice(0, MAX_LINHAS).forEach((linha: string) => {
-        doc.text(linha, MSG_X, y)
-        y += LINHA_H
+        y += LH
       })
 
-      y += 10
-    } else {
-      y += 6
+      y += 12
     }
 
-    // ── "te amo" — foco emocional sofisticado ─────────────────────────────────
-    // Ornamento antes
-    setDrawColorHex('#C8BDB0')
-    doc.setLineWidth(0.2)
-    doc.line(CX - 28, y, CX + 28, y)
-    y += 10
+    // ─────────────────────────────────────────────────────────────────────
+    // TE AMO
+    // ─────────────────────────────────────────────────────────────────────
+    serif('italic')
+    doc.setFontSize(24)
 
-    setCormorant('italic')
-    doc.setFontSize(36)
-    setTextColor(ACENTO)
-    doc.text('te amo', CX, y, { align: 'center' })
-    y += 5
+    tc(ACENTO)
 
-    // Ornamento depois
-    setDrawColorHex('#C8BDB0')
-    doc.setLineWidth(0.2)
-    doc.line(CX - 28, y, CX + 28, y)
-    y += 16
+    doc.text(
+      'te amo',
+      CX,
+      y,
+      { align: 'center' },
+    )
 
-    // ── Assinatura ────────────────────────────────────────────────────────────
-    setInter('italic')
-    doc.setFontSize(9.5)
-    setTextColor(TEXTO_LEVE)
-    doc.text('Com carinho,', CX, y, { align: 'center' })
     y += 6
 
-    setCormorant('normal')
-    doc.setFontSize(13)
-    setTextColor(TEXTO_ESC)
-    doc.text(remetente || destinatario, CX, y, { align: 'center' })
-    y += 16
+    linha(y, 18, ACENTO, 0.18)
 
-    // ── QR Code ───────────────────────────────────────────────────────────────
-    if (carta.musica_link && y < 250) {
+    y += 14
+
+    // ─────────────────────────────────────────────────────────────────────
+    // ASSINATURA
+    // ─────────────────────────────────────────────────────────────────────
+    sans('italic')
+    doc.setFontSize(8.5)
+
+    tc(LEVE)
+
+    doc.text(
+      'Com carinho,',
+      CX,
+      y,
+      { align: 'center' },
+    )
+
+    y += 5.5
+
+    serif('normal')
+    doc.setFontSize(12)
+
+    tc(ESCURO)
+
+    doc.text(
+      remetente || destinatario,
+      CX,
+      y,
+      { align: 'center' },
+    )
+
+    y += 18
+
+    // ─────────────────────────────────────────────────────────────────────
+    // QR CODE
+    // ─────────────────────────────────────────────────────────────────────
+    if (hasMusica && y + 40 < MAX_Y) {
       try {
-        const qrUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(carta.musica_link)}&color=2E2A27&bgcolor=F3EFE8`
-        const res    = await fetch(qrUrl)
-        const ab     = await res.arrayBuffer()
-        const b64    = Buffer.from(ab).toString('base64')
-        const imgUrl = `data:image/png;base64,${b64}`
+        const qrUrl =
+          `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${
+            encodeURIComponent(carta.musica_link as string)
+          }&color=2B2724&bgcolor=F6F2EC`
 
-        const QR_SIZE = 20
-        const QR_X    = CX - QR_SIZE / 2
+        const res = await fetch(qrUrl)
 
-        // Container creme com borda suave
-        setFillColorHex('#EDE8DF')
-        setDrawColorHex('#D8CFC4')
-        doc.setLineWidth(0.2)
-        doc.roundedRect(QR_X - 5, y - 4, QR_SIZE + 10, QR_SIZE + 10, 2, 2, 'FD')
+        const ab = await res.arrayBuffer()
 
-        doc.addImage(imgUrl, 'PNG', QR_X, y, QR_SIZE, QR_SIZE)
-        y += QR_SIZE + 8
+        const b64 = Buffer
+          .from(ab)
+          .toString('base64')
 
-        setInter('italic')
-        doc.setFontSize(8)
-        setTextColor(TEXTO_LEVE)
-        doc.text('Essa m\u00FAsica me faz lembrar de voc\u00EA', CX, y, { align: 'center' })
+        const imgUrl =
+          `data:image/png;base64,${b64}`
 
-      } catch { /* QR opcional */ }
+        const QR = 24
+        const QX = CX - QR / 2
+
+        fc(CAIXA_QR)
+        dc(LINHA)
+
+        doc.setLineWidth(0.14)
+
+        doc.roundedRect(
+          QX - 4,
+          y - 3,
+          QR + 8,
+          QR + 8,
+          1.8,
+          1.8,
+          'FD',
+        )
+
+        doc.addImage(
+          imgUrl,
+          'PNG',
+          QX,
+          y,
+          QR,
+          QR,
+        )
+
+        y += QR + 8
+
+        sans('italic')
+        doc.setFontSize(7.5)
+
+        tc(LEVE)
+
+        doc.text(
+          'Essa m\u00FAsica me faz lembrar de voc\u00EA',
+          CX,
+          y,
+          { align: 'center' },
+        )
+      } catch {
+        // QR opcional
+      }
     }
 
-    // ── Ornamento base ────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // ORNAMENTO BASE
+    // ─────────────────────────────────────────────────────────────────────
     const BASE_Y = PG_H - 18
-    setDrawColorHex('#C8BDB0')
-    doc.setLineWidth(0.2)
-    const BASE_W = 30
-    doc.line(CX - BASE_W - 3, BASE_Y, CX - 4, BASE_Y)
-    doc.line(CX + 4, BASE_Y, CX + BASE_W + 3, BASE_Y)
-    setDrawColorHex(ACENTO)
-    doc.setLineWidth(0.3)
-    doc.line(CX, BASE_Y - 2, CX + 2, BASE_Y)
-    doc.line(CX + 2, BASE_Y, CX, BASE_Y + 2)
-    doc.line(CX, BASE_Y + 2, CX - 2, BASE_Y)
-    doc.line(CX - 2, BASE_Y, CX, BASE_Y - 2)
 
-    // ── Rodapé ────────────────────────────────────────────────────────────────
-    setInter('normal')
-    doc.setFontSize(6.5)
-    setTextColor('#B8AFA6')
-    doc.text('Lovefy', CX, PG_H - 10, { align: 'center' })
+    linha(BASE_Y, 22)
+    losango(BASE_Y)
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // UPLOAD SUPABASE
-    // ══════════════════════════════════════════════════════════════════════════
-    const pdfBuffer   = Buffer.from(doc.output('arraybuffer'))
-    const storagePath = `pdfs/${carta_id}.pdf`
+    // ─────────────────────────────────────────────────────────────────────
+    // RODAPÉ
+    // ─────────────────────────────────────────────────────────────────────
+    sans('normal')
+    doc.setFontSize(7)
 
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from('fotos')
-      .upload(storagePath, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert:      true,
-      })
+    tc(RODAPE)
+
+    doc.text(
+      'Lovefy',
+      CX,
+      PG_H - 10,
+      { align: 'center' },
+    )
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PDF BUFFER
+    // ════════════════════════════════════════════════════════════════════════
+    const pdfBuffer = Buffer.from(
+      doc.output('arraybuffer'),
+    )
+
+    const storagePath =
+      `pdfs/${carta_id}.pdf`
+
+    // ════════════════════════════════════════════════════════════════════════
+    // UPLOAD
+    // ════════════════════════════════════════════════════════════════════════
+    const { error: uploadError } =
+      await supabaseAdmin.storage
+        .from('fotos')
+        .upload(
+          storagePath,
+          pdfBuffer,
+          {
+            contentType: 'application/pdf',
+            upsert:      true,
+          },
+        )
 
     if (uploadError) {
-      console.error('[gerar-pdf] erro upload:', uploadError.message)
+      console.error(
+        '[gerar-pdf] erro upload:',
+        uploadError.message,
+      )
+
       return null
     }
 
-    const { data: urlData } = supabaseAdmin.storage
-      .from('fotos')
-      .getPublicUrl(storagePath)
+    // ════════════════════════════════════════════════════════════════════════
+    // URL
+    // ════════════════════════════════════════════════════════════════════════
+    const { data: urlData } =
+      supabaseAdmin.storage
+        .from('fotos')
+        .getPublicUrl(storagePath)
 
+    // ════════════════════════════════════════════════════════════════════════
+    // UPDATE DB
+    // ════════════════════════════════════════════════════════════════════════
     await supabaseAdmin
       .from('cartas_impressao')
-      .update({ pdf_url: urlData.publicUrl })
+      .update({
+        pdf_url: urlData.publicUrl,
+      })
       .eq('id', carta_id)
 
     return urlData.publicUrl
 
   } catch (err) {
-    console.error('[gerar-pdf] erro:', err instanceof Error ? err.message : err)
+    console.error(
+      '[gerar-pdf] erro:',
+      err instanceof Error
+        ? err.message
+        : err,
+    )
+
     return null
   }
 }
