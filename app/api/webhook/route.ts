@@ -184,8 +184,6 @@ export async function POST(request: NextRequest) {
     const body    = safeJsonParse<WebhookBody>(rawBody)
     if (!body) return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 })
 
-    console.log('[webhook] body:', JSON.stringify(body))
-
     if (!validarAssinatura(request, body)) {
       console.warn('[webhook] assinatura inválida — rejeitando')
       return NextResponse.json({ ok: false }, { status: 401 })
