@@ -132,7 +132,7 @@ export default function Etapa3() {
       {/* Foto destaque */}
       <div className="mb-6">
         <label className="text-white/70 text-sm block mb-2">
-          Foto destaque do casal <span className="text-white/30">(aparece no player de música e no contador)</span>
+          Foto destaque do casal <span className="text-white/30">(aparece como foto principal na carta)</span>
         </label>
         {data.foto_destaque ? (
           <div className="relative">

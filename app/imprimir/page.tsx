@@ -65,8 +65,8 @@ export default function ImprimirPage() {
 
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <a href="/" style={{ color: '#ff6b9d', textDecoration: 'none', fontSize: '14px', display: 'block', marginBottom: '16px' }}>Voltar</a>
-          <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: '700', margin: '0 0 8px' }}>Carta para impressao</h1>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: '0' }}>Um presente simples, mas inesquecivel</p>
+          <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: '700', margin: '0 0 8px' }}>Carta para impressão</h1>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: '0' }}>Um presente simples, mas inesquecível</p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
@@ -83,12 +83,12 @@ export default function ImprimirPage() {
 
         {etapa === 1 && (
           <div className="bg-[#16213e] rounded-3xl p-8">
-            <h2 className="text-2xl font-bold text-white mb-2">Para quem e essa carta?</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Para quem é essa carta?</h2>
             <p className="text-white/50 text-sm mb-8">Preencha os dados principais</p>
 
             <div className="space-y-4">
               <div>
-                <label className="text-white/70 text-sm block mb-2">Para quem e essa carta? *</label>
+                <label className="text-white/70 text-sm block mb-2">Para quem é essa carta? *</label>
                 <input
                   type="text"
                   value={dados.destinatario}
@@ -135,7 +135,7 @@ export default function ImprimirPage() {
                   placeholder="https://open.spotify.com/track/..."
                   className="w-full bg-[#0f3460] text-white rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-pink-500 transition-colors text-sm"
                 />
-                <p className="text-white/30 text-xs mt-2">Um QR Code sera adicionado a carta</p>
+                <p className="text-white/30 text-xs mt-2">Um QR Code será incluído na carta</p>
               </div>
             </div>
 
@@ -178,7 +178,7 @@ export default function ImprimirPage() {
               <div style={{ background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.2)', borderRadius: '12px', padding: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p style={{ color: '#fff', fontWeight: '600', marginBottom: '4px' }}>Carta para Impressao</p>
+                    <p style={{ color: '#fff', fontWeight: '600', marginBottom: '4px' }}>Carta para impressão</p>
                     <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>PDF em alta qualidade - Fundo branco</p>
                   </div>
                   <p style={{ color: '#f472b6', fontSize: '24px', fontWeight: '900' }}>R$ 6,90</p>
