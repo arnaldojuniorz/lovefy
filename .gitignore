@@ -45,3 +45,5 @@ certificado.p12
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+.env*
