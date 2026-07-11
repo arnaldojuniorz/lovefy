@@ -23,6 +23,14 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 type Plano = 'forever' | 'impressao'
 
+// TODO: já existe lib/planos.ts no projeto — este mapa duplica os preços que
+// também estão (redefinidos) em app/api/cartao/route.ts. Ao revisar
+// lib/planos.ts, unificar os três em uma única fonte de verdade.
+const PLANOS_PRECO: Record<Plano, number> = {
+  forever: 9.9,
+  impressao: 6.9,
+}
+
 type WebhookBody = {
   id?:       string | number
   type?:     string
@@ -81,11 +89,17 @@ function buildCandidateIds(request: NextRequest, body: WebhookBody): string[] {
 }
 
 function validarAssinatura(request: NextRequest, body: WebhookBody): boolean {
+  // Falha-fechado: se o segredo não está configurado, NENHUMA requisição
+  // pode ser considerada válida — nem mesmo para testar sem assinatura.
+  if (!MERCADOPAGO_WEBHOOK_SECRET) return false
+
   const xSignature = request.headers.get('x-signature')
 
-  if (!xSignature) return true
-
-  if (!MERCADOPAGO_WEBHOOK_SECRET) return false
+  // Corrigido: antes, a ausência do header fazia a função retornar `true`
+  // (assinatura "válida" por omissão) — isso permitia que qualquer requisição
+  // sem o header x-signature pulasse completamente a verificação. Agora,
+  // ausência do header = rejeição, como deveria ser desde o início.
+  if (!xSignature) return false
 
   const xRequestId = request.headers.get('x-request-id')
   if (!xRequestId) return false
@@ -164,13 +178,40 @@ async function garantirSlug(
     const { data } = await supabaseAdmin
       .from('cartas').select('id').eq('slug', slug).maybeSingle()
     if (!data) {
-      await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
+      const { error } = await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
+      if (error) {
+        // Se isto falhar, o e-mail será enviado com um link quebrado.
+        // Log alto para facilitar detecção/correção manual.
+        console.error(`[webhook] ALERTA: falha ao salvar slug '${slug}' para carta ${cartaId}:`, error.message)
+      }
       return slug
     }
   }
   const slug = randomBytes(8).toString('hex')
-  await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
+  const { error } = await supabaseAdmin.from('cartas').update({ slug }).eq('id', cartaId)
+  if (error) {
+    console.error(`[webhook] ALERTA: falha ao salvar slug de fallback '${slug}' para carta ${cartaId}:`, error.message)
+  }
   return slug
+}
+
+// Retry simples e curto para operações que podem falhar por instabilidade
+// transitória (ex: Resend fora do ar por alguns segundos). Não substitui uma
+// fila/retry de verdade, mas reduz a chance de perder o e-mail por um
+// problema momentâneo, sem exigir nova infraestrutura.
+async function comRetry<T>(fn: () => Promise<T>, tentativas = 2, delayMs = 800): Promise<T> {
+  let ultimoErro: unknown
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      return await fn()
+    } catch (e) {
+      ultimoErro = e
+      if (i < tentativas - 1) {
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      }
+    }
+  }
+  throw ultimoErro
 }
 
 export async function POST(request: NextRequest) {
@@ -220,6 +261,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    // Camada extra de defesa: confirma que o valor efetivamente pago (vindo
+    // do Mercado Pago, não do payload do webhook) bate com o preço esperado
+    // para o plano indicado no external_reference. Hoje, tanto api/cartao
+    // quanto (presumivelmente) api/pix definem o preço no servidor
+    // corretamente — esta checagem é uma rede de segurança independente
+    // desses caminhos, já que este webhook é o portão final que libera o
+    // produto.
+    const precoEsperado = PLANOS_PRECO[parsed.plano]
+    const valorPago = typeof paymentData.transaction_amount === 'number'
+      ? paymentData.transaction_amount
+      : null
+
+    if (valorPago === null || Math.abs(valorPago - precoEsperado) > 0.01) {
+      console.error(
+        `[webhook] ALERTA: valor pago (${valorPago}) não confere com o esperado (${precoEsperado}) para plano '${parsed.plano}' — carta ${parsed.cartaId}, pagamento ${paymentId}. NÃO ativado automaticamente, requer revisão manual.`
+      )
+      return NextResponse.json({ ok: true })
+    }
+
     console.log('[webhook] processando carta:', parsed.cartaId, '| plano:', parsed.plano)
 
     const payerEmail = extractPayerEmail(paymentData)
@@ -233,7 +293,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
 
   } catch (error) {
-    console.error('[webhook] erro interno:', error)
+    console.error('[webhook] erro interno:', error instanceof Error ? error.message : 'erro desconhecido')
     return NextResponse.json({ ok: false }, { status: 500 })
   }
 }
@@ -251,12 +311,17 @@ async function processarDigital(
       paid_at:                new Date().toISOString(),
     })
     .eq('id', cartaId)
-    .in('status', ['rascunho', 'pendente_pagamento', 'pendente'])
+    // 'processando_pagamento' incluído: é o estado intermediário de reserva
+    // usado em api/cartao/route.ts entre a validação inicial e a chamada ao
+    // Mercado Pago. Sem isso aqui, um webhook que chegasse muito rápido
+    // (pagamento no cartão pode aprovar de forma síncrona) encontraria a
+    // carta ainda nesse estado e falharia silenciosamente em ativá-la.
+    .in('status', ['rascunho', 'pendente_pagamento', 'pendente', 'processando_pagamento'])
     .select('*')
     .maybeSingle()
 
   if (error) {
-    console.error('[webhook] erro ao ativar carta digital:', error)
+    console.error('[webhook] erro ao ativar carta digital:', error.message)
     throw error
   }
 
@@ -296,11 +361,11 @@ async function processarDigital(
   }
 
   try { await moverFotos(cartaId) }
-  catch (e) { console.error('[webhook] erro ao mover fotos:', e) }
+  catch (e) { console.error('[webhook] erro ao mover fotos:', e instanceof Error ? e.message : 'erro desconhecido') }
 
   let qrCodeUrl: string | null = null
   try { qrCodeUrl = await gerarQRCode(cartaId, slug) }
-  catch (e) { console.error('[webhook] erro ao gerar QR Code:', e) }
+  catch (e) { console.error('[webhook] erro ao gerar QR Code:', e instanceof Error ? e.message : 'erro desconhecido') }
 
   if (!emailPagador) {
     console.warn('[webhook] email ausente — não enviará email:', cartaId)
@@ -308,16 +373,19 @@ async function processarDigital(
   }
 
   try {
-    await enviarEmail({
+    await comRetry(() => enviarEmail({
       nome_pagador:      nomePagador,
-      email_pagador:     emailPagador,
+      email_pagador:     emailPagador!,
       nome_destinatario: nomeDestinatario,
       nome_remetente:    nomeRemetente,
-      slug,
+      slug:              slug!,
       qr_code_url:       qrCodeUrl,
-    })
+    }))
   } catch (e) {
-    console.error('[webhook] erro ao enviar email digital:', e)
+    console.error(
+      `[webhook] ALERTA: falha ao enviar email digital para carta ${cartaId} após retries:`,
+      e instanceof Error ? e.message : 'erro desconhecido'
+    )
   }
 }
 
@@ -334,12 +402,13 @@ async function processarImpressao(
       paid_at:                new Date().toISOString(),
     })
     .eq('id', cartaId)
-    .in('status', ['rascunho', 'pendente_pagamento', 'pendente'])
+    // Mesmo ajuste do processarDigital — ver comentário acima.
+    .in('status', ['rascunho', 'pendente_pagamento', 'pendente', 'processando_pagamento'])
     .select('*')
     .maybeSingle()
 
   if (error) {
-    console.error('[webhook] erro ao ativar carta impressão:', error)
+    console.error('[webhook] erro ao ativar carta impressão:', error.message)
     throw error
   }
 
@@ -372,11 +441,16 @@ async function processarImpressao(
 
   let pdfUrl: string | null = null
   try { pdfUrl = await gerarPDF(cartaId, carta) }
-  catch (e) { console.error('[webhook] erro ao gerar PDF:', e) }
+  catch (e) { console.error('[webhook] erro ao gerar PDF:', e instanceof Error ? e.message : 'erro desconhecido') }
 
   if (emailPagador) {
-    try { await enviarEmailImpressao(carta, emailPagador, pdfUrl) }
-    catch (e) { console.error('[webhook] erro ao enviar email impressão:', e) }
+    try { await comRetry(() => enviarEmailImpressao(carta, emailPagador, pdfUrl)) }
+    catch (e) {
+      console.error(
+        `[webhook] ALERTA: falha ao enviar email de impressão para carta ${cartaId} após retries:`,
+        e instanceof Error ? e.message : 'erro desconhecido'
+      )
+    }
   } else {
     console.warn('[webhook] e-mail impressão ausente:', cartaId)
   }
@@ -396,7 +470,11 @@ async function enviarEmailImpressao(
     (pickString(carta, ['destinatario', 'nome_destinatario']) ?? 'alguém especial').slice(0, 80)
   )
 
-  const pdfUrlSafe = pdfUrl ? escapeHtml(pdfUrl) : null
+  // Validação leve de esquema antes de usar como href — pdfUrl é gerado no
+  // servidor (não é texto livre do usuário), mas é uma verificação de custo
+  // zero que fecha a possibilidade de um valor inesperado virar um link
+  // clicável perigoso (ex: javascript:).
+  const pdfUrlSafe = pdfUrl && /^https:\/\//i.test(pdfUrl) ? escapeHtml(pdfUrl) : null
 
   const resend = new Resend(RESEND_API_KEY)
 
