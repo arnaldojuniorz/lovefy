@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
+import { createHash } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
@@ -47,6 +48,13 @@ function getBaseUrl(): string {
 }
 
 function getClientIp(request: NextRequest): string {
+  // Prioriza o header do Cloudflare (proxy/CDN de vocês), que não pode ser
+  // falsificado pelo cliente, já que o Cloudflare sempre sobrescreve esse
+  // valor. x-forwarded-for/x-real-ip continuam como fallback para cenários
+  // onde a requisição não passou pelo Cloudflare.
+  const cfIp = request.headers.get('cf-connecting-ip')
+  if (cfIp) return cfIp.trim()
+
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) {
     const first = forwarded.split(',')[0]?.trim()
@@ -134,6 +142,22 @@ function normalizeMpStatus(status: string | null | undefined): string {
   return 'pending'
 }
 
+// Libera a "reserva" feita antes de chamar o Mercado Pago, permitindo que o
+// usuário tente novamente caso a chamada ao MP falhe (timeout, erro de rede,
+// serviço fora do ar). Sem isso, uma falha na chamada ao MP deixaria a carta
+// travada permanentemente em 'processando_pagamento'.
+async function liberarReserva(tabela: Tabela, cartaId: string) {
+  const { error } = await supabaseAdmin
+    .from(tabela)
+    .update({ status: 'pendente_pagamento' })
+    .eq('id', cartaId)
+    .eq('status', 'processando_pagamento')
+
+  if (error) {
+    console.error('[cartao] falha ao reverter reserva de pagamento:', error.message)
+  }
+}
+
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
   const { success, limit, remaining, reset } = await ratelimit.limit(`cartao:${ip}`)
@@ -213,7 +237,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (cartaError) {
-      console.error('[cartao] erro ao buscar carta')
+      console.error('[cartao] erro ao buscar carta:', cartaError.message)
       return jsonError('Erro ao processar pagamento', 500, baseHeaders)
     }
 
@@ -244,33 +268,78 @@ export async function POST(request: NextRequest) {
         'Cliente'
     )
 
+    // ---- RESERVA ATÔMICA ----
+    // Transição condicional de status ANTES de chamar o Mercado Pago. Esta é
+    // uma única instrução UPDATE no Postgres, portanto atômica: se duas
+    // requisições chegarem simultaneamente (ex: duplo clique no botão pagar),
+    // apenas a primeira consegue mover o status para 'processando_pagamento'.
+    // A segunda encontra 0 linhas afetadas (o status já não está mais em
+    // ['rascunho','pendente_pagamento']) e é barrada aqui, ANTES de gerar uma
+    // segunda cobrança real no cartão do cliente.
+    const { data: reserva, error: reservaError } = await supabaseAdmin
+      .from(tabela)
+      .update({ status: 'processando_pagamento' })
+      .eq('id', cartaId)
+      .in('status', ['rascunho', 'pendente_pagamento'])
+      .select('id')
+
+    if (reservaError) {
+      console.error('[cartao] erro ao reservar carta para pagamento:', reservaError.message)
+      return jsonError('Erro ao processar pagamento', 500, baseHeaders)
+    }
+
+    if (!reserva || reserva.length === 0) {
+      return jsonError('Este pagamento já está sendo processado. Aguarde alguns instantes.', 409, baseHeaders)
+    }
+
     const planoData = PLANOS[plano]
     const externalReference = `${cartaId}|${plano}`
     const baseUrl = getBaseUrl()
+
+    // Idempotency key amarrada a carta+token: uma tentativa reenviada pela
+    // rede (mesmo token) é deduplicada pelo próprio Mercado Pago. Uma nova
+    // tentativa de verdade (usuário corrige CVV, gera novo token) tem uma
+    // idempotency key diferente e é tratada como cobrança nova, normalmente.
+    const idempotencyKey = createHash('sha256').update(`${cartaId}:${token}`).digest('hex')
 
     const payment = new Payment(
       new MercadoPagoConfig({ accessToken: MERCADOPAGO_ACCESS_TOKEN })
     )
 
-    const response = await payment.create({
-      body: {
-        transaction_amount: planoData.preco,
-        token,
-        issuer_id: issuerId,
-        payment_method_id: paymentMethodId,
-        installments,
-        description: planoData.titulo,
-        external_reference: externalReference,
-        notification_url: `${baseUrl}/api/webhook`,
-        payer: {
-          email: emailPagador,
-          first_name: nomePagador,
+    let response
+    try {
+      response = await payment.create({
+        body: {
+          transaction_amount: planoData.preco,
+          token,
+          issuer_id: issuerId,
+          payment_method_id: paymentMethodId,
+          installments,
+          description: planoData.titulo,
+          external_reference: externalReference,
+          notification_url: `${baseUrl}/api/webhook`,
+          payer: {
+            email: emailPagador,
+            first_name: nomePagador,
+          },
         },
-      },
-    })
+        requestOptions: { idempotencyKey },
+      })
+    } catch (mpError) {
+      // Chamada ao Mercado Pago falhou: libera a reserva para permitir nova
+      // tentativa, e loga apenas a mensagem do erro (nunca o objeto completo,
+      // que pode carregar o corpo da requisição — incluindo o token do cartão).
+      await liberarReserva(tabela, cartaId)
+      console.error(
+        '[cartao] erro ao criar pagamento no Mercado Pago:',
+        mpError instanceof Error ? mpError.message : 'erro desconhecido'
+      )
+      return jsonError('Erro ao processar pagamento', 502, baseHeaders)
+    }
 
     const paymentId = response.id ? String(response.id) : null
     if (!paymentId) {
+      await liberarReserva(tabela, cartaId)
       console.error('[cartao] Mercado Pago não retornou payment id')
       return jsonError('Erro ao processar pagamento', 502, baseHeaders)
     }
@@ -282,10 +351,20 @@ export async function POST(request: NextRequest) {
         status: 'pendente_pagamento',
       })
       .eq('id', cartaId)
-      .in('status', ['rascunho', 'pendente_pagamento'])
+      .eq('status', 'processando_pagamento')
 
     if (updateError) {
-      console.error('[cartao] erro ao salvar mercadopago_payment_id')
+      // ALERTA CRÍTICO: a cobrança FOI criada no Mercado Pago (paymentId
+      // existe), mas não conseguimos salvar isso no banco. A carta fica presa
+      // em 'processando_pagamento'. Como o external_reference enviado ao MP
+      // já contém o cartaId, o webhook (api/webhook/route.ts) provavelmente
+      // ainda consegue localizar e ativar a carta por esse campo — mas isso
+      // precisa ser confirmado ao revisar o webhook. Até lá, este log serve
+      // como sinal para reconciliação manual via painel do Mercado Pago.
+      console.error(
+        `[cartao] ALERTA CRÍTICO: pagamento ${paymentId} criado no Mercado Pago mas NÃO salvo no banco para carta ${cartaId}. Verificar manualmente.`,
+        updateError.message
+      )
     }
 
     return NextResponse.json(
@@ -298,7 +377,7 @@ export async function POST(request: NextRequest) {
       { headers: baseHeaders }
     )
   } catch (error) {
-    console.error('[cartao] erro interno', error)
+    console.error('[cartao] erro interno:', error instanceof Error ? error.message : 'erro desconhecido')
     return jsonError('Erro ao processar cartão', 500, baseHeaders)
   }
 }
